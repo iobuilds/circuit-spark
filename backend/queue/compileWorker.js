@@ -6,6 +6,7 @@ const fileManager = require('../services/fileManager');
 const hashCode = require('../utils/hashCode');
 const logger = require('../utils/logger');
 const config = require('../config');
+const { validatePins } = require('../utils/pinValidator');
 
 fileManager.ensureTempDir();
 
