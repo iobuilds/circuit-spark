@@ -139,9 +139,9 @@ export function evaluateInputs(
     if (c.kind === "button") {
       // While pressed, button connects A and B nets. If either side is GND and the other goes to a board input pin,
       // that pin reads LOW. Otherwise (with INPUT_PULLUP), pin reads HIGH.
-      const a = net.netForCompPin.get(key(c.id, "A"));
-      const b = net.netForCompPin.get(key(c.id, "B"));
-      const sides = [a, b];
+      const a = net.netForCompPin.get(key(c.id, "A")) ?? null;
+      const b = net.netForCompPin.get(key(c.id, "B")) ?? null;
+      const sides: (string | null)[] = [a, b];
       for (let i = 0; i < 2; i++) {
         const me = sides[i];
         const other = sides[1 - i];
