@@ -304,10 +304,21 @@ export async function runBuilderChat(
   // from scratch on every follow-up.
   const memorySummary = summarizeHistory(history);
   const systemMessages: ChatMessage[] = [{ role: "system", content: SYSTEM_PROMPT }];
-  if (memorySummary) {
+  if (currentSpec && typeof currentSpec === "object") {
+    // The client passes the live "pending" spec when one is on screen. This is
+    // the highest-fidelity memory: include the actual JSON (truncated svg) so
+    // tweaks like "add a 3rd pin" mutate the existing spec instead of rebuilding.
+    try {
+      const trimmed = trimSpecForContext(currentSpec as Record<string, unknown>);
+      systemMessages.push({
+        role: "system",
+        content: `CURRENT SPEC (the user is iterating on this — preserve fields they did not change, mutate only what they ask for, and re-emit the FULL tool call):\n\`\`\`json\n${JSON.stringify(trimmed, null, 2)}\n\`\`\``,
+      });
+    } catch { /* ignore serialization failure */ }
+  } else if (memorySummary) {
     systemMessages.push({
       role: "system",
-      content: `CONTEXT — current working spec (carry this forward, do NOT discard):\n${memorySummary}\n\nWhen the user asks for tweaks ("add a pin", "rename", "lower burn voltage"), MUTATE this spec and re-emit the full tool call. Keep the same slug unless the user renames the part. Preserve all fields the user did not change.`,
+      content: `CONTEXT — recent conversation (carry this forward, do NOT discard):\n${memorySummary}\n\nWhen the user asks for tweaks ("add a pin", "rename", "lower burn voltage"), MUTATE the working spec and re-emit the full tool call. Keep the same slug unless the user renames the part.`,
     });
   }
 
