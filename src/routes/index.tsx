@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 // Simple flex layout (no resizable panels) for reliability across viewports.
 import { Toaster } from "@/components/ui/sonner";
@@ -169,7 +169,12 @@ function SimulatorPage() {
         onResume={() => { ctrl.resume(); setPausedFlag(false); }}
         onStop={() => { ctrl.stop(); setPausedFlag(false); }}
       />
-      <IdeMenubar onCompile={handleBackendCompile} onUpload={handleUpload} />
+      <div className="flex items-center">
+        <div className="flex-1"><IdeMenubar onCompile={handleBackendCompile} onUpload={handleUpload} /></div>
+        <Link to="/admin" className="text-xs px-3 py-1 mr-2 text-muted-foreground hover:text-foreground border border-border rounded">
+          ✨ AI Builder
+        </Link>
+      </div>
 
       <div className="flex-1 min-h-0 flex w-full overflow-hidden">
         {/* Components palette removed — use the floating "+" button on the canvas to add boards/components. */}
