@@ -222,7 +222,24 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
       onChange({ svg, pins: [...pins, newPin] });
       setSelectedPin(id);
       setPopoverOpen(true);
-      // Stay in add mode for rapid placement; user can switch back via toolbar
+      return;
+    }
+    // Select mode: start marquee on empty canvas
+    if (mode === "select") {
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      marqueeRef.current = {
+        additive: e.shiftKey || e.metaKey || e.ctrlKey,
+        baseline: new Set(selectedIds),
+      };
+      setMarquee({ x0: x, y0: y, x1: x, y1: y });
+      if (!(e.shiftKey || e.metaKey || e.ctrlKey)) {
+        setSelectedIds(new Set());
+        setSelectedPin(null);
+      }
     }
   }
   function handleCanvasMouseMove(e: React.MouseEvent) {
@@ -236,33 +253,89 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
     if (dragPinId && dragStateRef.current && svgInfo) {
       const dx = e.clientX - dragStateRef.current.startX;
       const dy = e.clientY - dragStateRef.current.startY;
-      if (!dragStateRef.current.moved && Math.hypot(dx, dy) < 3) return; // click threshold
+      if (!dragStateRef.current.moved && Math.hypot(dx, dy) < 3) return;
       dragStateRef.current.moved = true;
       const p = screenToSvg(e.clientX, e.clientY);
       if (!p) return;
-      const snapped = snap ? snapPoint(p, gridSize, svgInfo) : p;
-      // Clamp to viewBox so pins can't escape the artwork
-      const x = Math.max(svgInfo.vbX, Math.min(svgInfo.vbX + svgInfo.vbWidth, snapped.x));
-      const y = Math.max(svgInfo.vbY, Math.min(svgInfo.vbY + svgInfo.vbHeight, snapped.y));
+      const origin = dragStateRef.current.origin;
+      // If multi-selected and the dragged pin is part of selection, move all together
+      const movingIds = selectedIds.has(dragPinId) && selectedIds.size > 1
+        ? selectedIds
+        : new Set([dragPinId]);
+      // Compute delta in SVG space relative to origin of dragged pin
+      const originPin = origin?.get(dragPinId);
+      if (!originPin) return;
+      const startSvg = screenToSvg(dragStateRef.current.startX, dragStateRef.current.startY);
+      if (!startSvg) return;
+      let dxS = p.x - startSvg.x;
+      let dyS = p.y - startSvg.y;
+      if (snap) {
+        dxS = Math.round(dxS / gridSize) * gridSize;
+        dyS = Math.round(dyS / gridSize) * gridSize;
+      }
+      const minX = svgInfo.vbX;
+      const maxX = svgInfo.vbX + svgInfo.vbWidth;
+      const minY = svgInfo.vbY;
+      const maxY = svgInfo.vbY + svgInfo.vbHeight;
       onChange({
         svg,
-        pins: pins.map((p2) => (p2.id === dragPinId ? { ...p2, x: round1(x), y: round1(y) } : p2)),
+        pins: pins.map((p2) => {
+          if (!movingIds.has(p2.id)) return p2;
+          const o = origin?.get(p2.id);
+          if (!o) return p2;
+          const nx = Math.max(minX, Math.min(maxX, o.x + dxS));
+          const ny = Math.max(minY, Math.min(maxY, o.y + dyS));
+          return { ...p2, x: round1(nx), y: round1(ny) };
+        }),
       });
-      // Suppress popover while dragging
       if (popoverOpen) setPopoverOpen(false);
+      return;
+    }
+    if (marquee && marqueeRef.current) {
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setMarquee({ ...marquee, x1: e.clientX - rect.left, y1: e.clientY - rect.top });
     }
   }
   function handleCanvasMouseUp() {
     panStartRef.current = null;
     setPanning(false);
     if (dragPinId) {
-      // If the user barely moved, treat it as a click → open popover.
       if (dragStateRef.current && !dragStateRef.current.moved) {
         setSelectedPin(dragPinId);
         setPopoverOpen(true);
       }
       setDragPinId(null);
       dragStateRef.current = null;
+    }
+    if (marquee && marqueeRef.current && svgInfo) {
+      // Compute selection from marquee rect (canvas px → svg space → match pins)
+      const fit = computeFit(svgInfo.vbWidth, svgInfo.vbHeight);
+      const toSvg = (cx: number, cy: number) => {
+        const localX = (cx - pan.x - CANVAS_W / 2) / zoom + CANVAS_W / 2;
+        const localY = (cy - pan.y - CANVAS_H / 2) / zoom + CANVAS_H / 2;
+        return {
+          x: (localX - fit.offsetX) / fit.scale + svgInfo.vbX,
+          y: (localY - fit.offsetY) / fit.scale + svgInfo.vbY,
+        };
+      };
+      const a = toSvg(marquee.x0, marquee.y0);
+      const b = toSvg(marquee.x1, marquee.y1);
+      const xMin = Math.min(a.x, b.x), xMax = Math.max(a.x, b.x);
+      const yMin = Math.min(a.y, b.y), yMax = Math.max(a.y, b.y);
+      const tiny = Math.abs(marquee.x0 - marquee.x1) < 3 && Math.abs(marquee.y0 - marquee.y1) < 3;
+      if (!tiny) {
+        const hits = pins.filter((p) => p.x >= xMin && p.x <= xMax && p.y >= yMin && p.y <= yMax).map((p) => p.id);
+        const baseline = marqueeRef.current.baseline;
+        const next = marqueeRef.current.additive
+          ? new Set([...baseline, ...hits])
+          : new Set(hits);
+        setSelectedIds(next);
+        if (hits.length > 0) setSelectedPin(hits[hits.length - 1]);
+      }
+      setMarquee(null);
+      marqueeRef.current = null;
     }
   }
   function handleWheel(e: React.WheelEvent) {
