@@ -22,6 +22,8 @@ interface HoveredPin {
   label: string;
   kind: "digital" | "analog" | "power" | "ground" | "other";
   number?: number;
+  /** Board component id this pin belongs to (used to look up connected net). */
+  boardCompId: string;
   /** Screen-space position (canvas-local pixels) for tooltip placement. */
   sx: number;
   sy: number;
@@ -348,7 +350,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
               // Convert pin board-local coords to canvas-local pixels.
               const sx = (b.x + pin.x + pan.x) * zoom;
               const sy = (b.y + pin.y + pan.y) * zoom;
-              setHovered({ id: pin.id, label: pin.label, kind: pin.kind, number: pin.number, sx, sy });
+              setHovered({ id: pin.id, label: pin.label, kind: pin.kind, number: pin.number, sx, sy, boardCompId: b.id });
             };
             return (
               <g
