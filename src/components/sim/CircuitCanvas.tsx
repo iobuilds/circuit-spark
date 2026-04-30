@@ -59,6 +59,12 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const updateWireWaypoint = useSimStore((s) => s.updateWireWaypoint);
   const insertWireWaypoint = useSimStore((s) => s.insertWireWaypoint);
   const setWireStyle = useSimStore((s) => s.setWireStyle);
+  const setWires = useSimStore((s) => s.setWires);
+  const pushWireHistory = useSimStore((s) => s.pushWireHistory);
+  const undoWires = useSimStore((s) => s.undoWires);
+  const redoWires = useSimStore((s) => s.redoWires);
+  const wireHistoryLen = useSimStore((s) => s.wireHistory.length);
+  const wireFutureLen = useSimStore((s) => s.wireFuture.length);
 
   const adminComps = useAdminStore((s) => s.components);
 
