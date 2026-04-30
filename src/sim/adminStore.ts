@@ -7,10 +7,9 @@ import { COMPONENT_DEFS } from "./components";
 import { defaultUnoPins } from "./boardSvgs/unoPins";
 import { UNO_SVG } from "./boardSvgs/unoSvg";
 
-// v5: switched Uno from 3D GLB to flat 2D SVG (Tinkercad-style top view).
-// Bumping the version invalidates older persisted boards so the new SVG +
-// realigned pins take effect on next hydrate.
-const STORAGE_VERSION = 5;
+// v6: switched Uno SVG to embedded user-supplied PNG illustration (960x704
+// viewBox) and recalibrated all pin coordinates to match the image.
+const STORAGE_VERSION = 6;
 const KEY_BOARDS = "embedsim_boards";
 const KEY_COMPONENTS = "embedsim_components";
 
