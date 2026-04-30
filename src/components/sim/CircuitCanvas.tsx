@@ -653,6 +653,9 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         </div>
       )}
 
+      {/* Sliders/toggles for AI-generated sensor inputs (axes, light, distance…). */}
+      <SensorControlsPanel />
+
       {/* Floating pin info popup on hover (id, kind/role, connected net, live value if simulating). */}
       {hovered && (() => {
         const pinNum = hovered.number;
