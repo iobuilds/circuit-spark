@@ -4,6 +4,8 @@
 import { create } from "zustand";
 import { BOARDS, type BoardDef, type BoardId, type ComponentKind } from "./types";
 import { COMPONENT_DEFS } from "./components";
+import { UNO_SVG } from "./boardSvgs/unoSvg";
+import { defaultUnoPins } from "./boardSvgs/unoPins";
 
 const STORAGE_VERSION = 2;
 const KEY_BOARDS = "embedsim_boards";
