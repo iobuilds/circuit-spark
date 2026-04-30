@@ -11,6 +11,20 @@ interface Props {
   onSelect: (e: React.MouseEvent) => void;
   onDragStart: (e: React.MouseEvent) => void;
   selected: boolean;
+  /** When true, dragging a pin moves it (per-instance override) instead of starting a wire. */
+  pinEditMode?: boolean;
+  /** Convert a global mouse event to canvas SVG (user-space) coordinates. */
+  toCanvasPoint?: (e: MouseEvent | React.MouseEvent) => { x: number; y: number };
+}
+
+/** Parse per-instance pin position overrides from comp.props. Shape: { [pinId]: {x,y} }. */
+function readPinOverrides(comp: CircuitComponent): Record<string, { x: number; y: number }> {
+  const raw = comp.props.pinOverrides;
+  if (typeof raw !== "string" || !raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch { return {}; }
 }
 
 const LED_COLORS: Record<string, { off: string; on: string; glow: string }> = {
