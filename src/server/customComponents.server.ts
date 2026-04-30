@@ -253,9 +253,16 @@ For MQ-X gas sensors specifically: expose params { gasPpm 0..10000, heaterVoltag
 
 Reply in plain text for clarifying turns; only call the tool when finalizing.`;
 
+type ChatContent =
+  | string
+  | Array<
+      | { type: "text"; text: string }
+      | { type: "image_url"; image_url: { url: string } }
+    >;
+
 interface ChatMessage {
   role: "system" | "user" | "assistant" | "tool";
-  content: string;
+  content: ChatContent;
   tool_calls?: Array<{
     id: string;
     type: "function";
