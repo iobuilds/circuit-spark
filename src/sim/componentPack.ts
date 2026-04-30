@@ -94,6 +94,8 @@ export async function exportComponentZip(comp: CustomComponentRow): Promise<Blob
     defaults: spec.defaults ?? {},
     behaviorNotes: spec.behaviorNotes ?? comp.behavior ?? "",
     behavior: spec.behavior ?? null,
+    // Embed the SVG as a fallback so importers can recover even if svg/main.svg is missing.
+    svg: comp.svg ?? "",
   };
 
   zip.file("manifest.json", JSON.stringify(manifest, null, 2));
