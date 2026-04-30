@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useAdminStore, type BoardEntry, type ComponentEntry, exportSnapshot } from "@/sim/adminStore";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { GripVertical, Download, Upload, RotateCcw, Search } from "lucide-react";
+import { GripVertical, Download, Upload, RotateCcw, Search, Pencil, PlusCircle } from "lucide-react";
 
 export const Route = createFileRoute("/admin/")({
   component: LibraryManager,
