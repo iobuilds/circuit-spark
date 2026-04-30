@@ -477,7 +477,7 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
                           }}
                         />
                       </PopoverTrigger>
-                      <PopoverContent className="w-72" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+                      <PopoverContent className="w-80" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
                         <PinPropertiesForm
                           pin={p}
                           onChange={(patch) => updatePin(p.id, patch)}
