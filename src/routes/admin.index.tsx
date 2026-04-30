@@ -288,6 +288,8 @@ interface ToolbarProps {
   onExport: () => void;
   onImport: () => void;
   onReset: () => void;
+  onCreate?: () => void;
+  createLabel?: string;
   resetLabel: string;
 }
 function Toolbar(p: ToolbarProps) {
@@ -305,6 +307,11 @@ function Toolbar(p: ToolbarProps) {
         </div>
       )}
       <div className="flex-1" />
+      {p.onCreate && (
+        <Button size="sm" className="h-8" onClick={p.onCreate}>
+          <PlusCircle className="h-3.5 w-3.5 mr-1.5" /> {p.createLabel ?? "New"}
+        </Button>
+      )}
       <Button size="sm" variant="outline" className="h-8" onClick={p.onImport}>
         <Upload className="h-3.5 w-3.5 mr-1.5" /> Import
       </Button>
