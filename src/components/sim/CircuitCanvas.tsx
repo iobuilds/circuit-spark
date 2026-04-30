@@ -329,7 +329,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
       )}
 
       {/* Use the unused size constants to silence lint */}
-      <span className="hidden">{UNO_WIDTH}{UNO_HEIGHT}{RotateCcw ? "" : ""}</span>
+      <span className="hidden">{UNO_WIDTH}{UNO_HEIGHT}</span>
     </div>
   );
 }
