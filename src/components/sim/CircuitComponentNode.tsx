@@ -201,19 +201,53 @@ function LedSvg({ color, on, size = 1 }: { color: string; on: boolean; size?: nu
   );
 }
 
+// Resistor color-band helpers (4-band E-series, ±5% gold tolerance).
+const BAND_COLORS = [
+  "oklch(0.15 0 0)",       // 0 black
+  "oklch(0.35 0.12 50)",   // 1 brown
+  "oklch(0.55 0.22 25)",   // 2 red
+  "oklch(0.65 0.18 55)",   // 3 orange
+  "oklch(0.85 0.18 90)",   // 4 yellow
+  "oklch(0.65 0.20 145)",  // 5 green
+  "oklch(0.55 0.22 245)",  // 6 blue
+  "oklch(0.55 0.22 305)",  // 7 violet
+  "oklch(0.55 0.01 0)",    // 8 grey
+  "oklch(0.96 0.01 0)",    // 9 white
+];
+const GOLD = "oklch(0.78 0.15 85)";
+
+function resistorBands(ohms: number): [string, string, string, string] {
+  const v = Math.max(0, Math.round(ohms));
+  if (v === 0) return [BAND_COLORS[0], BAND_COLORS[0], BAND_COLORS[0], GOLD];
+  // Find first two significant digits + multiplier exponent.
+  const s = String(v);
+  const d1 = Number(s[0]);
+  const d2 = Number(s[1] ?? "0");
+  const exp = Math.max(0, s.length - 2);
+  const mult = Math.min(9, exp);
+  return [BAND_COLORS[d1] ?? BAND_COLORS[0], BAND_COLORS[d2] ?? BAND_COLORS[0], BAND_COLORS[mult] ?? BAND_COLORS[0], GOLD];
+}
+
+function formatOhms(ohms: number): string {
+  if (ohms >= 1_000_000) return `${+(ohms / 1_000_000).toFixed(2)}MΩ`;
+  if (ohms >= 1_000) return `${+(ohms / 1_000).toFixed(2)}kΩ`;
+  return `${ohms}Ω`;
+}
+
 function ResistorSvg({ ohms }: { ohms: number }) {
+  const [b1, b2, b3, b4] = resistorBands(ohms);
   return (
     <g>
       <line x1={4} y1={15} x2={20} y2={15} stroke="oklch(0.78 0.02 240)" strokeWidth={2} />
       <line x1={80} y1={15} x2={96} y2={15} stroke="oklch(0.78 0.02 240)" strokeWidth={2} />
       <rect x={20} y={6} width={60} height={18} rx={4}
-        fill="oklch(0.65 0.10 60)" stroke="oklch(0.3 0.04 60)" />
-      <rect x={28} y={6} width={4} height={18} fill="oklch(0.3 0 0)" />
-      <rect x={36} y={6} width={4} height={18} fill="oklch(0.4 0.15 25)" />
-      <rect x={44} y={6} width={4} height={18} fill="oklch(0.5 0.15 60)" />
-      <rect x={68} y={6} width={4} height={18} fill="oklch(0.6 0.18 100)" />
+        fill="oklch(0.78 0.06 75)" stroke="oklch(0.3 0.04 60)" />
+      <rect x={28} y={6} width={4} height={18} fill={b1} />
+      <rect x={36} y={6} width={4} height={18} fill={b2} />
+      <rect x={44} y={6} width={4} height={18} fill={b3} />
+      <rect x={68} y={6} width={4} height={18} fill={b4} />
       <text x={50} y={36} textAnchor="middle" fontSize={8} fontFamily="monospace" fill="var(--color-foreground)">
-        {ohms}Ω
+        {formatOhms(ohms)}
       </text>
     </g>
   );
