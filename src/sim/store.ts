@@ -111,6 +111,10 @@ export const useSimStore = create<SimState>((set, get) => ({
     if (kind === "resistor") { props.ohms = 220; }
     if (kind === "potentiometer") { props.value = 512; }
     if (kind === "custom" && customId) { props.customId = customId; }
+    if (kind === "board") {
+      // customId is reused as the BoardId for boards (e.g. "uno", "mega").
+      props.boardId = customId ?? "uno";
+    }
     set((s) => ({
       components: [...s.components, { id, kind, x, y, rotation: 0, props }],
       selectedId: id,
