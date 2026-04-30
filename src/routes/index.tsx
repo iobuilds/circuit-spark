@@ -172,7 +172,7 @@ function SimulatorPage() {
     <div className="h-screen flex flex-col bg-background text-foreground">
       <Toolbar
         onCompile={handleBackendCompile}
-        onStart={() => ctrl.start(useSimStore.getState().code, speed)}
+        onStart={() => void compileThenStart()}
         onPause={() => { ctrl.pause(); setPausedFlag(true); }}
         onResume={() => { ctrl.resume(); setPausedFlag(false); }}
         onStop={() => { ctrl.stop(); setPausedFlag(false); }}
