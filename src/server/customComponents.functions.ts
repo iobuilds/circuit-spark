@@ -7,6 +7,7 @@ import {
   runBuilderChat,
   type ComponentSpec,
 } from "./customComponents.server";
+import { searchArduinoLibraries } from "./arduinoLibs.server";
 
 interface ChatMessageInput {
   role: "user" | "assistant";
