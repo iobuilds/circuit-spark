@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ResizablePanelGroup as PanelGroup, ResizablePanel as Panel, ResizableHandle as PanelResizeHandle } from "@/components/ui/resizable";
+// Simple flex layout (no resizable panels) for reliability across viewports.
 import { Toaster } from "@/components/ui/sonner";
 import { CodeEditor } from "@/components/sim/CodeEditor";
 import { CircuitCanvas } from "@/components/sim/CircuitCanvas";
@@ -138,46 +138,37 @@ function SimulatorPage() {
       />
       <IdeMenubar onCompile={handleBackendCompile} onUpload={handleUpload} />
 
-      <div className="flex-1 min-h-0">
-        <PanelGroup orientation="horizontal">
-          <Panel defaultSize={17} minSize={14} maxSize={28}>
-            <ComponentPalette />
-          </Panel>
-          <PanelResizeHandle className="w-1 bg-border hover:bg-primary/40 transition-colors" />
+      <div className="flex-1 min-h-0 flex w-full overflow-hidden">
+        {/* Left: Component palette */}
+        <aside className="w-56 shrink-0 border-r border-border overflow-hidden">
+          <ComponentPalette />
+        </aside>
 
-          <Panel defaultSize={40} minSize={24}>
-            <PanelGroup orientation="vertical">
-              <Panel defaultSize={62} minSize={20}>
-                <div className="h-full flex flex-col bg-card">
-                  <FileTabs />
-                  <div className="flex-1 min-h-0">
-                    <CodeEditor />
-                  </div>
-                  {compileOutput && (
-                    <CompileOutputPanel output={compileOutput} onClose={() => setCompileOutput(null)} />
-                  )}
-                </div>
-              </Panel>
-              <PanelResizeHandle className="h-1 bg-border hover:bg-primary/40 transition-colors" />
-              <Panel defaultSize={38} minSize={15}>
-                <SerialPanel onSerialIn={(t) => ctrl.serialIn(t)} />
-              </Panel>
-            </PanelGroup>
-          </Panel>
-          <PanelResizeHandle className="w-1 bg-border hover:bg-primary/40 transition-colors" />
+        {/* Middle: Code editor + Serial */}
+        <section className="flex-1 min-w-0 flex flex-col border-r border-border">
+          <div className="flex-1 min-h-0 flex flex-col bg-card">
+            <FileTabs />
+            <div className="flex-1 min-h-0">
+              <CodeEditor />
+            </div>
+            {compileOutput && (
+              <CompileOutputPanel output={compileOutput} onClose={() => setCompileOutput(null)} />
+            )}
+          </div>
+          <div className="h-64 shrink-0 border-t border-border">
+            <SerialPanel onSerialIn={(t) => ctrl.serialIn(t)} />
+          </div>
+        </section>
 
-          <Panel defaultSize={43} minSize={25}>
-            <PanelGroup orientation="vertical">
-              <Panel defaultSize={75} minSize={30}>
-                <CircuitCanvas onPinInputChange={pushPinInput} />
-              </Panel>
-              <PanelResizeHandle className="h-1 bg-border hover:bg-primary/40 transition-colors" />
-              <Panel defaultSize={25} minSize={10}>
-                <PinStateTable />
-              </Panel>
-            </PanelGroup>
-          </Panel>
-        </PanelGroup>
+        {/* Right: Canvas + Pin states */}
+        <section className="flex-1 min-w-0 flex flex-col">
+          <div className="flex-1 min-h-0">
+            <CircuitCanvas onPinInputChange={pushPinInput} />
+          </div>
+          <div className="h-44 shrink-0 border-t border-border">
+            <PinStateTable />
+          </div>
+        </section>
       </div>
 
       <div className="flex items-center gap-4 px-3 py-1 text-[11px] font-mono border-t border-border bg-card text-muted-foreground">
