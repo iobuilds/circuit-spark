@@ -1,0 +1,157 @@
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { useAdminStore, type ComponentEntry } from "@/sim/adminStore";
+import { SvgPinEditor } from "@/components/sim/SvgPinEditor";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { ChevronLeft, Save, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
+  AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
+export const Route = createFileRoute("/admin/components/$componentId/edit")({
+  head: () => ({ meta: [{ title: "Edit Component — EmbedSim Admin" }, { name: "robots", content: "noindex" }] }),
+  component: ComponentEditor,
+});
+
+const BEHAVIORS: NonNullable<ComponentEntry["behavior"]>[] = [
+  "digital-out", "digital-in", "analog-in", "passive",
+];
+
+function ComponentEditor() {
+  const { componentId } = Route.useParams();
+  const navigate = useNavigate();
+  const item = useAdminStore((s) => s.components.find((c) => c.id === componentId));
+  const update = useAdminStore((s) => s.updateComponent);
+  const remove = useAdminStore((s) => s.deleteComponent);
+
+  const [draft, setDraft] = useState<ComponentEntry | null>(item ?? null);
+  useEffect(() => { if (item && !draft) setDraft(item); }, [item, draft]);
+
+  if (!item || !draft) {
+    return (
+      <div className="space-y-3">
+        <Link to="/admin" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
+          <ChevronLeft className="h-4 w-4 mr-1" /> Back to Library Manager
+        </Link>
+        <p className="text-sm text-muted-foreground">Component not found.</p>
+      </div>
+    );
+  }
+
+  function save() {
+    if (!draft) return;
+    update(draft.id, draft);
+    toast.success("Component saved");
+  }
+
+  return (
+    <div className="space-y-4 max-w-5xl">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <Link to="/admin" className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground mb-1">
+            <ChevronLeft className="h-3 w-3 mr-1" /> Library Manager
+          </Link>
+          <h1 className="text-2xl font-bold tracking-tight">{draft.label || "Untitled Component"}</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {draft.builtIn ? "Built-in component (overrides saved locally)" : "Custom component"}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {!draft.builtIn && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" variant="outline" className="text-destructive">
+                  <Trash2 className="h-4 w-4 mr-1.5" /> Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this component?</AlertDialogTitle>
+                  <AlertDialogDescription>This permanently removes the custom component.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => { remove(draft.id); navigate({ to: "/admin" }); }}>
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          <Button size="sm" onClick={save}>
+            <Save className="h-4 w-4 mr-1.5" /> Save
+          </Button>
+        </div>
+      </div>
+
+      <Tabs defaultValue="svg" className="w-full">
+        <TabsList>
+          <TabsTrigger value="properties">Properties</TabsTrigger>
+          <TabsTrigger value="svg">SVG & Pins</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="properties" className="mt-4 space-y-4 max-w-xl">
+          <Field label="Label">
+            <Input value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} />
+          </Field>
+          <Field label="Category">
+            <Input value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })} />
+          </Field>
+          <Field label="Behavior">
+            <Select
+              value={draft.behavior ?? "passive"}
+              onValueChange={(v) => setDraft({ ...draft, behavior: v as ComponentEntry["behavior"] })}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {BEHAVIORS.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Body color">
+            <Input
+              type="color"
+              value={draft.bodyColor ?? "#888888"}
+              onChange={(e) => setDraft({ ...draft, bodyColor: e.target.value })}
+              className="h-9 p-1 w-24"
+            />
+          </Field>
+          <div className="flex items-center gap-2">
+            <Switch checked={draft.enabled} onCheckedChange={(v) => setDraft({ ...draft, enabled: v })} />
+            <Label className="text-sm">Show in simulator palette</Label>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="svg" className="mt-4">
+          <SvgPinEditor
+            svg={draft.svg}
+            pins={draft.pins ?? []}
+            onChange={(next) => setDraft({ ...draft, svg: next.svg, pins: next.pins })}
+          />
+          <p className="text-xs text-muted-foreground mt-2">
+            Tip: changes here are kept in your draft until you press <strong>Save</strong>.
+          </p>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs uppercase tracking-wide text-muted-foreground">{label}</Label>
+      {children}
+    </div>
+  );
+}

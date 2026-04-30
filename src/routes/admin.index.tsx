@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useAdminStore, type BoardEntry, type ComponentEntry, exportSnapshot } from "@/sim/adminStore";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { GripVertical, Download, Upload, RotateCcw, Search } from "lucide-react";
+import { GripVertical, Download, Upload, RotateCcw, Search, Pencil, PlusCircle } from "lucide-react";
 
 export const Route = createFileRoute("/admin/")({
   component: LibraryManager,
@@ -46,12 +46,14 @@ function LibraryManager() {
 /* ---------------- Boards ---------------- */
 
 function BoardsTab() {
+  const navigate = useNavigate();
   const boards = useAdminStore((s) => s.boards);
   const setEnabled = useAdminStore((s) => s.setBoardEnabled);
   const bulk = useAdminStore((s) => s.bulkSetBoards);
   const reorder = useAdminStore((s) => s.reorderBoards);
   const reset = useAdminStore((s) => s.resetBoards);
   const importItems = useAdminStore((s) => s.importBoards);
+  const createCustom = useAdminStore((s) => s.createCustomBoard);
 
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -103,6 +105,11 @@ function BoardsTab() {
         onExport={exportJSON}
         onImport={() => fileRef.current?.click()}
         onReset={() => { reset(); toast.success("Boards reset to defaults"); setSelected(new Set()); }}
+        onCreate={() => {
+          const id = createCustom();
+          navigate({ to: "/admin/boards/$boardId/edit", params: { boardId: id } });
+        }}
+        createLabel="New board"
         resetLabel="Reset boards to defaults"
       />
       <input ref={fileRef} type="file" accept=".json,application/json" onChange={onImportFile} className="hidden" />
@@ -123,6 +130,7 @@ function BoardsTab() {
               <th className="px-3 py-2">Pins</th>
               <th className="px-3 py-2">Source</th>
               <th className="px-3 py-2 text-right">Enabled</th>
+              <th className="px-3 py-2 w-10"></th>
             </tr>
           </thead>
           <tbody>
@@ -147,11 +155,21 @@ function BoardsTab() {
                   <td className="px-3 py-2 text-right">
                     <Switch checked={b.enabled} onCheckedChange={(v) => setEnabled(b.id, v)} />
                   </td>
+                  <td className="px-3 py-2 text-right">
+                    <Link
+                      to="/admin/boards/$boardId/edit"
+                      params={{ boardId: b.id }}
+                      className="inline-flex items-center justify-center h-7 w-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
+                      title="Edit board"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Link>
+                  </td>
                 </tr>
               );
             })}
             {filtered.length === 0 && (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">No boards match.</td></tr>
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">No boards match.</td></tr>
             )}
           </tbody>
         </table>
@@ -163,12 +181,14 @@ function BoardsTab() {
 /* ---------------- Components ---------------- */
 
 function ComponentsTab() {
+  const navigate = useNavigate();
   const items = useAdminStore((s) => s.components);
   const setEnabled = useAdminStore((s) => s.setComponentEnabled);
   const bulk = useAdminStore((s) => s.bulkSetComponents);
   const reorder = useAdminStore((s) => s.reorderComponents);
   const reset = useAdminStore((s) => s.resetComponents);
   const importItems = useAdminStore((s) => s.importComponents);
+  const createCustom = useAdminStore((s) => s.createCustomComponent);
 
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -219,6 +239,11 @@ function ComponentsTab() {
         onExport={exportJSON}
         onImport={() => fileRef.current?.click()}
         onReset={() => { reset(); toast.success("Components reset to defaults"); setSelected(new Set()); }}
+        onCreate={() => {
+          const id = createCustom();
+          navigate({ to: "/admin/components/$componentId/edit", params: { componentId: id } });
+        }}
+        createLabel="New component"
         resetLabel="Reset components to defaults"
       />
       <input ref={fileRef} type="file" accept=".json,application/json" onChange={onImportFile} className="hidden" />
@@ -238,6 +263,7 @@ function ComponentsTab() {
               <th className="px-3 py-2">Category</th>
               <th className="px-3 py-2">Source</th>
               <th className="px-3 py-2 text-right">Enabled</th>
+              <th className="px-3 py-2 w-10"></th>
             </tr>
           </thead>
           <tbody>
@@ -261,11 +287,21 @@ function ComponentsTab() {
                   <td className="px-3 py-2 text-right">
                     <Switch checked={c.enabled} onCheckedChange={(v) => setEnabled(c.id, v)} />
                   </td>
+                  <td className="px-3 py-2 text-right">
+                    <Link
+                      to="/admin/components/$componentId/edit"
+                      params={{ componentId: c.id }}
+                      className="inline-flex items-center justify-center h-7 w-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
+                      title="Edit component"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Link>
+                  </td>
                 </tr>
               );
             })}
             {filtered.length === 0 && (
-              <tr><td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">No components match.</td></tr>
+              <tr><td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">No components match.</td></tr>
             )}
           </tbody>
         </table>
@@ -288,6 +324,8 @@ interface ToolbarProps {
   onExport: () => void;
   onImport: () => void;
   onReset: () => void;
+  onCreate?: () => void;
+  createLabel?: string;
   resetLabel: string;
 }
 function Toolbar(p: ToolbarProps) {
@@ -305,6 +343,11 @@ function Toolbar(p: ToolbarProps) {
         </div>
       )}
       <div className="flex-1" />
+      {p.onCreate && (
+        <Button size="sm" className="h-8" onClick={p.onCreate}>
+          <PlusCircle className="h-3.5 w-3.5 mr-1.5" /> {p.createLabel ?? "New"}
+        </Button>
+      )}
       <Button size="sm" variant="outline" className="h-8" onClick={p.onImport}>
         <Upload className="h-3.5 w-3.5 mr-1.5" /> Import
       </Button>

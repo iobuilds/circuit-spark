@@ -5,9 +5,24 @@ import { create } from "zustand";
 import { BOARDS, type BoardDef, type BoardId, type ComponentKind } from "./types";
 import { COMPONENT_DEFS } from "./components";
 
-const STORAGE_VERSION = 1;
+const STORAGE_VERSION = 2;
 const KEY_BOARDS = "embedsim_boards";
 const KEY_COMPONENTS = "embedsim_components";
+
+/** Pin marker placed visually on top of an SVG. Coordinates are in the SVG's
+ *  natural viewBox/user-space (so they survive zoom and pan). */
+export interface VisualPin {
+  id: string;            // unique within the board/component
+  label: string;         // displayed name e.g. "D13", "VCC", "Anode"
+  /** Functional role drives how the simulator wires/treats this pin. */
+  type: "digital" | "analog" | "pwm" | "power" | "ground" | "i2c-sda" | "i2c-scl" | "spi" | "uart" | "other";
+  /** Optional hardware pin number for boards (e.g. 13 for D13). */
+  number?: number;
+  x: number;             // SVG user-space X
+  y: number;             // SVG user-space Y
+  color?: string;        // hex e.g. "#22c55e"
+  notes?: string;
+}
 
 export interface BoardEntry {
   id: string;          // BoardId or custom id
@@ -17,6 +32,10 @@ export interface BoardEntry {
   analogPins: number;
   enabled: boolean;
   builtIn: boolean;
+  /** Raw SVG markup for visual rendering in the editor and simulator. */
+  svg?: string;
+  /** Pins placed on top of the SVG. */
+  pins?: VisualPin[];
 }
 
 export interface ComponentEntry {
@@ -29,7 +48,10 @@ export interface ComponentEntry {
   behavior?: "digital-out" | "digital-in" | "analog-in" | "passive";
   width?: number;
   height?: number;
-  pins?: { id: string; label: string; x: number; y: number }[];
+  /** Raw SVG markup for visual rendering. */
+  svg?: string;
+  /** Visual pins placed on the SVG. Replaces legacy basic pin list. */
+  pins?: VisualPin[];
   bodyColor?: string;  // hex/oklch for custom rendering
 }
 
@@ -65,7 +87,9 @@ function loadPersisted<T>(key: string, fallback: T[]): T[] {
     const raw = localStorage.getItem(key);
     if (!raw) return fallback;
     const parsed = JSON.parse(raw) as PersistedShape<T>;
-    if (parsed._version !== STORAGE_VERSION || !Array.isArray(parsed.items)) return fallback;
+    if (!parsed || !Array.isArray(parsed.items)) return fallback;
+    // Forward-compatible: v1 data has the same shape minus svg/pins (both optional).
+    if (parsed._version !== STORAGE_VERSION && parsed._version !== 1) return fallback;
     return parsed.items;
   } catch { return fallback; }
 }
@@ -130,6 +154,13 @@ interface AdminState {
   resetComponents: () => void;
   importBoards: (items: BoardEntry[]) => void;
   importComponents: (items: ComponentEntry[]) => void;
+
+  updateBoard: (id: string, patch: Partial<BoardEntry>) => void;
+  updateComponent: (id: string, patch: Partial<ComponentEntry>) => void;
+  createCustomBoard: (init?: Partial<BoardEntry>) => string;
+  createCustomComponent: (init?: Partial<ComponentEntry>) => string;
+  deleteBoard: (id: string) => void;
+  deleteComponent: (id: string) => void;
 }
 
 export const useAdminStore = create<AdminState>((set, get) => ({
@@ -199,6 +230,65 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     const merged = mergeComponents(items);
     persist(KEY_COMPONENTS, merged);
     set({ components: merged });
+  },
+
+  updateBoard: (id, patch) => {
+    const next = get().boards.map((b) => (b.id === id ? { ...b, ...patch, id: b.id } : b));
+    persist(KEY_BOARDS, next);
+    set({ boards: next });
+  },
+  updateComponent: (id, patch) => {
+    const next = get().components.map((c) => (c.id === id ? { ...c, ...patch, id: c.id } : c));
+    persist(KEY_COMPONENTS, next);
+    set({ components: next });
+  },
+  createCustomBoard: (init) => {
+    const id = init?.id ?? `custom-board-${Date.now().toString(36)}`;
+    const entry: BoardEntry = {
+      id,
+      name: init?.name ?? "Untitled Board",
+      mcu: init?.mcu ?? "ATmega328P",
+      digitalPins: init?.digitalPins ?? 14,
+      analogPins: init?.analogPins ?? 6,
+      enabled: init?.enabled ?? true,
+      builtIn: false,
+      svg: init?.svg,
+      pins: init?.pins ?? [],
+    };
+    const next = [...get().boards, entry];
+    persist(KEY_BOARDS, next);
+    set({ boards: next });
+    return id;
+  },
+  createCustomComponent: (init) => {
+    const id = init?.id ?? `custom-component-${Date.now().toString(36)}`;
+    const entry: ComponentEntry = {
+      id,
+      label: init?.label ?? "Untitled Component",
+      category: init?.category ?? "custom",
+      enabled: init?.enabled ?? true,
+      builtIn: false,
+      behavior: init?.behavior ?? "passive",
+      svg: init?.svg,
+      pins: init?.pins ?? [],
+      bodyColor: init?.bodyColor,
+      width: init?.width,
+      height: init?.height,
+    };
+    const next = [...get().components, entry];
+    persist(KEY_COMPONENTS, next);
+    set({ components: next });
+    return id;
+  },
+  deleteBoard: (id) => {
+    const next = get().boards.filter((b) => !(b.id === id && !b.builtIn));
+    persist(KEY_BOARDS, next);
+    set({ boards: next });
+  },
+  deleteComponent: (id) => {
+    const next = get().components.filter((c) => !(c.id === id && !c.builtIn));
+    persist(KEY_COMPONENTS, next);
+    set({ components: next });
   },
 }));
 
