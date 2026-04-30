@@ -60,6 +60,8 @@ export interface SimState {
   setComponentProp: (id: string, key: string, value: number | string | boolean) => void;
   startWire: (componentId: string, pinId: string) => void;
   finishWire: (componentId: string, pinId: string) => void;
+  addWireWaypoint: (point: { x: number; y: number }) => void;
+  undoWireWaypoint: () => void;
   cancelWire: () => void;
   removeWire: (id: string) => void;
 
