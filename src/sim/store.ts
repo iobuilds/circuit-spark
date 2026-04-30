@@ -35,6 +35,8 @@ export interface SimState {
   wires: Wire[];
   selectedId: string | null;
   drawingFrom: { componentId: string; pinId: string } | null;
+  /** Intermediate click points while drawing a wire, in canvas coordinates. */
+  drawingWaypoints: { x: number; y: number }[];
 
   // editor / runtime
   code: string;
