@@ -673,6 +673,10 @@ function PinPropertiesForm({
           />
         </Field>
       </div>
+      <PinPropertyPicker
+        value={pin.properties ?? []}
+        onChange={(next) => onChange({ properties: next })}
+      />
       <Field label="Notes">
         <Textarea
           rows={2}
