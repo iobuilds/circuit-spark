@@ -64,6 +64,8 @@ export interface SimState {
   undoWireWaypoint: () => void;
   cancelWire: () => void;
   removeWire: (id: string) => void;
+  updateWireWaypoint: (wireId: string, idx: number, point: { x: number; y: number }) => void;
+  insertWireWaypoint: (wireId: string, idx: number, point: { x: number; y: number }) => void;
 
   setStatus: (s: SimStatus) => void;
   setPinStates: (s: Record<number, PinState>) => void;
