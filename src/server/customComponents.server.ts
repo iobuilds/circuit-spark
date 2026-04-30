@@ -421,6 +421,15 @@ export async function runBuilderChat(
  * spec markers we add. As a fallback we expose the last 6 user instructions so
  * the model sees the chain of refinements ("then add an extra pin", etc).
  */
+/** Strip oversized fields from a spec so it fits in the system prompt cheaply. */
+function trimSpecForContext(spec: Record<string, unknown>): Record<string, unknown> {
+  const clone: Record<string, unknown> = { ...spec };
+  if (typeof clone.svg === "string" && (clone.svg as string).length > 2000) {
+    clone.svg = (clone.svg as string).slice(0, 2000) + `\n<!-- …${(clone.svg as string).length - 2000} chars truncated; preserve original SVG unless user asks to redraw -->`;
+  }
+  return clone;
+}
+
 function summarizeHistory(history: ChatMessage[]): string {
   if (!history || history.length === 0) return "";
   const userTurns = history
