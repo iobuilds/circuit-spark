@@ -1,22 +1,15 @@
-// Realistic Arduino Uno pin layout, mapped to the UNO_SVG coordinate space
-// (viewBox 360x240). Coordinates align exactly with the header sockets drawn
-// in src/sim/boardSvgs/unoSvg.ts so wires snap to the right holes.
-//
-// Top header (y=18):
-//   D0..D13 at x = 95 + i*14, then GND at i=14, AREF at i=15.
-//
-// Bottom power header (y=222, left block): IOREF, RESET, 3.3V, 5V, GND, GND, VIN
-//   x positions: 100, 114, 128, 142, 156, 170, 184.
-//
-// Bottom analog header (y=222, right block): A0..A5 at x = 240 + i*14.
+// Realistic Arduino Uno pin layout, mapped to the embedded PNG illustration
+// (UNO_SVG, viewBox 960x704). Coordinates align with the header sockets in
+// the image so wires snap to the right holes.
 
 import type { VisualPin } from "@/sim/adminStore";
 
-const TOP_Y = 18;
-const BOTTOM_Y = 222;
-const PITCH = 14;
-const D_START_X = 95;
-const A_START_X = 240;
+const TOP_Y = 92;
+const BOTTOM_Y = 648;
+const PITCH = 35;
+const LEFT_BLOCK_X = 287;   // D13
+const RIGHT_BLOCK_X = 542;  // D7
+const A0_X = 645;
 
 const COLOR: Record<VisualPin["type"], string> = {
   digital: "#22c55e",
@@ -33,6 +26,11 @@ const COLOR: Record<VisualPin["type"], string> = {
 
 const PWM_PINS = new Set([3, 5, 6, 9, 10, 11]);
 
+function topDigitalX(num: number): number {
+  if (num <= 7) return RIGHT_BLOCK_X + (7 - num) * PITCH;
+  return LEFT_BLOCK_X + (13 - num) * PITCH;
+}
+
 function digital(num: number): VisualPin {
   const isPwm = PWM_PINS.has(num);
   const type: VisualPin["type"] = isPwm ? "pwm" : "digital";
@@ -41,7 +39,7 @@ function digital(num: number): VisualPin {
     label: isPwm ? `~${num}` : `${num}`,
     type,
     number: num,
-    x: D_START_X + num * PITCH,
+    x: topDigitalX(num),
     y: TOP_Y,
     color: COLOR[type],
   };
@@ -53,7 +51,7 @@ function analog(idx: number): VisualPin {
     label: `A${idx}`,
     type: "analog",
     number: 14 + idx,
-    x: A_START_X + idx * PITCH,
+    x: A0_X + idx * PITCH,
     y: BOTTOM_Y,
     color: COLOR.analog,
   };
@@ -65,25 +63,25 @@ export function defaultUnoPins(): VisualPin[] {
   // Top header — D0..D13
   for (let i = 0; i <= 13; i++) pins.push(digital(i));
 
-  // GND + AREF after D13
+  // GND + AREF (to the left of D13)
   pins.push({
     id: "GND_TOP", label: "GND", type: "ground",
-    x: D_START_X + 14 * PITCH, y: TOP_Y, color: COLOR.ground,
+    x: 253, y: TOP_Y, color: COLOR.ground,
   });
   pins.push({
     id: "AREF", label: "AREF", type: "other",
-    x: D_START_X + 15 * PITCH, y: TOP_Y, color: COLOR.other,
+    x: 218, y: TOP_Y, color: COLOR.other,
   });
 
   // Bottom power block
   const power: VisualPin[] = [
-    { id: "IOREF", label: "IOREF", type: "other",  x: 100, y: BOTTOM_Y, color: COLOR.other },
-    { id: "RESET", label: "RST",   type: "other",  x: 114, y: BOTTOM_Y, color: COLOR.other },
-    { id: "3V3",   label: "3.3V",  type: "power",  x: 128, y: BOTTOM_Y, color: COLOR.power },
-    { id: "5V",    label: "5V",    type: "power",  x: 142, y: BOTTOM_Y, color: COLOR.power },
-    { id: "GND1",  label: "GND",   type: "ground", x: 156, y: BOTTOM_Y, color: COLOR.ground },
-    { id: "GND2",  label: "GND",   type: "ground", x: 170, y: BOTTOM_Y, color: COLOR.ground },
-    { id: "VIN",   label: "VIN",   type: "power",  x: 184, y: BOTTOM_Y, color: COLOR.power },
+    { id: "IOREF", label: "IOREF", type: "other",  x: 360, y: BOTTOM_Y, color: COLOR.other },
+    { id: "RESET", label: "RST",   type: "other",  x: 395, y: BOTTOM_Y, color: COLOR.other },
+    { id: "3V3",   label: "3.3V",  type: "power",  x: 430, y: BOTTOM_Y, color: COLOR.power },
+    { id: "5V",    label: "5V",    type: "power",  x: 465, y: BOTTOM_Y, color: COLOR.power },
+    { id: "GND1",  label: "GND",   type: "ground", x: 500, y: BOTTOM_Y, color: COLOR.ground },
+    { id: "GND2",  label: "GND",   type: "ground", x: 535, y: BOTTOM_Y, color: COLOR.ground },
+    { id: "VIN",   label: "VIN",   type: "power",  x: 570, y: BOTTOM_Y, color: COLOR.power },
   ];
   pins.push(...power);
 
