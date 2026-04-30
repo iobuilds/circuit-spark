@@ -1,13 +1,14 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAdminStore, type BoardEntry } from "@/sim/adminStore";
 import { SvgPinEditor } from "@/components/sim/SvgPinEditor";
+import { PinAssignmentManager } from "@/components/sim/PinAssignmentManager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { ChevronLeft, Save, Trash2 } from "lucide-react";
+import { ChevronLeft, Check, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -27,9 +28,27 @@ function BoardEditor() {
   const update = useAdminStore((s) => s.updateBoard);
   const remove = useAdminStore((s) => s.deleteBoard);
 
-  // Local draft state — committed via Save.
+  // Auto-save: every change is immediately persisted to the store via `update()`.
+  // We keep a local mirror so React re-renders cleanly between commits.
   const [draft, setDraft] = useState<BoardEntry | null>(board ?? null);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [selectedPinId, setSelectedPinId] = useState<string | null>(null);
+
   useEffect(() => { if (board && !draft) setDraft(board); }, [board, draft]);
+
+  // Debounced auto-save: persist to store ~150ms after the last edit.
+  function patch(next: BoardEntry) {
+    setDraft(next);
+    setSaving(true);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      update(next.id, next);
+      setSaving(false);
+      setSavedAt(Date.now());
+    }, 150);
+  }
 
   if (!board || !draft) {
     return (
@@ -42,14 +61,8 @@ function BoardEditor() {
     );
   }
 
-  function save() {
-    if (!draft) return;
-    update(draft.id, draft);
-    toast.success("Board saved");
-  }
-
   return (
-    <div className="space-y-4 max-w-5xl">
+    <div className="space-y-4 max-w-[1400px]">
       <div className="flex items-center justify-between gap-2">
         <div>
           <Link to="/admin" className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground mb-1">
@@ -61,6 +74,7 @@ function BoardEditor() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <SaveStatus saving={saving} savedAt={savedAt} />
           {!draft.builtIn && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -82,9 +96,6 @@ function BoardEditor() {
               </AlertDialogContent>
             </AlertDialog>
           )}
-          <Button size="sm" onClick={save}>
-            <Save className="h-4 w-4 mr-1.5" /> Save
-          </Button>
         </div>
       </div>
 
@@ -96,46 +107,77 @@ function BoardEditor() {
 
         <TabsContent value="properties" className="mt-4 space-y-4 max-w-xl">
           <Field label="Name">
-            <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+            <Input value={draft.name} onChange={(e) => patch({ ...draft, name: e.target.value })} />
           </Field>
           <Field label="MCU">
-            <Input value={draft.mcu} onChange={(e) => setDraft({ ...draft, mcu: e.target.value })} />
+            <Input value={draft.mcu} onChange={(e) => patch({ ...draft, mcu: e.target.value })} />
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Digital pins">
               <Input
                 type="number"
                 value={draft.digitalPins}
-                onChange={(e) => setDraft({ ...draft, digitalPins: Number(e.target.value) })}
+                onChange={(e) => patch({ ...draft, digitalPins: Number(e.target.value) })}
               />
             </Field>
             <Field label="Analog pins">
               <Input
                 type="number"
                 value={draft.analogPins}
-                onChange={(e) => setDraft({ ...draft, analogPins: Number(e.target.value) })}
+                onChange={(e) => patch({ ...draft, analogPins: Number(e.target.value) })}
               />
             </Field>
           </div>
           <div className="flex items-center gap-2">
-            <Switch checked={draft.enabled} onCheckedChange={(v) => setDraft({ ...draft, enabled: v })} />
+            <Switch checked={draft.enabled} onCheckedChange={(v) => patch({ ...draft, enabled: v })} />
             <Label className="text-sm">Show in simulator</Label>
           </div>
         </TabsContent>
 
         <TabsContent value="svg" className="mt-4">
-          <SvgPinEditor
-            svg={draft.svg}
-            pins={draft.pins ?? []}
-            onChange={(next) => setDraft({ ...draft, svg: next.svg, pins: next.pins })}
-          />
-          <p className="text-xs text-muted-foreground mt-2">
-            Tip: changes here are kept in your draft until you press <strong>Save</strong>.
-          </p>
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-4">
+            <div className="min-w-0">
+              <SvgPinEditor
+                svg={draft.svg}
+                pins={draft.pins ?? []}
+                onChange={(next) => patch({ ...draft, svg: next.svg, pins: next.pins })}
+              />
+              <p className="text-xs text-muted-foreground mt-2">
+                Step 1 — place pins on the board. Step 2 — assign properties in the panel on the right.
+                All edits save automatically.
+              </p>
+            </div>
+            <div className="lg:h-[640px]">
+              <PinAssignmentManager
+                pins={draft.pins ?? []}
+                onChange={(next) => patch({ ...draft, pins: next })}
+                selectedId={selectedPinId}
+                onSelect={setSelectedPinId}
+              />
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
   );
+}
+
+function SaveStatus({ saving, savedAt }: { saving: boolean; savedAt: number | null }) {
+  if (saving) {
+    return (
+      <span className="inline-flex items-center text-xs text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Saving…
+      </span>
+    );
+  }
+  if (savedAt) {
+    return (
+      <span className="inline-flex items-center text-xs text-muted-foreground">
+        <Check className="h-3.5 w-3.5 mr-1 text-green-500" /> Saved
+      </span>
+    );
+  }
+  return null;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
