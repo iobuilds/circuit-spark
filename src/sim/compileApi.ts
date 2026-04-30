@@ -12,6 +12,7 @@ import {
   type CompileResult as StreamResult,
   type CompileError as StreamError,
 } from "@/services/compilerService";
+import { validatePins } from "./pinValidator";
 
 export interface CompileError {
   file: string;
@@ -101,8 +102,25 @@ export function compileSketch(
     });
   }
 
+  // Client-side pin-range validation — runs before any backend call so a
+  // stale compile cache (or an un-restarted worker) cannot let invalid pins
+  // like digitalWrite(60, …) slip through on an Uno.
+  const backendBoard = mapBoardIdToBackend(req.board);
+  const pinErrors = validatePins(req.files, backendBoard);
+  if (pinErrors.length > 0) {
+    onProgress?.({ step: "validate", percent: 100, message: `Invalid pin reference (${pinErrors.length}) ✗` } as CompileProgress);
+    return Promise.resolve({
+      success: false,
+      stdout: "",
+      stderr: pinErrors.map(e => `${e.file}:${e.line}:${e.col}: error: ${e.message}`).join("\n"),
+      errors: pinErrors.map(e => ({ file: e.file, line: e.line, col: e.col, message: e.message, severity: "error" as const })),
+      warnings: [],
+      compiledAt: new Date().toISOString(),
+    });
+  }
+
   return new Promise((resolve) => {
-    streamCompile(mapBoardIdToBackend(req.board), req.files, req.libraries, {
+    streamCompile(backendBoard, req.files, req.libraries, {
       onProgress: (p) => onProgress?.(p),
       onComplete: (r) => resolve(adaptResult(r)),
       onError: (msg, errs) => resolve({
