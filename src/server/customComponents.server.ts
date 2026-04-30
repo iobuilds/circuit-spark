@@ -253,9 +253,16 @@ For MQ-X gas sensors specifically: expose params { gasPpm 0..10000, heaterVoltag
 
 Reply in plain text for clarifying turns; only call the tool when finalizing.`;
 
+type ChatContent =
+  | string
+  | Array<
+      | { type: "text"; text: string }
+      | { type: "image_url"; image_url: { url: string } }
+    >;
+
 interface ChatMessage {
   role: "system" | "user" | "assistant" | "tool";
-  content: string;
+  content: ChatContent;
   tool_calls?: Array<{
     id: string;
     type: "function";
@@ -272,6 +279,7 @@ export interface AIChatResult {
 export async function runBuilderChat(
   history: ChatMessage[],
   userMessage: string,
+  images?: string[],
 ): Promise<AIChatResult> {
   const apiKey = process.env.LOVABLE_API_KEY;
   if (!apiKey) {
@@ -281,10 +289,18 @@ export async function runBuilderChat(
     };
   }
 
+  const userContent: ChatContent =
+    images && images.length > 0
+      ? [
+          { type: "text", text: userMessage || "Use the attached reference image(s) to design this component." },
+          ...images.map((url) => ({ type: "image_url" as const, image_url: { url } })),
+        ]
+      : userMessage;
+
   const messages: ChatMessage[] = [
     { role: "system", content: SYSTEM_PROMPT },
     ...history,
-    { role: "user", content: userMessage },
+    { role: "user", content: userContent },
   ];
 
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
-import { Loader2, Send, Save, Download, Upload, Trash2, Sparkles, ArrowLeft, Pencil, X, BookOpen, Check, Library, ExternalLink } from "lucide-react";
+import { Loader2, Send, Save, Download, Upload, Trash2, Sparkles, ArrowLeft, Pencil, X, BookOpen, Check, Library, ExternalLink, ImagePlus } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   aiBuilderChat,
@@ -37,7 +37,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-interface ChatMsg { role: "user" | "assistant"; content: string }
+interface ChatMsg { role: "user" | "assistant"; content: string; images?: string[] }
 
 interface ArduinoLibMatch {
   name: string;
@@ -108,12 +108,14 @@ function AdminPage() {
     { role: "assistant", content: "Hi! Describe a component or board you want to build — for example: *'a small DC motor with speed and direction inputs that burns over 12V'*. You don't need to provide an SVG; I'll draw one for you. Once we agree, say **build it** and I'll emit a final spec with a live behavior simulator." },
   ]);
   const [input, setInput] = useState("");
+  const [pendingImages, setPendingImages] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<PendingSpec | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [libs, setLibs] = useState<ArduinoLibMatch[]>([]);
   const [libsLoading, setLibsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatImageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { load(); }, [load]);
 
@@ -142,15 +144,43 @@ function AdminPage() {
     return () => { cancelled = true; };
   }, [pending?.slug, pending?.name, pending?.description, libsFn]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  async function addChatImages(files: FileList | File[]) {
+    const arr = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    const room = Math.max(0, 4 - pendingImages.length);
+    const slice = arr.slice(0, room);
+    if (arr.length > room) toast.warning("Max 4 images per message");
+    const dataUrls = await Promise.all(
+      slice.map(
+        (f) =>
+          new Promise<string>((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(String(r.result));
+            r.onerror = () => reject(r.error);
+            r.readAsDataURL(f);
+          }),
+      ),
+    );
+    setPendingImages((prev) => [...prev, ...dataUrls]);
+  }
+
   async function send() {
     const text = input.trim();
-    if (!text || busy) return;
+    const imgs = pendingImages;
+    if ((!text && imgs.length === 0) || busy) return;
     setInput("");
-    const next = [...messages, { role: "user" as const, content: text }];
+    setPendingImages([]);
+    const userMsg: ChatMsg = { role: "user", content: text || "(image)", images: imgs };
+    const next = [...messages, userMsg];
     setMessages(next);
     setBusy(true);
     try {
-      const res = await chatFn({ data: { history: next, message: text } });
+      const res = await chatFn({
+        data: {
+          history: next.map(({ role, content }) => ({ role, content })),
+          message: text || "Use the attached reference image(s) to design this component.",
+          images: imgs,
+        },
+      });
       setMessages((m) => [...m, { role: "assistant", content: res.reply }]);
       if (res.spec) {
         setPending(res.spec as PendingSpec);
@@ -291,6 +321,13 @@ function AdminPage() {
                 <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">
                   {m.role === "user" ? "You" : "AI"}
                 </div>
+                {m.images && m.images.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-1">
+                    {m.images.map((src, j) => (
+                      <img key={j} src={src} alt="" className="h-20 w-20 object-cover rounded border border-border" />
+                    ))}
+                  </div>
+                )}
                 <div className="whitespace-pre-wrap break-words leading-relaxed">{m.content}</div>
               </div>
             ))}
@@ -300,22 +337,68 @@ function AdminPage() {
               </div>
             )}
           </div>
-          <div className="border-t border-border p-2 flex gap-2">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  send();
-                }
-              }}
-              placeholder="Describe the component, paste SVG, or say 'build it'..."
-              className="min-h-[60px] max-h-32 resize-none text-sm"
-            />
-            <Button onClick={send} disabled={busy || !input.trim()}>
-              <Send className="h-4 w-4" />
-            </Button>
+          <div className="border-t border-border p-2 space-y-2">
+            {pendingImages.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {pendingImages.map((src, i) => (
+                  <div key={i} className="relative">
+                    <img src={src} alt="" className="h-14 w-14 object-cover rounded border border-border" />
+                    <button
+                      type="button"
+                      onClick={() => setPendingImages((p) => p.filter((_, j) => j !== i))}
+                      className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                      aria-label="Remove"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input
+                ref={chatImageInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files) addChatImages(e.target.files);
+                  e.currentTarget.value = "";
+                }}
+              />
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={() => chatImageInputRef.current?.click()}
+                disabled={busy || pendingImages.length >= 4}
+                title="Attach reference image"
+              >
+                <ImagePlus className="h-4 w-4" />
+              </Button>
+              <Textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onPaste={(e) => {
+                  const files = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith("image/"));
+                  if (files.length) {
+                    e.preventDefault();
+                    addChatImages(files);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    send();
+                  }
+                }}
+                placeholder="Describe the component, paste an image, or say 'build it'..."
+                className="min-h-[60px] max-h-32 resize-none text-sm flex-1"
+              />
+              <Button onClick={send} disabled={busy || (!input.trim() && pendingImages.length === 0)}>
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </section>
 
