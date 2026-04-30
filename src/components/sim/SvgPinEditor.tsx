@@ -770,7 +770,7 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
 
         {/* HUD */}
         <div className="absolute bottom-2 left-2 text-[10px] text-muted-foreground bg-background/80 backdrop-blur px-2 py-1 rounded">
-          {pins.length} pin{pins.length === 1 ? "" : "s"} · drag a pin to move · click to edit · <kbd className="px-1 border rounded bg-muted">Space</kbd>+drag to pan · scroll to zoom
+          {pins.length} pin{pins.length === 1 ? "" : "s"}{selectedIds.size > 0 ? ` · ${selectedIds.size} selected` : ""} · drag canvas to marquee-select · <kbd className="px-1 border rounded bg-muted">Shift</kbd>+click to multi-select · <kbd className="px-1 border rounded bg-muted">Ctrl/⌘+A</kbd> all · <kbd className="px-1 border rounded bg-muted">Space</kbd>+drag to pan
         </div>
       </div>
 
