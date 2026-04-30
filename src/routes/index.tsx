@@ -141,7 +141,7 @@ function SimulatorPage() {
       }
       if (meta && e.key === "Enter") {
         e.preventDefault();
-        ctrl.start(useSimStore.getState().code, useSimStore.getState().speed);
+        void compileThenStart();
       }
       if (meta && e.key === ".") {
         e.preventDefault();
