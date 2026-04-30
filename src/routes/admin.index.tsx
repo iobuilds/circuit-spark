@@ -101,23 +101,28 @@ function BoardsTab() {
       // AI-generated board pack ZIP
       importComponentZip(f)
         .then((imp) => {
+          const safeName =
+            (imp.name && imp.name.trim()) ||
+            (imp.slug && imp.slug.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())) ||
+            f.name.replace(/\.zip$/i, "");
+          const safeSlug = imp.slug || safeName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "imported";
           const id = createCustom({
-            id: `custom-board-${imp.slug}-${Date.now().toString(36)}`,
-            name: imp.name,
+            id: `custom-board-${safeSlug}-${Date.now().toString(36)}`,
+            name: safeName,
             mcu: "Custom",
             digitalPins: 14,
             analogPins: 6,
             enabled: true,
             svg: imp.svg,
-            pins: imp.pins?.map((p) => ({
+            pins: (imp.pins ?? []).map((p) => ({
               id: p.id,
-              label: p.label,
+              label: p.label || p.id,
               type: "other",
               x: p.x,
               y: p.y,
             })),
           });
-          toast.success(`Imported ${imp.name} from ZIP`);
+          toast.success(`Imported ${safeName} from ZIP`);
           void id;
         })
         .catch((err) => toast.error("Failed to import ZIP: " + (err as Error).message));
