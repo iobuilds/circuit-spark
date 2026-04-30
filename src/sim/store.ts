@@ -102,12 +102,13 @@ export const useSimStore = create<SimState>((set, get) => ({
   setBoard: (b) => set({ boardId: b }),
   setCode: (c) => set({ code: c }),
 
-  addComponent: (kind, x, y) => {
+  addComponent: (kind, x, y, customId) => {
     const id = nid("c");
     const props: Record<string, number | string | boolean> = {};
     if (kind === "led") { props.color = "red"; }
     if (kind === "resistor") { props.ohms = 220; }
     if (kind === "potentiometer") { props.value = 512; }
+    if (kind === "custom" && customId) { props.customId = customId; }
     set((s) => ({
       components: [...s.components, { id, kind, x, y, rotation: 0, props }],
       selectedId: id,
