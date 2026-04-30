@@ -63,7 +63,7 @@ export function ArduinoUnoBoard({ x, y, highlightPin, onPinClick, onPinHover }: 
               fill={isOutput ? "var(--color-pin-active)" : "var(--color-pin)"}
               fillOpacity={0.9}
               stroke={isHi ? "var(--color-primary)" : "oklch(0.15 0 0)"}
-              strokeWidth={isHi ? 2 : 0.8}
+              strokeWidth={isHi ? 4 : 1.5}
               className={cn("cursor-crosshair transition-all", isOutput && "led-glow-yellow")}
               onMouseDown={(e) => { e.stopPropagation(); onPinClick?.(pin.id, e); }}
               onMouseEnter={(e) => onPinHover?.(pin, e)}
