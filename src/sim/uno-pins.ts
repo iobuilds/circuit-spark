@@ -50,14 +50,16 @@ for (let i = 0; i <= 5; i++) {
   });
 }
 
+// Real Arduino Uno power-header order (left to right when board oriented with
+// USB on the left): IOREF, RESET, 3.3V, 5V, GND, GND, VIN.
 const powerPins: BoardPin[] = [
-  { id: "VIN", label: "VIN", kind: "power", x: 100, y: bottomY },
-  { id: "GND1", label: "GND", kind: "ground", x: 114, y: bottomY },
-  { id: "GND2", label: "GND", kind: "ground", x: 128, y: bottomY },
-  { id: "5V", label: "5V", kind: "power", x: 142, y: bottomY },
-  { id: "3V3", label: "3.3V", kind: "power", x: 156, y: bottomY },
-  { id: "RESET", label: "RST", kind: "other", x: 170, y: bottomY },
-  { id: "IOREF", label: "IOREF", kind: "other", x: 184, y: bottomY },
+  { id: "IOREF", label: "IOREF", kind: "other", x: 100, y: bottomY },
+  { id: "RESET", label: "RST",   kind: "other", x: 114, y: bottomY },
+  { id: "3V3",   label: "3.3V",  kind: "power", x: 128, y: bottomY },
+  { id: "5V",    label: "5V",    kind: "power", x: 142, y: bottomY },
+  { id: "GND1",  label: "GND",   kind: "ground", x: 156, y: bottomY },
+  { id: "GND2",  label: "GND",   kind: "ground", x: 170, y: bottomY },
+  { id: "VIN",   label: "VIN",   kind: "power", x: 184, y: bottomY },
 ];
 
 export const UNO_PINS: BoardPin[] = [...digitalPins, ...powerPins, ...analogPins];

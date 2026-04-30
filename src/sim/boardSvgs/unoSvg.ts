@@ -171,13 +171,13 @@ export const UNO_SVG = `
 
   <!-- Silkscreen labels below bottom header -->
   <g font-family="monospace" font-size="4" fill="#ffffff" opacity="0.85" text-anchor="middle">
-    <text x="100" y="238">VIN</text>
-    <text x="114" y="238">GND</text>
-    <text x="128" y="238">GND</text>
+    <text x="100" y="238">IOR</text>
+    <text x="114" y="238">RST</text>
+    <text x="128" y="238">3V3</text>
     <text x="142" y="238">5V</text>
-    <text x="156" y="238">3V3</text>
-    <text x="170" y="238">RST</text>
-    <text x="184" y="238">IOR</text>
+    <text x="156" y="238">GND</text>
+    <text x="170" y="238">GND</text>
+    <text x="184" y="238">VIN</text>
     <text x="146" y="208" font-size="5" font-weight="700">POWER</text>
 
     ${Array.from({ length: 6 }, (_, i) => `<text x="${240 + i * 14}" y="238">A${i}</text>`).join("")}
