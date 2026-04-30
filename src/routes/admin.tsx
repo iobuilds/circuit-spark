@@ -6,12 +6,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
-import { Loader2, Send, Save, Download, Upload, Trash2, Sparkles, ArrowLeft, Pencil, X, BookOpen, Check } from "lucide-react";
+import { Loader2, Send, Save, Download, Upload, Trash2, Sparkles, ArrowLeft, Pencil, X, BookOpen, Check, Library, ExternalLink } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   aiBuilderChat,
   saveCustomComponent,
   deleteCustomComponent,
+  findArduinoLibraries,
 } from "@/server/customComponents.functions";
 import {
   useCustomComponentRegistry,
@@ -37,6 +38,20 @@ export const Route = createFileRoute("/admin")({
 });
 
 interface ChatMsg { role: "user" | "assistant"; content: string }
+
+interface ArduinoLibMatch {
+  name: string;
+  version: string;
+  author: string;
+  sentence: string;
+  paragraph?: string;
+  website?: string;
+  repository?: string;
+  category?: string;
+  architectures: string[];
+  score: number;
+  matchedTerms: string[];
+}
 
 interface PendingSpec {
   name: string;
@@ -87,6 +102,7 @@ function AdminPage() {
   const chatFn = useServerFn(aiBuilderChat);
   const saveFn = useServerFn(saveCustomComponent);
   const deleteFn = useServerFn(deleteCustomComponent);
+  const libsFn = useServerFn(findArduinoLibraries);
 
   const [messages, setMessages] = useState<ChatMsg[]>([
     { role: "assistant", content: "Hi! Describe a component or board you want to build — for example: *'a small DC motor with speed and direction inputs that burns over 12V'*. You don't need to provide an SVG; I'll draw one for you. Once we agree, say **build it** and I'll emit a final spec with a live behavior simulator." },
@@ -95,9 +111,36 @@ function AdminPage() {
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<PendingSpec | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [libs, setLibs] = useState<ArduinoLibMatch[]>([]);
+  const [libsLoading, setLibsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { load(); }, [load]);
+
+  // Auto-fetch compatible Arduino libraries whenever a spec is set/changed.
+  useEffect(() => {
+    if (!pending) {
+      setLibs([]);
+      return;
+    }
+    let cancelled = false;
+    setLibsLoading(true);
+    libsFn({
+      data: {
+        name: pending.name,
+        slug: pending.slug,
+        description: pending.description,
+        keywords: pending.pins.map((p) => p.label).slice(0, 6),
+        limit: 8,
+      },
+    })
+      .then((r) => {
+        if (!cancelled) setLibs((r.matches as ArduinoLibMatch[]) ?? []);
+      })
+      .catch(() => { if (!cancelled) setLibs([]); })
+      .finally(() => { if (!cancelled) setLibsLoading(false); });
+    return () => { cancelled = true; };
+  }, [pending?.slug, pending?.name, pending?.description, libsFn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function send() {
     const text = input.trim();
@@ -382,6 +425,51 @@ function AdminPage() {
                   <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Wiring example</div>
                   <pre className="text-[11px] font-mono bg-muted/50 rounded p-2 overflow-x-auto leading-relaxed">{buildWiringExample(pending)}</pre>
                 </Card>
+
+                {/* Compatible Arduino libraries (live from Arduino library index) */}
+                <Card className="p-4 max-w-md mx-auto">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Library className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-semibold">Compatible Arduino libraries</h3>
+                    {libsLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mb-2">
+                    Pulled live from the official Arduino library registry, ranked by relevance.
+                  </p>
+                  {!libsLoading && libs.length === 0 && (
+                    <div className="text-xs text-muted-foreground italic">No matches found in the Arduino library index.</div>
+                  )}
+                  <ul className="space-y-2">
+                    {libs.map((l) => (
+                      <li key={`${l.name}@${l.version}`} className="text-xs border border-border rounded p-2 bg-muted/30">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="font-medium text-foreground truncate">{l.name}</div>
+                            <div className="text-[10px] text-muted-foreground truncate">
+                              v{l.version} · by {l.author}{l.category ? ` · ${l.category}` : ""}
+                            </div>
+                          </div>
+                          {(l.website || l.repository) && (
+                            <a
+                              href={l.website || l.repository}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-primary shrink-0 hover:underline inline-flex items-center gap-0.5"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                        </div>
+                        {l.sentence && (
+                          <div className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{l.sentence}</div>
+                        )}
+                        <div className="mt-1 text-[10px] font-mono text-muted-foreground">
+                          #include &lt;{libIncludeName(l.name)}.h&gt;
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
               </>
             ) : (
               <div className="h-full flex items-center justify-center">
@@ -462,4 +550,10 @@ function buildWiringExample(spec: PendingSpec): string {
     lines.push(`${p.label.padEnd(8)} ${target}`);
   }
   return lines.join("\n");
+}
+
+/** Convert an Arduino library name into its likely #include header name. */
+function libIncludeName(name: string): string {
+  // Most libraries map: "Adafruit SSD1306" -> "Adafruit_SSD1306"
+  return name.trim().replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 }
