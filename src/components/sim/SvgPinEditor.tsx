@@ -851,6 +851,28 @@ function UploadZone({
   );
 }
 
+function AlignBtn({
+  title, disabled, onClick, children,
+}: {
+  title: string;
+  disabled?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Button
+      size="icon"
+      variant="outline"
+      className="h-8 w-8"
+      title={title}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {children}
+    </Button>
+  );
+}
+
 function ToolButton({
   active, onClick, icon, children,
 }: {
