@@ -7,7 +7,7 @@ import { findUnoPin, UNO_HEIGHT, UNO_WIDTH } from "@/sim/uno-pins";
 import { buildNetGraph, evaluateInputs, isLedPowered } from "@/sim/netlist";
 import type { ComponentKind } from "@/sim/types";
 import { useAdminStore } from "@/sim/adminStore";
-import { CornerDownLeft, RotateCcw, Trash2, X } from "lucide-react";
+import { CornerDownLeft, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Props {
