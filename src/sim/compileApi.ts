@@ -35,8 +35,7 @@ export interface CompileRequest {
 }
 
 export const API_BASE: string =
-  // @ts-expect-error vite injects env at build time
-  (import.meta.env?.VITE_API_URL as string | undefined) ?? "";
+  ((import.meta as { env?: Record<string, string | undefined> }).env?.VITE_API_URL) ?? "";
 
 export const HAS_BACKEND = Boolean(API_BASE);
 
