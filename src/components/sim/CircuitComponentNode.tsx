@@ -139,18 +139,32 @@ export function CircuitComponentNode({ comp, isPowered, onPinClick, onSelect, on
       )}
 
       {/* Pins */}
-      {pins.map((pin) => (
-        <g key={pin.id} transform={`translate(${pin.x} ${pin.y})`}>
-          <circle
-            r={4}
-            fill="var(--color-pin)"
-            stroke="oklch(0.15 0 0)"
-            className="cursor-crosshair hover:fill-[var(--color-pin-active)]"
-            onMouseDown={(e) => { e.stopPropagation(); onPinClick(pin.id, e); }}
-          />
-          <title>{pin.label}</title>
-        </g>
-      ))}
+      {pins.map((pin) => {
+        const editable = pinEditMode && comp.kind === "custom";
+        return (
+          <g key={pin.id} transform={`translate(${pin.x} ${pin.y})`}>
+            <circle
+              r={editable ? 6 : 4}
+              fill={editable ? "var(--color-primary)" : "var(--color-pin)"}
+              stroke={editable ? "oklch(0.95 0 0)" : "oklch(0.15 0 0)"}
+              strokeWidth={editable ? 2 : 1}
+              className={editable ? "cursor-move" : "cursor-crosshair hover:fill-[var(--color-pin-active)]"}
+              onMouseDown={(e) => {
+                if (editable) { startPinDrag(pin.id, e); return; }
+                e.stopPropagation();
+                onPinClick(pin.id, e);
+              }}
+            />
+            {editable && (
+              <text x={0} y={-10} textAnchor="middle" fontSize={9} fontFamily="monospace"
+                fill="var(--color-primary)" pointerEvents="none">
+                {pin.label}
+              </text>
+            )}
+            <title>{pin.label}{editable ? " (drag to reposition)" : ""}</title>
+          </g>
+        );
+      })}
     </g>
   );
 }
