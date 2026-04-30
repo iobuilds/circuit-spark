@@ -495,10 +495,11 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
 /* ---------------- Sub-components ---------------- */
 
 function UploadZone({
-  onFiles, fileRef,
+  onFiles, fileRef, onStartBlank,
 }: {
   onFiles: (f: FileList | null) => void;
   fileRef: React.RefObject<HTMLInputElement | null>;
+  onStartBlank?: () => void;
 }) {
   const [over, setOver] = useState(false);
   return (
@@ -506,16 +507,25 @@ function UploadZone({
       onDragOver={(e) => { e.preventDefault(); setOver(true); }}
       onDragLeave={() => setOver(false)}
       onDrop={(e) => { e.preventDefault(); setOver(false); onFiles(e.dataTransfer.files); }}
-      onClick={() => fileRef.current?.click()}
       className={
-        "flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed cursor-pointer transition-colors " +
-        (over ? "border-primary bg-primary/5" : "border-border bg-muted/20 hover:bg-muted/30")
+        "flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed transition-colors " +
+        (over ? "border-primary bg-primary/5" : "border-border bg-muted/20")
       }
       style={{ width: CANVAS_W, height: CANVAS_H, maxWidth: "100%" }}
     >
       <Upload className="h-10 w-10 text-muted-foreground" />
       <div className="text-sm font-medium">Drop your SVG file here</div>
-      <div className="text-xs text-muted-foreground">or click to browse · .svg only</div>
+      <div className="text-xs text-muted-foreground">.svg only</div>
+      <div className="flex items-center gap-2 mt-2">
+        <Button size="sm" onClick={() => fileRef.current?.click()}>
+          <Upload className="h-4 w-4 mr-1.5" /> Browse for SVG
+        </Button>
+        {onStartBlank && (
+          <Button size="sm" variant="outline" onClick={onStartBlank}>
+            Start with blank canvas
+          </Button>
+        )}
+      </div>
       <input
         ref={fileRef}
         type="file"
