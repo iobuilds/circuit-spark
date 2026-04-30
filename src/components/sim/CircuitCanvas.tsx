@@ -577,18 +577,46 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         >reset</button>
       </div>
 
-      {selectedId && !locked && (
-        <div className="absolute top-3 right-3">
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => removeComponent(selectedId)}
-          >
-            <Trash2 className="h-3.5 w-3.5 mr-1" />
-            Delete
-          </Button>
-        </div>
-      )}
+      {selectedId && !locked && (() => {
+        const sel = components.find((c) => c.id === selectedId);
+        const isCustom = sel?.kind === "custom";
+        return (
+          <div className="absolute top-3 right-3 flex items-center gap-2">
+            {isCustom && (
+              <>
+                <Button
+                  size="sm"
+                  variant={pinEditMode ? "default" : "secondary"}
+                  onClick={() => setPinEditMode((v) => !v)}
+                  title="Drag pins to reposition them on this component"
+                >
+                  <Move className="h-3.5 w-3.5 mr-1" />
+                  {pinEditMode ? "Done" : "Move pins"}
+                </Button>
+                {pinEditMode && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setComponentProp(selectedId, "pinOverrides", "")}
+                    title="Reset pin positions to library defaults"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                    Reset
+                  </Button>
+                )}
+              </>
+            )}
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => removeComponent(selectedId)}
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1" />
+              Delete
+            </Button>
+          </div>
+        );
+      })()}
 
       {/* Floating "+" Add button — opens the search popup. */}
       {!locked && (
