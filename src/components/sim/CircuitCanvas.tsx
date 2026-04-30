@@ -8,9 +8,10 @@ import { findUnoPin, UNO_HEIGHT, UNO_WIDTH } from "@/sim/uno-pins";
 import { buildNetGraph, evaluateInputs, isLedPowered } from "@/sim/netlist";
 import type { BoardId, ComponentKind } from "@/sim/types";
 import { useAdminStore } from "@/sim/adminStore";
-import { CornerDownLeft, Lock, Plus, Trash2, X, Undo2, Redo2, Wand2, Share2 } from "lucide-react";
+import { CornerDownLeft, Lock, Plus, Trash2, X, Undo2, Redo2, Wand2, Share2, Move, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddItemDialog } from "./AddItemDialog";
+import { SensorControlsPanel } from "./SensorControlsPanel";
 
 interface Props {
   onPinInputChange: (pin: number, value: { digital?: 0 | 1; analog?: number }) => void;
@@ -79,6 +80,8 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const [addOpen, setAddOpen] = useState(false);
   const [hovered, setHovered] = useState<HoveredPin | null>(null);
   const [selectedWireId, setSelectedWireId] = useState<string | null>(null);
+  const [pinEditMode, setPinEditMode] = useState(false);
+  const setComponentProp = useSimStore((s) => s.setComponentProp);
 
   const placedBoards = useMemo(() => components.filter((c) => c.kind === "board"), [components]);
 
@@ -268,7 +271,19 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
       const entry = adminComps.find((a) => a.id === cid);
       const pin = entry?.pins?.find((p) => p.id === pinId);
       if (!pin) return null;
-      return { x: c.x + pin.x, y: c.y + pin.y };
+      // Honor per-instance pin overrides set via the "Move pins" tool.
+      let px = pin.x, py = pin.y;
+      const rawOv = c.props.pinOverrides;
+      if (typeof rawOv === "string" && rawOv) {
+        try {
+          const ov = JSON.parse(rawOv);
+          if (ov && typeof ov === "object" && ov[pinId]) {
+            px = Number(ov[pinId].x ?? pin.x);
+            py = Number(ov[pinId].y ?? pin.y);
+          }
+        } catch { /* ignore malformed overrides */ }
+      }
+      return { x: c.x + px, y: c.y + py };
     }
     const def = COMPONENT_DEFS[c.kind];
     const pin = def.pins.find((p) => p.id === pinId);
@@ -440,6 +455,8 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                 setDragOffset({ x: p.x - c.x, y: p.y - c.y });
               }}
               onPinClick={onPinClickFactory(c.id)}
+              pinEditMode={pinEditMode && !locked && selectedId === c.id && c.kind === "custom"}
+              toCanvasPoint={clientToSvg}
             />
           ))}
 
@@ -573,18 +590,46 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         >reset</button>
       </div>
 
-      {selectedId && !locked && (
-        <div className="absolute top-3 right-3">
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => removeComponent(selectedId)}
-          >
-            <Trash2 className="h-3.5 w-3.5 mr-1" />
-            Delete
-          </Button>
-        </div>
-      )}
+      {selectedId && !locked && (() => {
+        const sel = components.find((c) => c.id === selectedId);
+        const isCustom = sel?.kind === "custom";
+        return (
+          <div className="absolute top-3 right-3 flex items-center gap-2">
+            {isCustom && (
+              <>
+                <Button
+                  size="sm"
+                  variant={pinEditMode ? "default" : "secondary"}
+                  onClick={() => setPinEditMode((v) => !v)}
+                  title="Drag pins to reposition them on this component"
+                >
+                  <Move className="h-3.5 w-3.5 mr-1" />
+                  {pinEditMode ? "Done" : "Move pins"}
+                </Button>
+                {pinEditMode && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setComponentProp(selectedId, "pinOverrides", "")}
+                    title="Reset pin positions to library defaults"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                    Reset
+                  </Button>
+                )}
+              </>
+            )}
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => removeComponent(selectedId)}
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1" />
+              Delete
+            </Button>
+          </div>
+        );
+      })()}
 
       {/* Floating "+" Add button — opens the search popup. */}
       {!locked && (
@@ -607,6 +652,9 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
           <span>Workspace locked while simulation is {status}. Stop the sim to edit.</span>
         </div>
       )}
+
+      {/* Sliders/toggles for AI-generated sensor inputs (axes, light, distance…). */}
+      <SensorControlsPanel />
 
       {/* Floating pin info popup on hover (id, kind/role, connected net, live value if simulating). */}
       {hovered && (() => {
