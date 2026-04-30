@@ -286,15 +286,32 @@ export const useSimStore = create<SimState>((set, get) => {
     simTimeMs: 0, drawingFrom: null, drawingWaypoints: [],
     wireHistory: [], wireFuture: [],
   }),
-  loadProject: (p) => set({
-    code: p.code,
-    components: p.components,
-    wires: p.wires,
-    boardId: p.boardId,
-    selectedId: null,
-    serial: [],
-    wireHistory: [],
-    wireFuture: [],
-  }),
+  loadProject: (p) => {
+    set({
+      code: p.code,
+      components: p.components,
+      wires: p.wires,
+      boardId: p.boardId,
+      selectedId: null,
+      serial: [],
+      wireHistory: [],
+      wireFuture: [],
+    });
+    // Sync the loaded code into the IDE editor (active .ino file, or the first file).
+    // Dynamic import avoids a circular dependency at module init.
+    import("./ideStore").then(({ useIdeStore }) => {
+      const ide = useIdeStore.getState();
+      if (!ide.loaded || ide.files.length === 0) return;
+      const target =
+        ide.files.find((f) => f.id === ide.activeFileId && f.kind === "ino") ??
+        ide.files.find((f) => f.kind === "ino") ??
+        ide.files[0];
+      if (!target) return;
+      useIdeStore.setState({
+        files: ide.files.map((f) => (f.id === target.id ? { ...f, content: p.code } : f)),
+        activeFileId: target.id,
+      });
+    }).catch(() => { /* non-fatal */ });
+  },
   });
 });
