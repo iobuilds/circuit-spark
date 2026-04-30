@@ -16,9 +16,10 @@ interface Props {
   y: number;
   highlightPin?: string;
   onPinClick?: (pinId: string, e: React.MouseEvent) => void;
+  onPinHover?: (pin: BoardPinLite | null, e?: React.MouseEvent) => void;
 }
 
-interface BoardPinLite {
+export interface BoardPinLite {
   id: string;
   label: string;
   number?: number;
@@ -82,7 +83,7 @@ function deriveLayout(digital: number, analog: number) {
   return { width, height, pins };
 }
 
-export function GenericBoard({ boardId, x, y, highlightPin, onPinClick }: Props) {
+export function GenericBoard({ boardId, x, y, highlightPin, onPinClick, onPinHover }: Props) {
   const pinStates = useSimStore((s) => s.pinStates);
   const boards = useAdminStore((s) => s.boards);
   const loaded = useAdminStore((s) => s.loaded);
@@ -176,8 +177,9 @@ export function GenericBoard({ boardId, x, y, highlightPin, onPinClick }: Props)
               strokeWidth={isHi ? 2 : 0.8}
               className={cn("cursor-crosshair transition-all", isOutput && "led-glow-yellow")}
               onMouseDown={(e) => { e.stopPropagation(); onPinClick?.(pin.id, e); }}
+              onMouseEnter={(e) => onPinHover?.(pin, e)}
+              onMouseLeave={(e) => onPinHover?.(null, e)}
             />
-            <title>{pin.label}</title>
           </g>
         );
       })}

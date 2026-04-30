@@ -1,4 +1,4 @@
-import { UNO_PINS, UNO_WIDTH, UNO_HEIGHT } from "@/sim/uno-pins";
+import { UNO_PINS, UNO_WIDTH, UNO_HEIGHT, type BoardPin } from "@/sim/uno-pins";
 import { useSimStore } from "@/sim/store";
 import { useAdminStore } from "@/sim/adminStore";
 import { useEffect, useMemo } from "react";
@@ -9,9 +9,10 @@ interface Props {
   y: number;
   highlightPin?: string;
   onPinClick?: (pinId: string, e: React.MouseEvent) => void;
+  onPinHover?: (pin: BoardPin | null, e?: React.MouseEvent) => void;
 }
 
-export function ArduinoUnoBoard({ x, y, highlightPin, onPinClick }: Props) {
+export function ArduinoUnoBoard({ x, y, highlightPin, onPinClick, onPinHover }: Props) {
   const pinStates = useSimStore((s) => s.pinStates);
   const boards = useAdminStore((s) => s.boards);
   const loaded = useAdminStore((s) => s.loaded);
@@ -64,8 +65,9 @@ export function ArduinoUnoBoard({ x, y, highlightPin, onPinClick }: Props) {
               strokeWidth={isHi ? 2 : 0.8}
               className={cn("cursor-crosshair transition-all", isOutput && "led-glow-yellow")}
               onMouseDown={(e) => { e.stopPropagation(); onPinClick?.(pin.id, e); }}
+              onMouseEnter={(e) => onPinHover?.(pin, e)}
+              onMouseLeave={(e) => onPinHover?.(null, e)}
             />
-            <title>{pin.label}</title>
           </g>
         );
       })}
