@@ -141,7 +141,7 @@ function score(e: ArduinoBoardEntry, q: string): number {
   return 0;
 }
 
-export const Route = createFileRoute("/api/boards/search")({
+export const Route = (createFileRoute("/api/boards/search") as any)({
   server: {
     handlers: {
       GET: async ({ request }: { request: Request }) => {

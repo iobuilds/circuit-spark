@@ -140,7 +140,7 @@ function scoreMatch(e: ArduinoLibraryEntry, q: string): number {
   return 0;
 }
 
-export const Route = createFileRoute("/api/libraries/search")({
+export const Route = (createFileRoute("/api/libraries/search") as any)({
   server: {
     handlers: {
       GET: async ({ request }: { request: Request }) => {
