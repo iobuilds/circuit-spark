@@ -21,6 +21,29 @@ compileQueue.process(config.MAX_CONCURRENT_JOBS, async (job) => {
   };
 
   try {
+    // Static pin-range validation runs BEFORE the cache check so cached
+    // "success" results from before this validator existed (or for code that
+    // arduino-cli happily compiles like digitalWrite(60, ...)) cannot bypass
+    // the check.
+    const pinErrors = validatePins(files, board);
+    if (pinErrors.length > 0) {
+      await emit('validate', 100, `Invalid pin reference (${pinErrors.length}) ✗`);
+      return {
+        success: false,
+        stdout: '',
+        stderr: pinErrors.map(e => `${e.file}:${e.line}:${e.col}: error: ${e.message}`).join('\n'),
+        errors: pinErrors,
+        warnings: [],
+        binary: null,
+        binaryType: null,
+        binarySize: 0,
+        flashUsed: 0, flashTotal: 0, flashPercent: 0,
+        ramUsed: 0,   ramTotal: 0,   ramPercent: 0,
+        duration: Date.now() - startTime,
+        fromCache: false,
+      };
+    }
+
     await emit('cache_check', 5, 'Checking cache...');
     const cacheKey = hashCode.generate({ files, board, libraries });
 
@@ -38,28 +61,6 @@ compileQueue.process(config.MAX_CONCURRENT_JOBS, async (job) => {
     try {
       await emit('write', 25, 'Writing source files...');
       await fileManager.writeFiles(workDir, files);
-
-      // Static pin-range validation: catches things like digitalWrite(60, ...)
-      // that arduino-cli accepts because uint8_t allows it, but the board
-      // physically does not have that pin.
-      const pinErrors = validatePins(files, board);
-      if (pinErrors.length > 0) {
-        await emit('finish', 100, `Invalid pin reference (${pinErrors.length}) ✗`);
-        return {
-          success: false,
-          stdout: '',
-          stderr: pinErrors.map(e => `${e.file}:${e.line}:${e.col}: error: ${e.message}`).join('\n'),
-          errors: pinErrors,
-          warnings: [],
-          binary: null,
-          binaryType: null,
-          binarySize: 0,
-          flashUsed: 0, flashTotal: 0, flashPercent: 0,
-          ramUsed: 0,   ramTotal: 0,   ramPercent: 0,
-          duration: Date.now() - startTime,
-          fromCache: false,
-        };
-      }
 
       await emit('libraries', 40, 'Checking libraries...');
       const missing = await compiler.checkLibraries(libraries || []);
