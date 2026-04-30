@@ -87,7 +87,9 @@ function loadPersisted<T>(key: string, fallback: T[]): T[] {
     const raw = localStorage.getItem(key);
     if (!raw) return fallback;
     const parsed = JSON.parse(raw) as PersistedShape<T>;
-    if (parsed._version !== STORAGE_VERSION || !Array.isArray(parsed.items)) return fallback;
+    if (!parsed || !Array.isArray(parsed.items)) return fallback;
+    // Forward-compatible: v1 data has the same shape minus svg/pins (both optional).
+    if (parsed._version !== STORAGE_VERSION && parsed._version !== 1) return fallback;
     return parsed.items;
   } catch { return fallback; }
 }
