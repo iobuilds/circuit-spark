@@ -316,6 +316,68 @@ export function ComponentBehaviorPreview({ spec }: { spec: PreviewSpecLike }) {
   );
 }
 
+function renderScreenContent(
+  rectEl: SVGRectElement,
+  values: ParamValues,
+  burned: boolean,
+) {
+  const parent = rectEl.parentNode as SVGGElement | null;
+  if (!parent) return;
+  // Pull display text from common param names.
+  const text =
+    pickStr(values, "text") ??
+    [pickStr(values, "line1"), pickStr(values, "line2")].filter(Boolean).join("\n") ||
+    pickStr(values, "digit") ||
+    "";
+  const invert = Boolean(values.invert);
+
+  const x = parseFloat(rectEl.getAttribute("x") || "0");
+  const y = parseFloat(rectEl.getAttribute("y") || "0");
+  const w = parseFloat(rectEl.getAttribute("width") || "0");
+  const h = parseFloat(rectEl.getAttribute("height") || "0");
+
+  const overlayId = `__screen_overlay_${rectEl.id || Math.abs(hashStr(`${x},${y},${w},${h}`))}`;
+  let g = parent.querySelector<SVGGElement>(`#${overlayId}`);
+  if (!g) {
+    g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    g.setAttribute("id", overlayId);
+    g.setAttribute("pointer-events", "none");
+    parent.appendChild(g);
+  }
+  // Style the screen rect (background)
+  rectEl.setAttribute("fill", burned ? "#222" : invert ? "#cfe9ff" : "#0b1d2b");
+
+  // Clear old children
+  while (g.firstChild) g.removeChild(g.firstChild);
+
+  if (burned || !text) return;
+
+  const fg = invert ? "#0b1d2b" : "#7fd0ff";
+  const lines = text.split("\n").slice(0, Math.max(1, Math.floor(h / 8)));
+  const fontSize = Math.max(4, Math.min(h / Math.max(2, lines.length) - 2, 10));
+  lines.forEach((ln, i) => {
+    const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    t.setAttribute("x", String(x + 2));
+    t.setAttribute("y", String(y + 2 + (i + 1) * (fontSize + 1)));
+    t.setAttribute("fill", fg);
+    t.setAttribute("font-family", "ui-monospace, Menlo, monospace");
+    t.setAttribute("font-size", String(fontSize));
+    t.textContent = ln.slice(0, Math.floor(w / (fontSize * 0.6)));
+    g!.appendChild(t);
+  });
+}
+
+function pickStr(values: ParamValues, key: string): string | undefined {
+  const v = values[key];
+  return typeof v === "string" ? v : undefined;
+}
+
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return h;
+}
+
 function renderPinDots(spec: PreviewSpecLike): string {
   return spec.pins
     .map(
