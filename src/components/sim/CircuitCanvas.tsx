@@ -100,13 +100,18 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   }
 
   // Drag-drop from sidebar
-  function onSvgDragOver(e: React.DragEvent) { e.preventDefault(); }
+  function onSvgDragOver(e: React.DragEvent) { if (!locked) e.preventDefault(); }
   function onSvgDrop(e: React.DragEvent) {
     e.preventDefault();
-    // Board drop: switch active board on the canvas.
+    if (locked) return;
+    // Board drop: place a board instance on the canvas at the drop point.
     const boardPayload = e.dataTransfer.getData("application/x-embedsim-board");
     if (boardPayload) {
-      useSimStore.getState().setBoard(boardPayload as never);
+      const { x, y } = clientToSvg(e);
+      const snap = (n: number) => Math.round(n / 10) * 10;
+      addComponent("board", snap(x - 180), snap(y - 120), boardPayload);
+      // Make the dropped board the active simulation target.
+      setBoard(boardPayload as BoardId);
       return;
     }
     const payload = e.dataTransfer.getData("application/x-embedsim-component");
@@ -128,6 +133,27 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     const def = COMPONENT_DEFS[kind];
     if (!def?.available) return;
     addComponent(kind, snap(x - def.width / 2), snap(y - def.height / 2));
+  }
+
+  /** Add an item at the canvas center (used by the "+" popup). */
+  function addAtCenter(payload: { kind: "component"; value: ComponentKind }
+    | { kind: "custom"; customId: string; w: number; h: number }
+    | { kind: "board"; boardId: BoardId }) {
+    if (locked) return;
+    const svg = svgRef.current;
+    const r = svg?.getBoundingClientRect();
+    const cx = r ? (r.width / 2) / zoom - pan.x : 400;
+    const cy = r ? (r.height / 2) / zoom - pan.y : 250;
+    const snap = (n: number) => Math.round(n / 10) * 10;
+    if (payload.kind === "board") {
+      addComponent("board", snap(cx - 180), snap(cy - 120), payload.boardId);
+      setBoard(payload.boardId);
+    } else if (payload.kind === "custom") {
+      addComponent("custom", snap(cx - payload.w / 2), snap(cy - payload.h / 2), payload.customId);
+    } else {
+      const def = COMPONENT_DEFS[payload.value];
+      addComponent(payload.value, snap(cx - def.width / 2), snap(cy - def.height / 2));
+    }
   }
 
   // Wire/drag mouse handling
