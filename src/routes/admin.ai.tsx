@@ -852,3 +852,136 @@ function libIncludeName(name: string): string {
   // Most libraries map: "Adafruit SSD1306" -> "Adafruit_SSD1306"
   return name.trim().replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 }
+
+/** Live-editable SVG markup with a rendered preview. */
+function SvgEditor({
+  svg,
+  width,
+  height,
+  onChange,
+}: {
+  svg: string;
+  width: number;
+  height: number;
+  onChange: (svg: string) => void;
+}) {
+  const [draft, setDraft] = useState(svg);
+  // Sync when AI regenerates the spec.
+  useEffect(() => { setDraft(svg); }, [svg]);
+
+  return (
+    <Card className="p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">SVG markup</h3>
+        <div className="flex gap-1">
+          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setDraft(svg)}>Reset</Button>
+          <Button size="sm" className="h-7 text-xs" onClick={() => { onChange(draft); toast.success("SVG applied"); }}>
+            Apply
+          </Button>
+        </div>
+      </div>
+      <div className="bg-muted/40 rounded p-3 flex items-center justify-center">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox={`0 0 ${width} ${height}`}
+          width={width}
+          height={height}
+          dangerouslySetInnerHTML={{ __html: draft }}
+        />
+      </div>
+      <Textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        spellCheck={false}
+        className="font-mono text-[11px] min-h-[260px] leading-relaxed"
+        placeholder="<rect ... />"
+      />
+      <p className="text-[10px] text-muted-foreground">
+        Inner SVG only (no outer &lt;svg&gt; wrapper). Click Apply to update the live preview, then Save to library.
+      </p>
+    </Card>
+  );
+}
+
+/** Editable JSON model: behavior, pins, defaults, behaviorNotes. */
+function ModelEditor({
+  pending,
+  onChange,
+}: {
+  pending: PendingSpec;
+  onChange: (patch: Partial<PendingSpec>) => void;
+}) {
+  const initial = {
+    pins: pending.pins,
+    defaults: pending.defaults ?? {},
+    behaviorNotes: pending.behaviorNotes ?? "",
+    behavior: pending.behavior ?? {},
+  };
+  const [draft, setDraft] = useState(() => JSON.stringify(initial, null, 2));
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDraft(JSON.stringify({
+      pins: pending.pins,
+      defaults: pending.defaults ?? {},
+      behaviorNotes: pending.behaviorNotes ?? "",
+      behavior: pending.behavior ?? {},
+    }, null, 2));
+    setError(null);
+  }, [pending.slug, pending.pins, pending.defaults, pending.behaviorNotes, pending.behavior]);
+
+  function apply() {
+    try {
+      const parsed = JSON.parse(draft);
+      if (!Array.isArray(parsed.pins)) throw new Error("`pins` must be an array");
+      onChange({
+        pins: parsed.pins,
+        defaults: parsed.defaults ?? undefined,
+        behaviorNotes: typeof parsed.behaviorNotes === "string" ? parsed.behaviorNotes : "",
+        behavior: parsed.behavior ?? undefined,
+      });
+      setError(null);
+      toast.success("Model applied");
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  return (
+    <Card className="p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Behavior model</h3>
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs"
+            onClick={() => {
+              setDraft(JSON.stringify({
+                pins: pending.pins,
+                defaults: pending.defaults ?? {},
+                behaviorNotes: pending.behaviorNotes ?? "",
+                behavior: pending.behavior ?? {},
+              }, null, 2));
+              setError(null);
+            }}
+          >
+            Reset
+          </Button>
+          <Button size="sm" className="h-7 text-xs" onClick={apply}>Apply</Button>
+        </div>
+      </div>
+      <Textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        spellCheck={false}
+        className="font-mono text-[11px] min-h-[360px] leading-relaxed"
+      />
+      {error && <p className="text-xs text-destructive">JSON error: {error}</p>}
+      <p className="text-[10px] text-muted-foreground">
+        Edit pins (id/label/x/y/role), parameters, states, failures, and notes. Click Apply to update the simulator, then Save to library.
+      </p>
+    </Card>
+  );
+}
+
