@@ -129,23 +129,41 @@ export const useSimStore = create<SimState>((set, get) => ({
     ),
   })),
 
-  startWire: (componentId, pinId) => set({ drawingFrom: { componentId, pinId } }),
+  startWire: (componentId, pinId) => set({
+    drawingFrom: { componentId, pinId },
+    drawingWaypoints: [],
+  }),
   finishWire: (componentId, pinId) => {
-    const { drawingFrom, wires } = get();
+    const { drawingFrom, wires, drawingWaypoints } = get();
     if (!drawingFrom) return;
+    // Clicking the same pin you started from cancels (incomplete → vanish).
     if (drawingFrom.componentId === componentId && drawingFrom.pinId === pinId) {
-      set({ drawingFrom: null });
+      set({ drawingFrom: null, drawingWaypoints: [] });
       return;
     }
     set({
       wires: [
         ...wires,
-        { id: nid("w"), from: drawingFrom, to: { componentId, pinId } },
+        {
+          id: nid("w"),
+          from: drawingFrom,
+          to: { componentId, pinId },
+          waypoints: drawingWaypoints.length ? [...drawingWaypoints] : undefined,
+        },
       ],
       drawingFrom: null,
+      drawingWaypoints: [],
     });
   },
-  cancelWire: () => set({ drawingFrom: null }),
+  addWireWaypoint: (point) => set((s) => (
+    s.drawingFrom ? { drawingWaypoints: [...s.drawingWaypoints, point] } : {}
+  )),
+  undoWireWaypoint: () => set((s) => (
+    s.drawingWaypoints.length
+      ? { drawingWaypoints: s.drawingWaypoints.slice(0, -1) }
+      : {}
+  )),
+  cancelWire: () => set({ drawingFrom: null, drawingWaypoints: [] }),
   removeWire: (id) => set((s) => ({ wires: s.wires.filter((w) => w.id !== id) })),
 
   setStatus: (s) => set({ status: s }),
