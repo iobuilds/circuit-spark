@@ -551,3 +551,9 @@ function buildWiringExample(spec: PendingSpec): string {
   }
   return lines.join("\n");
 }
+
+/** Convert an Arduino library name into its likely #include header name. */
+function libIncludeName(name: string): string {
+  // Most libraries map: "Adafruit SSD1306" -> "Adafruit_SSD1306"
+  return name.trim().replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+}
