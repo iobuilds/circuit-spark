@@ -546,4 +546,4 @@ export const Uno3DViewer = forwardRef<Uno3DViewerHandle, Props>(function Uno3DVi
   }, [tablePieces, topViewWidth, topViewHeight, runtime]);
 
   return <div ref={containerRef} className={className} style={{ width: "100%", height: "100%" }} />;
-}
+});
