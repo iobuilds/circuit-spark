@@ -211,18 +211,37 @@ function AdminPage() {
   async function handleImportFile(file: File) {
     try {
       const imp = await importComponentZip(file);
-      const row = await saveFn({ data: { spec: { ...imp } as never } });
-      upsertLocal(row as unknown as CustomComponentRow);
-      toast.success(`Imported ${imp.name}`);
-    } catch (e) {
-      // Try local-only import if save fails
+      // Load into the live preview so the user can verify before saving.
+      setPending({
+        name: imp.name,
+        slug: imp.slug,
+        kind: imp.kind,
+        description: imp.description,
+        svg: imp.svg,
+        width: imp.width,
+        height: imp.height,
+        pins: imp.pins,
+        behaviorNotes: imp.behaviorNotes,
+        behavior: imp.behavior as PendingSpec["behavior"],
+        defaults: imp.defaults,
+      });
+      setSavedId(null);
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", content: `Imported **${imp.name}** from ZIP. Preview below — click *Save to library* to persist, or keep editing in chat.` },
+      ]);
+      // Best-effort: also try to upsert immediately to the shared library.
       try {
-        const imp = await importComponentZip(file);
+        const row = await saveFn({ data: { spec: { ...imp, behaviorNotes: imp.behaviorNotes ?? "" } as never } });
+        upsertLocal(row as unknown as CustomComponentRow);
+        setSavedId((row as unknown as CustomComponentRow).id);
+        toast.success(`Imported & saved ${imp.name}`);
+      } catch (e) {
         upsertLocal(importedToRow(imp));
         toast.warning(`Imported locally (save failed: ${(e as Error).message})`);
-      } catch (e2) {
-        toast.error(`Import failed: ${(e2 as Error).message}`);
       }
+    } catch (e) {
+      toast.error(`Import failed: ${(e as Error).message}`);
     }
   }
 
