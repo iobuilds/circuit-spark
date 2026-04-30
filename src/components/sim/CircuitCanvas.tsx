@@ -8,7 +8,7 @@ import { findUnoPin, UNO_HEIGHT, UNO_WIDTH } from "@/sim/uno-pins";
 import { buildNetGraph, evaluateInputs, isLedPowered } from "@/sim/netlist";
 import type { BoardId, ComponentKind } from "@/sim/types";
 import { useAdminStore } from "@/sim/adminStore";
-import { CornerDownLeft, Lock, Plus, Trash2, X } from "lucide-react";
+import { CornerDownLeft, Lock, Plus, Trash2, X, Undo2, Redo2, Wand2, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddItemDialog } from "./AddItemDialog";
 
@@ -59,6 +59,12 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const updateWireWaypoint = useSimStore((s) => s.updateWireWaypoint);
   const insertWireWaypoint = useSimStore((s) => s.insertWireWaypoint);
   const setWireStyle = useSimStore((s) => s.setWireStyle);
+  const setWires = useSimStore((s) => s.setWires);
+  const pushWireHistory = useSimStore((s) => s.pushWireHistory);
+  const undoWires = useSimStore((s) => s.undoWires);
+  const redoWires = useSimStore((s) => s.redoWires);
+  const wireHistoryLen = useSimStore((s) => s.wireHistory.length);
+  const wireFutureLen = useSimStore((s) => s.wireFuture.length);
 
   const adminComps = useAdminStore((s) => s.components);
 
@@ -100,7 +106,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     }
   }, [components, net, pinStates, onPinInputChange]);
 
-  // Esc / Backspace / Enter shortcuts while drawing a wire.
+  // Esc / Backspace shortcuts while drawing a wire.
   useEffect(() => {
     if (!drawingFrom) return;
     const onKey = (e: KeyboardEvent) => {
@@ -115,6 +121,28 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [drawingFrom, drawingWaypoints.length, cancelWire, undoWireWaypoint]);
+
+  // Global Ctrl/Cmd+Z / Ctrl+Shift+Z (or Ctrl+Y) — wire-edit undo / redo.
+  // Skipped while typing in inputs/textareas/contentEditable.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || t?.isContentEditable) return;
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undoWires();
+      } else if ((k === "z" && e.shiftKey) || k === "y") {
+        e.preventDefault();
+        redoWires();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undoWires, redoWires]);
 
   function clientToSvg(e: { clientX: number; clientY: number }): { x: number; y: number } {
     const svg = svgRef.current;
@@ -503,6 +531,8 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                       if (e.button !== 0) return;
                       e.stopPropagation();
                       setSelectedWireId(w.id);
+                      // Snapshot once before a drag — the whole drag becomes one undo step.
+                      pushWireHistory();
                       setWpDrag({ wireId: w.id, idx: i });
                     }}
                     onContextMenu={(e) => { e.preventDefault(); removeWire(w.id); }}
@@ -656,8 +686,38 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         ];
         const cur = w.color || "";
         const thick = w.thickness ?? 2.2;
+
+        // All wire ids that belong to the same electrical net as the selected wire.
+        const wiresOnSameNet = (): string[] => {
+          const sel = net.netForCompPin.get(`${w.from.componentId}::${w.from.pinId}`)
+                   ?? net.netForCompPin.get(`${w.to.componentId}::${w.to.pinId}`)
+                   ?? null;
+          if (!sel) return [w.id];
+          return wires
+            .filter((ww) => {
+              const a = net.netForCompPin.get(`${ww.from.componentId}::${ww.from.pinId}`);
+              const b = net.netForCompPin.get(`${ww.to.componentId}::${ww.to.pinId}`);
+              return a === sel || b === sel;
+            })
+            .map((ww) => ww.id);
+        };
+
+        const applyToNet = () => {
+          const ids = new Set(wiresOnSameNet());
+          setWires(wires.map((ww) =>
+            ids.has(ww.id) ? { ...ww, color: w.color, thickness: w.thickness } : ww
+          ));
+        };
+
+        const autoArrangeSelected = () => {
+          // Clear waypoints so the renderer's autoRoute() takes over with a clean Manhattan path.
+          setWires(wires.map((ww) =>
+            ww.id === w.id ? { ...ww, waypoints: undefined } : ww
+          ));
+        };
+
         return (
-          <div className="absolute top-3 right-3 flex items-center gap-2 rounded-md bg-card/95 backdrop-blur border border-border px-3 py-1.5 text-xs shadow-lg">
+          <div className="absolute top-3 right-3 flex items-center gap-2 rounded-md bg-card/95 backdrop-blur border border-border px-3 py-1.5 text-xs shadow-lg max-w-[calc(100vw-1.5rem)] flex-wrap">
             <span className="text-muted-foreground">Wire</span>
             <div className="flex items-center gap-1">
               {swatches.map((s) => (
@@ -683,22 +743,67 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                 max={6}
                 step={0.5}
                 value={thick}
+                onMouseDown={() => pushWireHistory()}
                 onChange={(e) => setWireStyle(w.id, { thickness: Number(e.target.value) })}
-                className="w-24"
+                className="w-20"
               />
               <span className="tabular-nums w-7 text-right">{thick.toFixed(1)}</span>
             </div>
+
+            <div className="h-5 w-px bg-border mx-0.5" />
+
+            <Button size="sm" variant="ghost" className="h-6 px-2 gap-1"
+              onClick={applyToNet}
+              title="Apply this color & thickness to every wire on the same electrical net">
+              <Share2 className="h-3 w-3" /> Apply to net
+            </Button>
+            <Button size="sm" variant="ghost" className="h-6 px-2 gap-1"
+              onClick={autoArrangeSelected}
+              title="Clear custom bends and auto-arrange the wire">
+              <Wand2 className="h-3 w-3" /> Auto-arrange
+            </Button>
+
+            <div className="h-5 w-px bg-border mx-0.5" />
+
             <Button size="sm" variant="ghost" className="h-6 px-2"
-              onClick={() => { removeWire(w.id); setSelectedWireId(null); }}>
+              onClick={undoWires} disabled={wireHistoryLen === 0}
+              title="Undo wire edit (Ctrl+Z)">
+              <Undo2 className="h-3 w-3" />
+            </Button>
+            <Button size="sm" variant="ghost" className="h-6 px-2"
+              onClick={redoWires} disabled={wireFutureLen === 0}
+              title="Redo wire edit (Ctrl+Shift+Z)">
+              <Redo2 className="h-3 w-3" />
+            </Button>
+
+            <Button size="sm" variant="ghost" className="h-6 px-2"
+              onClick={() => { removeWire(w.id); setSelectedWireId(null); }}
+              title="Delete wire">
               <Trash2 className="h-3 w-3" />
             </Button>
             <Button size="sm" variant="ghost" className="h-6 px-2"
-              onClick={() => setSelectedWireId(null)}>
+              onClick={() => setSelectedWireId(null)} title="Close">
               <X className="h-3 w-3" />
             </Button>
           </div>
         );
       })()}
+
+      {/* Floating undo/redo when no wire is selected (still useful after a delete). */}
+      {!selectedWireId && !locked && (wireHistoryLen > 0 || wireFutureLen > 0) && (
+        <div className="absolute top-3 right-32 flex items-center gap-1 rounded-md bg-card/90 backdrop-blur border border-border px-1.5 py-1 text-xs shadow">
+          <Button size="sm" variant="ghost" className="h-6 px-2"
+            onClick={undoWires} disabled={wireHistoryLen === 0}
+            title="Undo wire edit (Ctrl+Z)">
+            <Undo2 className="h-3 w-3" />
+          </Button>
+          <Button size="sm" variant="ghost" className="h-6 px-2"
+            onClick={redoWires} disabled={wireFutureLen === 0}
+            title="Redo wire edit (Ctrl+Shift+Z)">
+            <Redo2 className="h-3 w-3" />
+          </Button>
+        </div>
+      )}
 
       <AddItemDialog
         open={addOpen}

@@ -38,6 +38,11 @@ export interface SimState {
   /** Intermediate click points while drawing a wire, in canvas coordinates. */
   drawingWaypoints: { x: number; y: number }[];
 
+  /** Past wire-array snapshots for undo (most recent at end). */
+  wireHistory: Wire[][];
+  /** Wire snapshots that have been undone, available for redo. */
+  wireFuture: Wire[][];
+
   // editor / runtime
   code: string;
   status: SimStatus;
@@ -66,7 +71,19 @@ export interface SimState {
   removeWire: (id: string) => void;
   updateWireWaypoint: (wireId: string, idx: number, point: { x: number; y: number }) => void;
   insertWireWaypoint: (wireId: string, idx: number, point: { x: number; y: number }) => void;
+  /** Snapshot current wires into history (used before continuous edits like waypoint drag). */
+  pushWireHistory: () => void;
   setWireStyle: (wireId: string, style: { color?: string; thickness?: number }) => void;
+  /** Replace the entire wires array (used by bulk operations like apply-to-net or auto-route). */
+  setWires: (next: Wire[]) => void;
+
+  /** Undo the last wire-changing action (history-based). */
+  undoWires: () => void;
+  /** Redo the last undone wire-changing action. */
+  redoWires: () => void;
+  /** Whether undo / redo are currently available. */
+  canUndoWires: () => boolean;
+  canRedoWires: () => boolean;
 
   setStatus: (s: SimStatus) => void;
   setPinStates: (s: Record<number, PinState>) => void;
@@ -84,13 +101,27 @@ export interface SimState {
 let cidCounter = 1;
 const nid = (p: string) => `${p}_${Date.now().toString(36)}_${cidCounter++}`;
 
-export const useSimStore = create<SimState>((set, get) => ({
+const HISTORY_LIMIT = 50;
+
+export const useSimStore = create<SimState>((set, get) => {
+  /** Snapshot the current wires array into history, clearing the redo stack. */
+  const snapshotWires = () => {
+    const cur = get().wires;
+    const hist = get().wireHistory;
+    const next = [...hist, cur].slice(-HISTORY_LIMIT);
+    set({ wireHistory: next, wireFuture: [] });
+  };
+
+  return ({
   boardId: "uno",
   components: [],
   wires: [],
   selectedId: null,
   drawingFrom: null,
   drawingWaypoints: [],
+
+  wireHistory: [],
+  wireFuture: [],
 
   code: DEFAULT_CODE,
   status: "idle",
@@ -149,6 +180,7 @@ export const useSimStore = create<SimState>((set, get) => ({
       set({ drawingFrom: null, drawingWaypoints: [] });
       return;
     }
+    snapshotWires();
     set({
       wires: [
         ...wires,
@@ -172,7 +204,10 @@ export const useSimStore = create<SimState>((set, get) => ({
       : {}
   )),
   cancelWire: () => set({ drawingFrom: null, drawingWaypoints: [] }),
-  removeWire: (id) => set((s) => ({ wires: s.wires.filter((w) => w.id !== id) })),
+  removeWire: (id) => {
+    snapshotWires();
+    set((s) => ({ wires: s.wires.filter((w) => w.id !== id) }));
+  },
   updateWireWaypoint: (wireId, idx, point) => set((s) => ({
     wires: s.wires.map((w) => {
       if (w.id !== wireId) return w;
@@ -182,17 +217,53 @@ export const useSimStore = create<SimState>((set, get) => ({
       return { ...w, waypoints: wp };
     }),
   })),
-  insertWireWaypoint: (wireId, idx, point) => set((s) => ({
-    wires: s.wires.map((w) => {
-      if (w.id !== wireId) return w;
-      const wp = [...(w.waypoints ?? [])];
-      wp.splice(idx, 0, point);
-      return { ...w, waypoints: wp };
-    }),
-  })),
-  setWireStyle: (wireId, style) => set((s) => ({
-    wires: s.wires.map((w) => (w.id === wireId ? { ...w, ...style } : w)),
-  })),
+  insertWireWaypoint: (wireId, idx, point) => {
+    snapshotWires();
+    set((s) => ({
+      wires: s.wires.map((w) => {
+        if (w.id !== wireId) return w;
+        const wp = [...(w.waypoints ?? [])];
+        wp.splice(idx, 0, point);
+        return { ...w, waypoints: wp };
+      }),
+    }));
+  },
+  setWireStyle: (wireId, style) => {
+    snapshotWires();
+    set((s) => ({
+      wires: s.wires.map((w) => (w.id === wireId ? { ...w, ...style } : w)),
+    }));
+  },
+  setWires: (next) => {
+    snapshotWires();
+    set({ wires: next });
+  },
+  pushWireHistory: () => snapshotWires(),
+
+  undoWires: () => {
+    const hist = get().wireHistory;
+    if (hist.length === 0) return;
+    const prev = hist[hist.length - 1];
+    const cur = get().wires;
+    set({
+      wires: prev,
+      wireHistory: hist.slice(0, -1),
+      wireFuture: [...get().wireFuture, cur].slice(-HISTORY_LIMIT),
+    });
+  },
+  redoWires: () => {
+    const fut = get().wireFuture;
+    if (fut.length === 0) return;
+    const next = fut[fut.length - 1];
+    const cur = get().wires;
+    set({
+      wires: next,
+      wireFuture: fut.slice(0, -1),
+      wireHistory: [...get().wireHistory, cur].slice(-HISTORY_LIMIT),
+    });
+  },
+  canUndoWires: () => get().wireHistory.length > 0,
+  canRedoWires: () => get().wireFuture.length > 0,
 
   setStatus: (s) => set({ status: s }),
   setPinStates: (p) => set({ pinStates: p }),
@@ -210,7 +281,11 @@ export const useSimStore = create<SimState>((set, get) => ({
     return { theme: next };
   }),
 
-  resetWorkspace: () => set({ components: [], wires: [], selectedId: null, serial: [], pinStates: {}, simTimeMs: 0, drawingFrom: null, drawingWaypoints: [] }),
+  resetWorkspace: () => set({
+    components: [], wires: [], selectedId: null, serial: [], pinStates: {},
+    simTimeMs: 0, drawingFrom: null, drawingWaypoints: [],
+    wireHistory: [], wireFuture: [],
+  }),
   loadProject: (p) => set({
     code: p.code,
     components: p.components,
@@ -218,5 +293,8 @@ export const useSimStore = create<SimState>((set, get) => ({
     boardId: p.boardId,
     selectedId: null,
     serial: [],
+    wireHistory: [],
+    wireFuture: [],
   }),
-}));
+  });
+});
