@@ -416,6 +416,8 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
       }),
     });
   }
+
+  function applySvgMarkup() {
     if (!drawerSvg.includes("<svg")) {
       toast.error("Markup must contain an <svg> root element");
       return;
