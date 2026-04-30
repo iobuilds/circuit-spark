@@ -185,6 +185,9 @@ export function Toolbar({ onCompile, onStart, onPause, onResume, onStop }: Props
       <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={toggleTheme} title="Toggle theme">
         {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
       </Button>
+      <Link to="/admin" title="Admin" className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground">
+        <Settings className="h-4 w-4" />
+      </Link>
 
       <div className="h-6 w-px bg-border mx-1" />
       <nav className="flex items-center gap-3 text-xs">
