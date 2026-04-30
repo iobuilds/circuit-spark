@@ -66,6 +66,7 @@ export interface SimState {
   removeWire: (id: string) => void;
   updateWireWaypoint: (wireId: string, idx: number, point: { x: number; y: number }) => void;
   insertWireWaypoint: (wireId: string, idx: number, point: { x: number; y: number }) => void;
+  setWireStyle: (wireId: string, style: { color?: string; thickness?: number }) => void;
 
   setStatus: (s: SimStatus) => void;
   setPinStates: (s: Record<number, PinState>) => void;
@@ -188,6 +189,9 @@ export const useSimStore = create<SimState>((set, get) => ({
       wp.splice(idx, 0, point);
       return { ...w, waypoints: wp };
     }),
+  })),
+  setWireStyle: (wireId, style) => set((s) => ({
+    wires: s.wires.map((w) => (w.id === wireId ? { ...w, ...style } : w)),
   })),
 
   setStatus: (s) => set({ status: s }),

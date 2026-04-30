@@ -22,6 +22,8 @@ interface HoveredPin {
   label: string;
   kind: "digital" | "analog" | "power" | "ground" | "other";
   number?: number;
+  /** Board component id this pin belongs to (used to look up connected net). */
+  boardCompId: string;
   /** Screen-space position (canvas-local pixels) for tooltip placement. */
   sx: number;
   sy: number;
@@ -56,6 +58,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const removeWire = useSimStore((s) => s.removeWire);
   const updateWireWaypoint = useSimStore((s) => s.updateWireWaypoint);
   const insertWireWaypoint = useSimStore((s) => s.insertWireWaypoint);
+  const setWireStyle = useSimStore((s) => s.setWireStyle);
 
   const adminComps = useAdminStore((s) => s.components);
 
@@ -69,6 +72,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const [panning, setPanning] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [hovered, setHovered] = useState<HoveredPin | null>(null);
+  const [selectedWireId, setSelectedWireId] = useState<string | null>(null);
 
   const placedBoards = useMemo(() => components.filter((c) => c.kind === "board"), [components]);
 
@@ -252,6 +256,48 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     return pts.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(" ");
   }
 
+  /**
+   * Auto-route a manhattan (orthogonal) path between two pins. Pins on top/bottom
+   * board headers leave vertically first; side pins leave horizontally. A small
+   * per-wire offset (derived from a hash of the wire id) prevents parallel wires
+   * from overlapping perfectly — each wire gets its own "lane".
+   */
+  function autoRoute(
+    a: { x: number; y: number },
+    b: { x: number; y: number },
+    seed: string,
+  ): { x: number; y: number }[] {
+    let h = 0;
+    for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
+    const lane = ((Math.abs(h) % 7) - 3) * 8; // -24..24 in 8px steps
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    // Leave the pin a short stub so we don't overlap the pad.
+    const stub = 18;
+    const ax = a.x;
+    const ay = a.y + (a.y < b.y ? stub : -stub);
+    const bx = b.x;
+    const by = b.y + (b.y < a.y ? stub : -stub);
+    // Mid Y between the two stubs, offset by lane.
+    const midY = (ay + by) / 2 + lane;
+    // If they're nearly horizontal, route as a single jog via midX instead.
+    if (Math.abs(dy) < 24 && Math.abs(dx) > 40) {
+      const midX = (ax + bx) / 2 + lane;
+      return [
+        { x: ax, y: ay },
+        { x: midX, y: ay },
+        { x: midX, y: by },
+        { x: bx, y: by },
+      ];
+    }
+    return [
+      { x: ax, y: ay },
+      { x: ax, y: midY },
+      { x: bx, y: midY },
+      { x: bx, y: by },
+    ];
+  }
+
   return (
     <div className="relative w-full h-full canvas-grid-bg overflow-hidden">
       <svg
@@ -285,6 +331,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
 
           // Not drawing: clear selection / start panning.
           setSelected(null);
+          setSelectedWireId(null);
           if (e.button === 0 && (e.altKey || e.metaKey)) setPanning(true);
           else if (e.button === 1) setPanning(true);
         }}
@@ -303,7 +350,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
               // Convert pin board-local coords to canvas-local pixels.
               const sx = (b.x + pin.x + pan.x) * zoom;
               const sy = (b.y + pin.y + pan.y) * zoom;
-              setHovered({ id: pin.id, label: pin.label, kind: pin.kind, number: pin.number, sx, sy });
+              setHovered({ id: pin.id, label: pin.label, kind: pin.kind, number: pin.number, sx, sy, boardCompId: b.id });
             };
             return (
               <g
@@ -374,25 +421,41 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
             const b = endpointPos(w.to.componentId, w.to.pinId);
             if (!a || !b) return null;
             const userMids = w.waypoints && w.waypoints.length ? w.waypoints : [];
-            const mids = userMids.length
-              ? userMids
-              : [{ x: a.x, y: (a.y + b.y) / 2 }, { x: b.x, y: (a.y + b.y) / 2 }];
+            // Auto-route when the user hasn't customised the path.
+            const mids = userMids.length ? userMids : autoRoute(a, b, w.id);
             const d = wirePath(a, b, mids);
             const segPts = [a, ...userMids, b];
+            const isWireSel = selectedWireId === w.id;
+            const stroke = w.color || "var(--color-wire)";
+            const sw = w.thickness ?? 2.2;
             return (
               <g key={w.id}>
-                {/* Visible wire — right-click deletes. */}
-                <path d={d} stroke="oklch(0 0 0 / 0.4)" strokeWidth={4} fill="none" pointerEvents="none" />
+                {/* Shadow */}
+                <path d={d} stroke="oklch(0 0 0 / 0.4)" strokeWidth={sw + 1.8} fill="none" pointerEvents="none" />
+                {/* Visible wire */}
                 <path
                   d={d}
-                  stroke="var(--color-wire)"
-                  strokeWidth={2.2}
+                  stroke={stroke}
+                  strokeWidth={sw}
                   fill="none"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   pointerEvents="none"
                 />
-                {/* Per-segment hit zones: click inserts a new waypoint at that index. */}
+                {/* Selection halo */}
+                {isWireSel && (
+                  <path
+                    d={d}
+                    stroke="var(--color-primary)"
+                    strokeWidth={sw + 4}
+                    strokeOpacity={0.25}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    pointerEvents="none"
+                  />
+                )}
+                {/* Per-segment hit zones: left-click selects the wire; shift-click inserts waypoint; right-click deletes. */}
                 {segPts.slice(0, -1).map((pt, i) => {
                   const next = segPts[i + 1];
                   const sd = `M ${pt.x} ${pt.y} L ${next.x} ${next.y}`;
@@ -401,18 +464,25 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                       key={`seg-${i}`}
                       d={sd}
                       stroke="transparent"
-                      strokeWidth={10}
+                      strokeWidth={12}
                       fill="none"
-                      className="cursor-copy"
+                      className="cursor-pointer"
                       onMouseDown={(e) => {
                         if (e.button === 2) { e.preventDefault(); removeWire(w.id); return; }
                         if (e.button !== 0) return;
                         e.stopPropagation();
-                        const p = clientToSvg(e);
-                        const snap = (n: number) => Math.round(n / 5) * 5;
-                        const newPoint = { x: snap(p.x), y: snap(p.y) };
-                        insertWireWaypoint(w.id, i, newPoint);
-                        setWpDrag({ wireId: w.id, idx: i });
+                        // Shift/Alt-click on a segment inserts a waypoint and starts dragging it.
+                        if (e.shiftKey || e.altKey) {
+                          const p = clientToSvg(e);
+                          const snap = (n: number) => Math.round(n / 5) * 5;
+                          const newPoint = { x: snap(p.x), y: snap(p.y) };
+                          insertWireWaypoint(w.id, i, newPoint);
+                          setWpDrag({ wireId: w.id, idx: i });
+                          return;
+                        }
+                        // Plain click selects the wire (so the style toolbar shows up).
+                        setSelectedWireId(w.id);
+                        setSelected(null);
                       }}
                       onContextMenu={(e) => { e.preventDefault(); removeWire(w.id); }}
                     />
@@ -425,13 +495,14 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                     cx={pt.x}
                     cy={pt.y}
                     r={4}
-                    fill="var(--color-wire)"
+                    fill={stroke}
                     stroke="var(--color-background)"
                     strokeWidth={1}
                     className="cursor-move hover:fill-[var(--color-primary)]"
                     onMouseDown={(e) => {
                       if (e.button !== 0) return;
                       e.stopPropagation();
+                      setSelectedWireId(w.id);
                       setWpDrag({ wireId: w.id, idx: i });
                     }}
                     onContextMenu={(e) => { e.preventDefault(); removeWire(w.id); }}
@@ -507,22 +578,39 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         </div>
       )}
 
-      {/* Floating pin info popup on hover (id, kind/role, live value if simulating). */}
+      {/* Floating pin info popup on hover (id, kind/role, connected net, live value if simulating). */}
       {hovered && (() => {
         const pinNum = hovered.number;
         const live = pinNum !== undefined ? pinStates[pinNum] : undefined;
         const kindLabel =
-          hovered.kind === "power" ? "Power"
-          : hovered.kind === "ground" ? "Ground"
-          : hovered.kind === "digital" ? `Digital (D${pinNum ?? ""})`
-          : hovered.kind === "analog" ? `Analog (A${pinNum !== undefined ? pinNum - 14 : ""})`
+          hovered.kind === "power" ? `Power (${hovered.label})`
+          : hovered.kind === "ground" ? "Ground (GND)"
+          : hovered.kind === "digital" ? `Digital D${pinNum ?? ""}`
+          : hovered.kind === "analog" ? `Analog A${pinNum !== undefined ? pinNum - 14 : ""}`
           : "Pin";
+        // Resolve the connected net label (which board pin / rail this pin shares a net with),
+        // and find any non-board components attached to that same net.
+        const netLabel = net.netForCompPin.get(`${hovered.boardCompId}::${hovered.id}`) ?? null;
+        const connectedComps: string[] = [];
+        if (netLabel) {
+          for (const c of components) {
+            if (c.kind === "board") continue;
+            const def = COMPONENT_DEFS[c.kind];
+            if (!def) continue;
+            for (const p of def.pins) {
+              if (net.netForCompPin.get(`${c.id}::${p.id}`) === netLabel) {
+                connectedComps.push(`${def.label} ${p.label}`);
+                break;
+              }
+            }
+          }
+        }
         return (
           <div
-            className="pointer-events-none absolute z-20 rounded-md border border-border bg-card/95 backdrop-blur px-2.5 py-1.5 text-[11px] shadow-lg font-mono"
+            className="pointer-events-none absolute z-20 rounded-md border border-border bg-card/95 backdrop-blur px-2.5 py-1.5 text-[11px] shadow-lg font-mono min-w-[140px]"
             style={{
               left: Math.max(8, hovered.sx + 14),
-              top: Math.max(8, hovered.sy - 36),
+              top: Math.max(8, hovered.sy - 50),
             }}
           >
             <div className="flex items-center gap-1.5">
@@ -530,12 +618,84 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
               <span className="text-muted-foreground">·</span>
               <span className="text-foreground">{kindLabel}</span>
             </div>
-            {live && (
+            {netLabel && (
               <div className="text-muted-foreground mt-0.5">
-                {live.digital !== undefined && <>digital: <span className="text-foreground">{live.digital}</span> </>}
-                {live.analog !== undefined && <>analog: <span className="text-foreground">{live.analog}</span></>}
+                net: <span className="text-foreground">{netLabel}</span>
               </div>
             )}
+            {connectedComps.length > 0 && (
+              <div className="text-muted-foreground mt-0.5 truncate max-w-[220px]">
+                → {connectedComps.slice(0, 3).join(", ")}{connectedComps.length > 3 ? "…" : ""}
+              </div>
+            )}
+            {live && (
+              <div className="text-muted-foreground mt-0.5">
+                {live.mode && <>mode: <span className="text-foreground">{live.mode}</span> · </>}
+                <span className={live.digital ? "text-success" : "text-foreground"}>
+                  {live.digital ? "HIGH" : "LOW"}
+                </span>
+                {live.analog > 0 && live.analog !== 1 && <span className="text-warning ml-1">· {live.analog}</span>}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Wire style toolbar — appears when a wire is selected. */}
+      {selectedWireId && !locked && (() => {
+        const w = wires.find((ww) => ww.id === selectedWireId);
+        if (!w) return null;
+        const swatches = [
+          { name: "red",    val: "oklch(0.65 0.22 25)" },
+          { name: "green",  val: "oklch(0.72 0.18 145)" },
+          { name: "blue",   val: "oklch(0.65 0.18 250)" },
+          { name: "yellow", val: "oklch(0.85 0.18 90)" },
+          { name: "black",  val: "oklch(0.18 0 0)" },
+          { name: "white",  val: "oklch(0.95 0 0)" },
+          { name: "default",val: "" },
+        ];
+        const cur = w.color || "";
+        const thick = w.thickness ?? 2.2;
+        return (
+          <div className="absolute top-3 right-3 flex items-center gap-2 rounded-md bg-card/95 backdrop-blur border border-border px-3 py-1.5 text-xs shadow-lg">
+            <span className="text-muted-foreground">Wire</span>
+            <div className="flex items-center gap-1">
+              {swatches.map((s) => (
+                <button
+                  key={s.name}
+                  title={s.name}
+                  onClick={() => setWireStyle(w.id, { color: s.val || undefined })}
+                  className={`h-5 w-5 rounded-full border ${cur === s.val ? "ring-2 ring-primary" : "border-border"}`}
+                  style={{
+                    background: s.val || "var(--color-wire)",
+                    backgroundImage: !s.val
+                      ? "repeating-linear-gradient(45deg, transparent 0 3px, rgba(255,255,255,.15) 3px 6px)"
+                      : undefined,
+                  }}
+                />
+              ))}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted-foreground">thickness</span>
+              <input
+                type="range"
+                min={1}
+                max={6}
+                step={0.5}
+                value={thick}
+                onChange={(e) => setWireStyle(w.id, { thickness: Number(e.target.value) })}
+                className="w-24"
+              />
+              <span className="tabular-nums w-7 text-right">{thick.toFixed(1)}</span>
+            </div>
+            <Button size="sm" variant="ghost" className="h-6 px-2"
+              onClick={() => { removeWire(w.id); setSelectedWireId(null); }}>
+              <Trash2 className="h-3 w-3" />
+            </Button>
+            <Button size="sm" variant="ghost" className="h-6 px-2"
+              onClick={() => setSelectedWireId(null)}>
+              <X className="h-3 w-3" />
+            </Button>
           </div>
         );
       })()}

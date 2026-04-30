@@ -85,7 +85,10 @@ export interface Wire {
   to: { componentId: string; pinId: string };
   /** Optional intermediate waypoints in canvas (SVG) coordinates. */
   waypoints?: { x: number; y: number }[];
+  /** Custom CSS color (any valid CSS color or oklch token). Defaults to --color-wire. */
   color?: string;
+  /** Stroke width in px. Defaults to 2.2. */
+  thickness?: number;
 }
 
 export interface SerialLine {
