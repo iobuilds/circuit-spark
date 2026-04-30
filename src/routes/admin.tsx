@@ -39,6 +39,20 @@ export const Route = createFileRoute("/admin")({
 
 interface ChatMsg { role: "user" | "assistant"; content: string }
 
+interface ArduinoLibMatch {
+  name: string;
+  version: string;
+  author: string;
+  sentence: string;
+  paragraph?: string;
+  website?: string;
+  repository?: string;
+  category?: string;
+  architectures: string[];
+  score: number;
+  matchedTerms: string[];
+}
+
 interface PendingSpec {
   name: string;
   slug: string;
