@@ -361,7 +361,61 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
     });
   }
 
-  function applySvgMarkup() {
+  function deleteSelected() {
+    if (selectedIds.size === 0) return;
+    onChange({ svg, pins: pins.filter((p) => !selectedIds.has(p.id)) });
+    setSelectedIds(new Set());
+    setSelectedPin(null);
+    setPopoverOpen(false);
+  }
+
+  type AlignOp = "left" | "right" | "top" | "bottom" | "centerH" | "centerV"
+    | "distH" | "distV";
+  function alignSelection(op: AlignOp) {
+    if (selectedIds.size < 2) {
+      toast.error("Select 2+ pins to align");
+      return;
+    }
+    const sel = pins.filter((p) => selectedIds.has(p.id));
+    if ((op === "distH" || op === "distV") && sel.length < 3) {
+      toast.error("Select 3+ pins to distribute");
+      return;
+    }
+    const xs = sel.map((p) => p.x);
+    const ys = sel.map((p) => p.y);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    let updates = new Map<string, { x?: number; y?: number }>();
+    if (op === "left") sel.forEach((p) => updates.set(p.id, { x: minX }));
+    else if (op === "right") sel.forEach((p) => updates.set(p.id, { x: maxX }));
+    else if (op === "top") sel.forEach((p) => updates.set(p.id, { y: minY }));
+    else if (op === "bottom") sel.forEach((p) => updates.set(p.id, { y: maxY }));
+    else if (op === "centerV") sel.forEach((p) => updates.set(p.id, { x: cx }));
+    else if (op === "centerH") sel.forEach((p) => updates.set(p.id, { y: cy }));
+    else if (op === "distH") {
+      const sorted = [...sel].sort((a, b) => a.x - b.x);
+      const step = (sorted[sorted.length - 1].x - sorted[0].x) / (sorted.length - 1);
+      sorted.forEach((p, i) => updates.set(p.id, { x: sorted[0].x + step * i }));
+    } else if (op === "distV") {
+      const sorted = [...sel].sort((a, b) => a.y - b.y);
+      const step = (sorted[sorted.length - 1].y - sorted[0].y) / (sorted.length - 1);
+      sorted.forEach((p, i) => updates.set(p.id, { y: sorted[0].y + step * i }));
+    }
+    onChange({
+      svg,
+      pins: pins.map((p) => {
+        const u = updates.get(p.id);
+        if (!u) return p;
+        return {
+          ...p,
+          x: u.x !== undefined ? round1(u.x) : p.x,
+          y: u.y !== undefined ? round1(u.y) : p.y,
+        };
+      }),
+    });
+  }
     if (!drawerSvg.includes("<svg")) {
       toast.error("Markup must contain an <svg> root element");
       return;
