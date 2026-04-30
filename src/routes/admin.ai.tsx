@@ -295,6 +295,9 @@ function AdminPage() {
           history: next.map(({ role, content }) => ({ role, content })),
           message: text || "Use the attached reference image(s) to design this component.",
           images: imgs,
+          // Send the live working spec so the model can MUTATE it instead of
+          // regenerating from scratch on every follow-up.
+          currentSpec: pending ?? undefined,
         },
       });
       setMessages((m) => [...m, { role: "assistant", content: res.reply }]);
