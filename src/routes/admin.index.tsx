@@ -105,6 +105,11 @@ function BoardsTab() {
         onExport={exportJSON}
         onImport={() => fileRef.current?.click()}
         onReset={() => { reset(); toast.success("Boards reset to defaults"); setSelected(new Set()); }}
+        onCreate={() => {
+          const id = createCustom();
+          navigate({ to: "/admin/boards/$boardId/edit", params: { boardId: id } });
+        }}
+        createLabel="New board"
         resetLabel="Reset boards to defaults"
       />
       <input ref={fileRef} type="file" accept=".json,application/json" onChange={onImportFile} className="hidden" />
