@@ -22,6 +22,10 @@ export interface SourceFile {
 export interface InstalledBoard {
   id: string;
   version: string;
+  name?: string;
+  /** Boards installed from the live Arduino package_index. */
+  live?: boolean;
+  boards?: string[];
 }
 export interface InstalledLibrary {
   id: string;
