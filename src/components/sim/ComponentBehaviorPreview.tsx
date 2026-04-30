@@ -324,11 +324,10 @@ function renderScreenContent(
   const parent = rectEl.parentNode as SVGGElement | null;
   if (!parent) return;
   // Pull display text from common param names.
-  const text =
-    pickStr(values, "text") ??
-    [pickStr(values, "line1"), pickStr(values, "line2")].filter(Boolean).join("\n") ||
-    pickStr(values, "digit") ||
-    "";
+  const fromText = pickStr(values, "text");
+  const fromLines = [pickStr(values, "line1"), pickStr(values, "line2")].filter(Boolean).join("\n");
+  const fromDigit = pickStr(values, "digit");
+  const text = fromText ?? (fromLines || fromDigit || "");
   const invert = Boolean(values.invert);
 
   const x = parseFloat(rectEl.getAttribute("x") || "0");
