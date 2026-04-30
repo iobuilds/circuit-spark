@@ -116,13 +116,13 @@ function SimulatorPage() {
     return false;
   }
 
-  function jumpToError(file: string, line: number) {
+  function jumpToError(file: string, line: number, col?: number) {
     const { files, setActiveFile } = useIdeStore.getState();
     const match = files.find((f) => f.name === file);
     if (match) {
       setActiveFile(match.id);
       // Monaco listens to a custom event for line jumps
-      window.dispatchEvent(new CustomEvent("ide:goto-line", { detail: { line } }));
+      window.dispatchEvent(new CustomEvent("ide:goto-line", { detail: { line, col } }));
     }
   }
 
