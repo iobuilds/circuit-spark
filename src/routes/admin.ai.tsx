@@ -593,7 +593,13 @@ function AdminPage() {
           </div>
           <div className="flex-1 min-h-0 overflow-auto p-6 space-y-4">
             {pending ? (
-              <>
+              <Tabs defaultValue="visual" className="max-w-md mx-auto">
+                <TabsList className="grid grid-cols-3 w-full">
+                  <TabsTrigger value="visual" className="text-xs gap-1"><Eye className="h-3 w-3" /> Visual</TabsTrigger>
+                  <TabsTrigger value="svg" className="text-xs gap-1"><Code2 className="h-3 w-3" /> SVG</TabsTrigger>
+                  <TabsTrigger value="model" className="text-xs gap-1"><Code2 className="h-3 w-3" /> Model</TabsTrigger>
+                </TabsList>
+                <TabsContent value="visual" className="space-y-4 mt-3">
                 <Card className="p-4 max-w-md mx-auto">
                   <ComponentBehaviorPreview
                     spec={{
