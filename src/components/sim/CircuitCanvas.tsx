@@ -160,11 +160,11 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   function onMouseMove(e: React.MouseEvent) {
     const p = clientToSvg(e);
     setMouse(p);
-    if (dragId) {
+    if (dragId && !locked) {
       const snap = (n: number) => Math.round(n / 10) * 10;
       moveComponent(dragId, snap(p.x - dragOffset.x), snap(p.y - dragOffset.y));
     }
-    if (wpDrag) {
+    if (wpDrag && !locked) {
       const snap = (n: number) => Math.round(n / 5) * 5;
       updateWireWaypoint(wpDrag.wireId, wpDrag.idx, { x: snap(p.x), y: snap(p.y) });
     }
@@ -181,16 +181,21 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
 
   function onPinClickFactory(componentId: string) {
     return (pinId: string, _e: React.MouseEvent) => {
-      if (drawingFrom) {
-        finishWire(componentId, pinId);
-      } else {
-        startWire(componentId, pinId);
-      }
+      if (locked) return;
+      if (drawingFrom) finishWire(componentId, pinId);
+      else startWire(componentId, pinId);
     };
+  }
+
+  function handleBoardPinClick(boardComponentId: string, pinId: string) {
+    if (locked) return;
+    if (drawingFrom) finishWire(boardComponentId, pinId);
+    else startWire(boardComponentId, pinId);
   }
 
   // Endpoint coordinates for a wire endpoint reference.
   function endpointPos(componentId: string, pinId: string): { x: number; y: number } | null {
+    // Legacy primary board (rendered at fixed BOARD_X/Y).
     if (componentId === "board") {
       const bp = findUnoPin(pinId);
       if (!bp) return null;
@@ -198,6 +203,11 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     }
     const c = components.find((cc) => cc.id === componentId);
     if (!c) return null;
+    if (c.kind === "board") {
+      const bp = findUnoPin(pinId);
+      if (!bp) return null;
+      return { x: c.x + bp.x, y: c.y + bp.y };
+    }
     if (c.kind === "custom") {
       const cid = String(c.props.customId ?? "");
       const entry = adminComps.find((a) => a.id === cid);
