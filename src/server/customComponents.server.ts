@@ -359,7 +359,14 @@ export async function runBuilderChat(
       };
     }
     console.error("AI gateway error", res.status, text);
-    return { reply: `AI gateway error (${res.status})`, spec: null };
+    // Surface the upstream message so issues like bad params / unsupported
+    // model fields are diagnosable in the UI instead of a bare status code.
+    let detail = "";
+    try {
+      const j = JSON.parse(text);
+      detail = j?.error?.message || j?.message || "";
+    } catch { detail = text.slice(0, 240); }
+    return { reply: `AI gateway error (${res.status})${detail ? `: ${detail}` : ""}`, spec: null };
   }
 
   const data = (await res.json()) as {
