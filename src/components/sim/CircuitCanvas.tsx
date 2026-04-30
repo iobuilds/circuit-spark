@@ -442,6 +442,8 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                 setDragOffset({ x: p.x - c.x, y: p.y - c.y });
               }}
               onPinClick={onPinClickFactory(c.id)}
+              pinEditMode={pinEditMode && !locked && selectedId === c.id && c.kind === "custom"}
+              toCanvasPoint={clientToSvg}
             />
           ))}
 
