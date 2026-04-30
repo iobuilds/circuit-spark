@@ -271,17 +271,13 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         }}
       >
         <g transform={`scale(${zoom}) translate(${pan.x} ${pan.y})`}>
-          {/* Board — Uno gets the realistic art, other boards use a generic
-              renderer driven by their pin counts. */}
+          {/* Legacy primary board at fixed position. Stays as the active sim target. */}
           {boardId === "uno" ? (
             <ArduinoUnoBoard
               x={BOARD_X}
               y={BOARD_Y}
               highlightPin={drawingFrom?.componentId === "board" ? drawingFrom.pinId : undefined}
-              onPinClick={(pinId) => {
-                if (drawingFrom) finishWire("board", pinId);
-                else startWire("board", pinId);
-              }}
+              onPinClick={(pinId) => handleBoardPinClick("board", pinId)}
             />
           ) : (
             <GenericBoard
@@ -289,15 +285,57 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
               x={BOARD_X}
               y={BOARD_Y}
               highlightPin={drawingFrom?.componentId === "board" ? drawingFrom.pinId : undefined}
-              onPinClick={(pinId) => {
-                if (drawingFrom) finishWire("board", pinId);
-                else startWire("board", pinId);
-              }}
+              onPinClick={(pinId) => handleBoardPinClick("board", pinId)}
             />
           )}
 
-          {/* Components */}
-          {components.map((c) => (
+          {/* Additional placed boards (multi-board) */}
+          {placedBoards.map((b) => {
+            const bid = (b.props.boardId as BoardId) ?? "uno";
+            const isSel = selectedId === b.id;
+            return (
+              <g
+                key={b.id}
+                onMouseDown={(e) => {
+                  if (locked) return;
+                  if (e.button !== 0) return;
+                  e.stopPropagation();
+                  setSelected(b.id);
+                  const p = clientToSvg(e);
+                  setDragId(b.id);
+                  setDragOffset({ x: p.x - b.x, y: p.y - b.y });
+                }}
+                style={{ cursor: locked ? "default" : "grab" }}
+              >
+                {bid === "uno" ? (
+                  <ArduinoUnoBoard
+                    x={b.x}
+                    y={b.y}
+                    highlightPin={drawingFrom?.componentId === b.id ? drawingFrom.pinId : undefined}
+                    onPinClick={(pinId) => handleBoardPinClick(b.id, pinId)}
+                  />
+                ) : (
+                  <GenericBoard
+                    boardId={bid}
+                    x={b.x}
+                    y={b.y}
+                    highlightPin={drawingFrom?.componentId === b.id ? drawingFrom.pinId : undefined}
+                    onPinClick={(pinId) => handleBoardPinClick(b.id, pinId)}
+                  />
+                )}
+                {isSel && (
+                  <rect
+                    x={b.x - 2} y={b.y - 2} width={364} height={244}
+                    fill="none" stroke="var(--color-primary)" strokeWidth={2}
+                    strokeDasharray="6 4" pointerEvents="none"
+                  />
+                )}
+              </g>
+            );
+          })}
+
+          {/* Components (skip placed boards — rendered above) */}
+          {components.filter((c) => c.kind !== "board").map((c) => (
             <CircuitComponentNode
               key={c.id}
               comp={c}
@@ -305,6 +343,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
               selected={selectedId === c.id}
               onSelect={() => setSelected(c.id)}
               onDragStart={(e) => {
+                if (locked) return;
                 const p = clientToSvg(e);
                 setDragId(c.id);
                 setDragOffset({ x: p.x - c.x, y: p.y - c.y });
