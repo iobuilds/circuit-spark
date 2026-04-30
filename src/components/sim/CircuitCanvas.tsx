@@ -106,7 +106,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     }
   }, [components, net, pinStates, onPinInputChange]);
 
-  // Esc / Backspace / Enter shortcuts while drawing a wire.
+  // Esc / Backspace shortcuts while drawing a wire.
   useEffect(() => {
     if (!drawingFrom) return;
     const onKey = (e: KeyboardEvent) => {
@@ -121,6 +121,28 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [drawingFrom, drawingWaypoints.length, cancelWire, undoWireWaypoint]);
+
+  // Global Ctrl/Cmd+Z / Ctrl+Shift+Z (or Ctrl+Y) — wire-edit undo / redo.
+  // Skipped while typing in inputs/textareas/contentEditable.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || t?.isContentEditable) return;
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undoWires();
+      } else if ((k === "z" && e.shiftKey) || k === "y") {
+        e.preventDefault();
+        redoWires();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undoWires, redoWires]);
 
   function clientToSvg(e: { clientX: number; clientY: number }): { x: number; y: number } {
     const svg = svgRef.current;
