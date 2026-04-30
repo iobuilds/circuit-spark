@@ -37,7 +37,8 @@ function evictIfNeeded() {
   }
 }
 
-export const Route = (createFileRoute("/api/libraries/download") as any)({
+export const Route = createFileRoute("/api/libraries/download")({
+  // @ts-expect-error - server route handlers
   server: {
     handlers: {
       GET: async ({ request }: { request: Request }) => {

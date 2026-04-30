@@ -141,7 +141,8 @@ function score(e: ArduinoBoardEntry, q: string): number {
   return 0;
 }
 
-export const Route = (createFileRoute("/api/boards/search") as any)({
+export const Route = createFileRoute("/api/boards/search")({
+  // @ts-expect-error - server route handlers
   server: {
     handlers: {
       GET: async ({ request }: { request: Request }) => {
