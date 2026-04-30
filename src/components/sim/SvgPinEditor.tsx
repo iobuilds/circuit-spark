@@ -118,9 +118,22 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
         e.preventDefault();
         setSpaceDown(true);
       }
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedPin && !isTypingTarget(e.target)) {
+      if ((e.key === "Delete" || e.key === "Backspace") && !isTypingTarget(e.target)) {
+        if (selectedIds.size > 0) {
+          e.preventDefault();
+          deleteSelected();
+        } else if (selectedPin) {
+          e.preventDefault();
+          deletePin(selectedPin);
+        }
+      }
+      if ((e.key === "a" || e.key === "A") && (e.ctrlKey || e.metaKey) && !isTypingTarget(e.target)) {
         e.preventDefault();
-        deletePin(selectedPin);
+        setSelectedIds(new Set(pins.map((p) => p.id)));
+      }
+      if (e.key === "Escape") {
+        setSelectedIds(new Set());
+        setSelectedPin(null);
       }
     };
     const up = (e: KeyboardEvent) => {
