@@ -248,9 +248,10 @@ Rules for the spec:
 Passive components (resistor, capacitor, switch, button) can have empty behavior or just one state.
 
 - behaviorNotes: 1-3 sentence summary describing real-world part, voltage range, communication protocol (I2C/SPI/PWM/analog), and typical wiring.
-- Always emit the tool when the user says "build", "save", "generate", "create it", or after one or two clarifying turns.
 
-Reply in plain text for chat turns; only call the tool when finalizing.`;
+For MQ-X gas sensors specifically: expose params { gasPpm 0..10000, heaterVoltage 0..6, digitalThreshold number }. Burn when heaterVoltage > 5.5. Pins are typically VCC, GND, AOUT, DOUT.
+
+Reply in plain text for clarifying turns; only call the tool when finalizing.`;
 
 interface ChatMessage {
   role: "system" | "user" | "assistant" | "tool";
