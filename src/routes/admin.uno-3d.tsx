@@ -3,8 +3,8 @@
 // array on the admin store, replacing the SVG-based Uno pin layout.
 
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Plus, Trash2, Save } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, Plus, Trash2, Save, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,8 @@ import {
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { Uno3DViewer, type Marker3D } from "@/components/sim/Uno3DViewer";
+import { Uno3DViewer, type Marker3D, type Uno3DViewerHandle } from "@/components/sim/Uno3DViewer";
+import { Uno3DMaterialAudit } from "@/components/sim/Uno3DMaterialAudit";
 import { useAdminStore, type VisualPin } from "@/sim/adminStore";
 
 export const Route = createFileRoute("/admin/uno-3d")({
