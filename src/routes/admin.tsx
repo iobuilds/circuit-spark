@@ -108,12 +108,14 @@ function AdminPage() {
     { role: "assistant", content: "Hi! Describe a component or board you want to build — for example: *'a small DC motor with speed and direction inputs that burns over 12V'*. You don't need to provide an SVG; I'll draw one for you. Once we agree, say **build it** and I'll emit a final spec with a live behavior simulator." },
   ]);
   const [input, setInput] = useState("");
+  const [pendingImages, setPendingImages] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<PendingSpec | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [libs, setLibs] = useState<ArduinoLibMatch[]>([]);
   const [libsLoading, setLibsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatImageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { load(); }, [load]);
 
