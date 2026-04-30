@@ -12,35 +12,71 @@ interface Props {
   onPinHover?: (pin: BoardPin | null, e?: React.MouseEvent) => void;
 }
 
-/** Map a VisualPin (admin schema, fine-grained type tags) to the coarse BoardPin
- *  kind expected by the rest of the simulator UI (hover popup, etc.). */
-function visualToBoardPin(p: VisualPin): BoardPin {
-  let kind: BoardPin["kind"] = "other";
-  switch (p.type) {
+/** Map a VisualPin (admin schema) to the coarse BoardPin kind expected by the
+ *  rest of the simulator UI (hover popup, etc.). */
+function visualKind(type: VisualPin["type"]): BoardPin["kind"] {
+  switch (type) {
     case "digital":
     case "pwm":
-      kind = "digital";
-      break;
+      return "digital";
     case "analog":
-      kind = "analog";
-      break;
+      return "analog";
     case "power":
-      kind = "power";
-      break;
+      return "power";
     case "ground":
-      kind = "ground";
-      break;
+      return "ground";
     default:
-      kind = "other";
+      return "other";
   }
+}
+
+/** Default fill color when a VisualPin has no explicit color. Mirrors the
+ *  palette used by the admin SvgPinEditor so the user view stays in sync. */
+const TYPE_COLOR: Record<VisualPin["type"], string> = {
+  digital: "#22c55e",
+  analog:  "#3b82f6",
+  pwm:     "#a855f7",
+  power:   "#ef4444",
+  ground:  "#111827",
+  "i2c-sda": "#f59e0b",
+  "i2c-scl": "#f59e0b",
+  spi:     "#06b6d4",
+  uart:    "#ec4899",
+  other:   "#6b7280",
+};
+
+interface RenderPin {
+  id: string;
+  label: string;
+  kind: BoardPin["kind"];
+  x: number;
+  y: number;
+  number?: number;
+  color: string;
+}
+
+function fromVisual(p: VisualPin): RenderPin {
   return {
     id: p.id,
     label: p.label,
-    kind,
+    kind: visualKind(p.type),
     x: p.x,
     y: p.y,
     number: p.number,
+    color: p.color || TYPE_COLOR[p.type] || TYPE_COLOR.other,
   };
+}
+
+function fromBoardPin(p: BoardPin): RenderPin {
+  // Static fallback — colour by kind for parity with the admin editor.
+  const colorMap: Record<BoardPin["kind"], string> = {
+    digital: TYPE_COLOR.digital,
+    analog:  TYPE_COLOR.analog,
+    power:   TYPE_COLOR.power,
+    ground:  TYPE_COLOR.ground,
+    other:   TYPE_COLOR.other,
+  };
+  return { ...p, color: colorMap[p.kind] };
 }
 
 export function ArduinoUnoBoard({ x, y, highlightPin, onPinClick, onPinHover }: Props) {
@@ -60,12 +96,11 @@ export function ArduinoUnoBoard({ x, y, highlightPin, onPinClick, onPinHover }: 
     return m ? m[1] : null;
   }, [uno?.svg]);
 
-  // Live pins come from the admin store so the user-facing canvas stays in sync
-  // with the admin board editor (drag/align/move pins, add/remove). Fall back
-  // to the static layout only when the admin entry has none configured.
-  const pins: BoardPin[] = useMemo(() => {
-    if (uno?.pins && uno.pins.length > 0) return uno.pins.map(visualToBoardPin);
-    return UNO_PINS;
+  // Pins: live from the admin store (so admin edits are reflected immediately),
+  // falling back to the static layout if the entry hasn't hydrated yet.
+  const pins: RenderPin[] = useMemo(() => {
+    if (uno?.pins && uno.pins.length > 0) return uno.pins.map(fromVisual);
+    return UNO_PINS.map(fromBoardPin);
   }, [uno?.pins]);
 
   // Light up the on-board "L" LED (D13) by overlaying a glowing circle when output is HIGH.
@@ -91,21 +126,33 @@ export function ArduinoUnoBoard({ x, y, highlightPin, onPinClick, onPinHover }: 
         </g>
       )}
 
-      {/* Interactive pin hit-targets (kept on top so wiring still works) */}
+      {/* Interactive pin hit-targets — colored by type to match the admin editor.
+          A small visible dot is drawn, with a larger transparent hit-circle on
+          top to keep wiring/clicking forgiving. */}
       {pins.map((pin) => {
         const isOutput = pin.number !== undefined && pinStates[pin.number]?.digital === 1;
         const isHi = highlightPin === pin.id;
+        const onPin = isOutput;
+        const dotFill = onPin ? "var(--color-pin-active)" : pin.color;
         return (
           <g key={pin.id} transform={`translate(${pin.x} ${pin.y})`}>
+            {/* Visible marker (matches editor styling) */}
+            <circle
+              r={6}
+              fill={dotFill}
+              stroke={isHi ? "var(--color-primary)" : "oklch(0.98 0 0 / 0.95)"}
+              strokeWidth={isHi ? 3 : 1.25}
+              className={cn("transition-all pointer-events-none", onPin && "led-glow-yellow")}
+            />
+            {/* Larger transparent hit target for easier wiring */}
             <circle
               r={11}
-              fill={isOutput ? "var(--color-pin-active)" : "var(--color-pin)"}
-              fillOpacity={0.9}
-              stroke={isHi ? "var(--color-primary)" : "oklch(0.15 0 0)"}
-              strokeWidth={isHi ? 4 : 1.5}
-              className={cn("cursor-crosshair transition-all", isOutput && "led-glow-yellow")}
+              fill="transparent"
+              className="cursor-crosshair"
               onMouseDown={(e) => { e.stopPropagation(); onPinClick?.(pin.id, e); }}
-              onMouseEnter={(e) => onPinHover?.(pin, e)}
+              onMouseEnter={(e) => onPinHover?.({
+                id: pin.id, label: pin.label, kind: pin.kind, x: pin.x, y: pin.y, number: pin.number,
+              }, e)}
               onMouseLeave={(e) => onPinHover?.(null, e)}
             />
           </g>
