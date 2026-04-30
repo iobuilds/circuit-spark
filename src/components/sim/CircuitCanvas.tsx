@@ -456,7 +456,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         >reset</button>
       </div>
 
-      {selectedId && (
+      {selectedId && !locked && (
         <div className="absolute top-3 right-3">
           <Button
             size="sm"
@@ -468,6 +468,41 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
           </Button>
         </div>
       )}
+
+      {/* Floating "+" Add button — opens the search popup. */}
+      {!locked && (
+        <div className="absolute bottom-3 left-3">
+          <Button
+            size="lg"
+            onClick={() => setAddOpen(true)}
+            className="h-12 w-12 rounded-full p-0 shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
+            title="Add component or board"
+          >
+            <Plus className="h-6 w-6" />
+          </Button>
+        </div>
+      )}
+
+      {/* Locked banner during simulation. */}
+      {locked && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-md bg-warning/15 border border-warning/40 backdrop-blur px-3 py-1.5 text-xs">
+          <Lock className="h-3.5 w-3.5 text-warning" />
+          <span>Workspace locked while simulation is {status}. Stop the sim to edit.</span>
+        </div>
+      )}
+
+      <AddItemDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        onPickComponent={(kind) => addAtCenter({ kind: "component", value: kind })}
+        onPickCustom={(entry) => addAtCenter({
+          kind: "custom",
+          customId: entry.id,
+          w: entry.width ?? 80,
+          h: entry.height ?? 60,
+        })}
+        onPickBoard={(bid) => addAtCenter({ kind: "board", boardId: bid })}
+      />
 
       {/* Wire-drawing toolbar: shows source pin, point count, and shortcut buttons. */}
       {drawingFrom && (
