@@ -791,7 +791,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
 
       {/* Floating undo/redo when no wire is selected (still useful after a delete). */}
       {!selectedWireId && !locked && (wireHistoryLen > 0 || wireFutureLen > 0) && (
-        <div className="absolute top-3 right-3 flex items-center gap-1 rounded-md bg-card/90 backdrop-blur border border-border px-1.5 py-1 text-xs shadow">
+        <div className="absolute top-3 right-32 flex items-center gap-1 rounded-md bg-card/90 backdrop-blur border border-border px-1.5 py-1 text-xs shadow">
           <Button size="sm" variant="ghost" className="h-6 px-2"
             onClick={undoWires} disabled={wireHistoryLen === 0}
             title="Undo wire edit (Ctrl+Z)">
