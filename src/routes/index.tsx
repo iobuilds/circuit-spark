@@ -78,6 +78,17 @@ function SimulatorPage() {
 
   useEffect(() => { ctrl.setSpeed(speed); }, [speed, ctrl]);
 
+  // Push compile diagnostics to the Monaco editor as inline markers (red
+  // squiggles for errors, yellow for warnings). Cleared when output is null.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("ide:set-diagnostics", {
+      detail: {
+        errors: compileOutput?.errors ?? [],
+        warnings: compileOutput?.warnings ?? [],
+      },
+    }));
+  }, [compileOutput]);
+
   async function handleBackendCompile(): Promise<boolean> {
     const { files } = useIdeStore.getState();
     const installedLibraries = useIdeStore.getState().installedLibraries.map((l) => l.id);
