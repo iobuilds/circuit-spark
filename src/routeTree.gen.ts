@@ -15,6 +15,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminUno3dRouteImport } from './routes/admin.uno-3d'
 import { Route as AdminAiRouteImport } from './routes/admin.ai'
 import { Route as ApiLibrariesSearchRouteImport } from './routes/api/libraries.search'
 import { Route as ApiLibrariesDownloadRouteImport } from './routes/api/libraries.download'
@@ -50,6 +51,11 @@ const IndexRoute = IndexRouteImport.update({
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUno3dRoute = AdminUno3dRouteImport.update({
+  id: '/uno-3d',
+  path: '/uno-3d',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminAiRoute = AdminAiRouteImport.update({
@@ -91,6 +97,7 @@ export interface FileRoutesByFullPath {
   '/docs': typeof DocsRoute
   '/examples': typeof ExamplesRoute
   '/admin/ai': typeof AdminAiRoute
+  '/admin/uno-3d': typeof AdminUno3dRoute
   '/admin/': typeof AdminIndexRoute
   '/api/boards/search': typeof ApiBoardsSearchRoute
   '/api/libraries/download': typeof ApiLibrariesDownloadRoute
@@ -104,6 +111,7 @@ export interface FileRoutesByTo {
   '/docs': typeof DocsRoute
   '/examples': typeof ExamplesRoute
   '/admin/ai': typeof AdminAiRoute
+  '/admin/uno-3d': typeof AdminUno3dRoute
   '/admin': typeof AdminIndexRoute
   '/api/boards/search': typeof ApiBoardsSearchRoute
   '/api/libraries/download': typeof ApiLibrariesDownloadRoute
@@ -119,6 +127,7 @@ export interface FileRoutesById {
   '/docs': typeof DocsRoute
   '/examples': typeof ExamplesRoute
   '/admin/ai': typeof AdminAiRoute
+  '/admin/uno-3d': typeof AdminUno3dRoute
   '/admin/': typeof AdminIndexRoute
   '/api/boards/search': typeof ApiBoardsSearchRoute
   '/api/libraries/download': typeof ApiLibrariesDownloadRoute
@@ -135,6 +144,7 @@ export interface FileRouteTypes {
     | '/docs'
     | '/examples'
     | '/admin/ai'
+    | '/admin/uno-3d'
     | '/admin/'
     | '/api/boards/search'
     | '/api/libraries/download'
@@ -148,6 +158,7 @@ export interface FileRouteTypes {
     | '/docs'
     | '/examples'
     | '/admin/ai'
+    | '/admin/uno-3d'
     | '/admin'
     | '/api/boards/search'
     | '/api/libraries/download'
@@ -162,6 +173,7 @@ export interface FileRouteTypes {
     | '/docs'
     | '/examples'
     | '/admin/ai'
+    | '/admin/uno-3d'
     | '/admin/'
     | '/api/boards/search'
     | '/api/libraries/download'
@@ -225,6 +237,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/uno-3d': {
+      id: '/admin/uno-3d'
+      path: '/uno-3d'
+      fullPath: '/admin/uno-3d'
+      preLoaderRoute: typeof AdminUno3dRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/ai': {
       id: '/admin/ai'
       path: '/ai'
@@ -272,6 +291,7 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminAiRoute: typeof AdminAiRoute
+  AdminUno3dRoute: typeof AdminUno3dRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminBoardsBoardIdEditRoute: typeof AdminBoardsBoardIdEditRoute
   AdminComponentsComponentIdEditRoute: typeof AdminComponentsComponentIdEditRoute
@@ -279,6 +299,7 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminAiRoute: AdminAiRoute,
+  AdminUno3dRoute: AdminUno3dRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminBoardsBoardIdEditRoute: AdminBoardsBoardIdEditRoute,
   AdminComponentsComponentIdEditRoute: AdminComponentsComponentIdEditRoute,
@@ -299,12 +320,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
