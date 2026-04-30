@@ -192,6 +192,11 @@ export function ComponentBehaviorPreview({ spec }: { spec: PreviewSpecLike }) {
             el.style.opacity = "1";
           }
         });
+
+        // Display screens (data-screen): render text params onto the rect.
+        root.querySelectorAll<SVGGraphicsElement>("[data-screen]").forEach((el) => {
+          renderScreenContent(el as unknown as SVGRectElement, values, burned);
+        });
       }
       rafRef.current = requestAnimationFrame(tick);
     }
