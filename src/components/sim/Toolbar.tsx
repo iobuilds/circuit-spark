@@ -1,7 +1,9 @@
 import { useSimStore } from "@/sim/store";
 import { BOARDS } from "@/sim/types";
 import { Button } from "@/components/ui/button";
-import { Play, Square, Pause, RotateCcw, Save, Share2, Sparkles, Cpu, Sun, Moon, FileCode } from "lucide-react";
+import { Play, Square, Pause, RotateCcw, Save, Share2, Sparkles, Cpu, Sun, Moon, FileCode, Settings } from "lucide-react";
+import { useAdminStore } from "@/sim/adminStore";
+import { useEffect, useMemo } from "react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -65,6 +67,20 @@ export function Toolbar({ onCompile, onStart, onPause, onResume, onStop }: Props
   const isRunning = status === "running";
   const isPaused = status === "paused";
 
+  // Admin-driven board list
+  const adminLoaded = useAdminStore((s) => s.loaded);
+  const adminBoards = useAdminStore((s) => s.boards);
+  const hydrate = useAdminStore((s) => s.hydrate);
+  useEffect(() => { if (!adminLoaded) hydrate(); }, [adminLoaded, hydrate]);
+
+  const visibleBoards = useMemo(() => {
+    if (!adminLoaded) return BOARDS;
+    const orderMap = new Map(adminBoards.map((b, i) => [b.id, { idx: i, enabled: b.enabled }]));
+    return BOARDS
+      .filter((b) => orderMap.get(b.id)?.enabled ?? b.available)
+      .sort((a, b) => (orderMap.get(a.id)?.idx ?? 0) - (orderMap.get(b.id)?.idx ?? 0));
+  }, [adminLoaded, adminBoards]);
+
   return (
     <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-card">
       <div className="flex items-center gap-2 mr-2">
@@ -77,7 +93,7 @@ export function Toolbar({ onCompile, onStart, onPause, onResume, onStop }: Props
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {BOARDS.map((b) => (
+          {visibleBoards.map((b) => (
             <SelectItem key={b.id} value={b.id} disabled={!b.available}>
               {b.name} {!b.available && "(soon)"}
             </SelectItem>
@@ -169,6 +185,9 @@ export function Toolbar({ onCompile, onStart, onPause, onResume, onStop }: Props
       <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={toggleTheme} title="Toggle theme">
         {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
       </Button>
+      <Link to="/admin" title="Admin" className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground">
+        <Settings className="h-4 w-4" />
+      </Link>
 
       <div className="h-6 w-px bg-border mx-1" />
       <nav className="flex items-center gap-3 text-xs">
