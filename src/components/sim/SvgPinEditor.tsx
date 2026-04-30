@@ -89,6 +89,9 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [spaceDown, setSpaceDown] = useState(false);
   const [panning, setPanning] = useState(false);
+  /** Pin currently being dragged (set on mousedown over a pin marker). */
+  const [dragPinId, setDragPinId] = useState<string | null>(null);
+  const dragStateRef = useRef<{ startX: number; startY: number; moved: boolean } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -128,7 +131,7 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
     if (!f) return;
     const isSvg = f.name.toLowerCase().endsWith(".svg") || f.type === "image/svg+xml";
     if (!isSvg) {
-      toast.error("Use 'Convert PNG → SVG' for raster images");
+      toast.error("Use 'Add SVG / Convert PNG' for raster images");
       return;
     }
     f.text().then((txt) => {
@@ -205,11 +208,39 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
         x: panStartRef.current.px + (e.clientX - panStartRef.current.x),
         y: panStartRef.current.py + (e.clientY - panStartRef.current.y),
       });
+      return;
+    }
+    if (dragPinId && dragStateRef.current && svgInfo) {
+      const dx = e.clientX - dragStateRef.current.startX;
+      const dy = e.clientY - dragStateRef.current.startY;
+      if (!dragStateRef.current.moved && Math.hypot(dx, dy) < 3) return; // click threshold
+      dragStateRef.current.moved = true;
+      const p = screenToSvg(e.clientX, e.clientY);
+      if (!p) return;
+      const snapped = snap ? snapPoint(p, gridSize, svgInfo) : p;
+      // Clamp to viewBox so pins can't escape the artwork
+      const x = Math.max(svgInfo.vbX, Math.min(svgInfo.vbX + svgInfo.vbWidth, snapped.x));
+      const y = Math.max(svgInfo.vbY, Math.min(svgInfo.vbY + svgInfo.vbHeight, snapped.y));
+      onChange({
+        svg,
+        pins: pins.map((p2) => (p2.id === dragPinId ? { ...p2, x: round1(x), y: round1(y) } : p2)),
+      });
+      // Suppress popover while dragging
+      if (popoverOpen) setPopoverOpen(false);
     }
   }
   function handleCanvasMouseUp() {
     panStartRef.current = null;
     setPanning(false);
+    if (dragPinId) {
+      // If the user barely moved, treat it as a click → open popover.
+      if (dragStateRef.current && !dragStateRef.current.moved) {
+        setSelectedPin(dragPinId);
+        setPopoverOpen(true);
+      }
+      setDragPinId(null);
+      dragStateRef.current = null;
+    }
   }
   function handleWheel(e: React.WheelEvent) {
     e.preventDefault();
@@ -360,7 +391,7 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
           </DialogTrigger>
           <DialogContent className="max-w-4xl">
             <DialogHeader>
-              <DialogTitle>Convert PNG → SVG</DialogTitle>
+              <DialogTitle>Add SVG / Convert PNG</DialogTitle>
             </DialogHeader>
             <PngToSvgConverter onSvg={(s) => acceptConvertedSvg(s)} />
           </DialogContent>
@@ -465,15 +496,21 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
                     >
                       <PopoverTrigger asChild>
                         <circle
-                          cx={cx} cy={cy} r={4.5}
+                          cx={cx} cy={cy} r={6}
                           fill={p.color ?? TYPE_COLORS[p.type]}
                           stroke="white"
                           strokeWidth={1.5}
-                          style={{ cursor: "pointer" }}
-                          onClick={(e) => {
+                          style={{ cursor: dragPinId === p.id ? "grabbing" : "grab" }}
+                          onMouseDown={(e) => {
                             e.stopPropagation();
+                            e.preventDefault();
                             setSelectedPin(p.id);
-                            setPopoverOpen(true);
+                            setDragPinId(p.id);
+                            dragStateRef.current = {
+                              startX: e.clientX,
+                              startY: e.clientY,
+                              moved: false,
+                            };
                           }}
                         />
                       </PopoverTrigger>
@@ -503,7 +540,7 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
 
         {/* HUD */}
         <div className="absolute bottom-2 left-2 text-[10px] text-muted-foreground bg-background/80 backdrop-blur px-2 py-1 rounded">
-          {pins.length} pin{pins.length === 1 ? "" : "s"} · hold <kbd className="px-1 border rounded bg-muted">Space</kbd> + drag to pan · scroll to zoom
+          {pins.length} pin{pins.length === 1 ? "" : "s"} · drag a pin to move · click to edit · <kbd className="px-1 border rounded bg-muted">Space</kbd>+drag to pan · scroll to zoom
         </div>
       </div>
 
@@ -553,12 +590,12 @@ function UploadZone({
           <Dialog open={showConvert} onOpenChange={setShowConvert}>
             <DialogTrigger asChild>
               <Button size="sm" variant="outline">
-                <ImageIcon className="h-4 w-4 mr-1.5" /> Convert PNG → SVG
+                <ImageIcon className="h-4 w-4 mr-1.5" /> Add SVG / Convert PNG
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-4xl">
               <DialogHeader>
-                <DialogTitle>Convert PNG → SVG</DialogTitle>
+                <DialogTitle>Add SVG / Convert PNG</DialogTitle>
               </DialogHeader>
               <PngToSvgConverter
                 onSvg={(s) => { onConvertedSvg(s); setShowConvert(false); }}
