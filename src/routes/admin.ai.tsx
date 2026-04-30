@@ -6,7 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
-import { Loader2, Send, Save, Download, Upload, Trash2, Sparkles, ArrowLeft, Pencil, X, BookOpen, Check, Library, ExternalLink, ImagePlus } from "lucide-react";
+import { Loader2, Send, Save, Download, Upload, Trash2, Sparkles, ArrowLeft, Pencil, X, BookOpen, Check, Library, ExternalLink, ImagePlus, MessageSquarePlus, MessagesSquare, Eraser } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useServerFn } from "@tanstack/react-start";
 import {
   aiBuilderChat,
@@ -38,6 +39,51 @@ export const Route = createFileRoute("/admin/ai")({
 });
 
 interface ChatMsg { role: "user" | "assistant"; content: string; images?: string[] }
+interface Conversation { id: string; title: string; messages: ChatMsg[]; updatedAt: number }
+
+const CONVO_STORAGE_KEY = "admin-ai-conversations-v1";
+const ACTIVE_CONVO_KEY = "admin-ai-active-conversation-v1";
+
+const INITIAL_GREETING: ChatMsg = {
+  role: "assistant",
+  content: "Hi! Describe a component or board you want to build — for example: *'a small DC motor with speed and direction inputs that burns over 12V'*. You don't need to provide an SVG; I'll draw one for you. Once we agree, say **build it** and I'll emit a final spec with a live behavior simulator.",
+};
+
+function newConversation(): Conversation {
+  return {
+    id: `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+    title: "New conversation",
+    messages: [INITIAL_GREETING],
+    updatedAt: Date.now(),
+  };
+}
+
+function loadConversations(): { list: Conversation[]; activeId: string } {
+  if (typeof window === "undefined") {
+    const c = newConversation();
+    return { list: [c], activeId: c.id };
+  }
+  try {
+    const raw = localStorage.getItem(CONVO_STORAGE_KEY);
+    const list: Conversation[] = raw ? JSON.parse(raw) : [];
+    const activeId = localStorage.getItem(ACTIVE_CONVO_KEY) ?? "";
+    if (list.length === 0) {
+      const c = newConversation();
+      return { list: [c], activeId: c.id };
+    }
+    return { list, activeId: list.find((c) => c.id === activeId)?.id ?? list[0].id };
+  } catch {
+    const c = newConversation();
+    return { list: [c], activeId: c.id };
+  }
+}
+
+function deriveTitle(messages: ChatMsg[]): string {
+  const firstUser = messages.find((m) => m.role === "user");
+  if (!firstUser) return "New conversation";
+  const t = firstUser.content.trim().replace(/\s+/g, " ");
+  return t.length > 40 ? t.slice(0, 40) + "…" : t || "New conversation";
+}
 
 interface ArduinoLibMatch {
   name: string;
@@ -104,10 +150,80 @@ function AdminPage() {
   const deleteFn = useServerFn(deleteCustomComponent);
   const libsFn = useServerFn(findArduinoLibraries);
 
-  const [messages, setMessages] = useState<ChatMsg[]>([
-    { role: "assistant", content: "Hi! Describe a component or board you want to build — for example: *'a small DC motor with speed and direction inputs that burns over 12V'*. You don't need to provide an SVG; I'll draw one for you. Once we agree, say **build it** and I'll emit a final spec with a live behavior simulator." },
-  ]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeId, setActiveId] = useState<string>("");
   const [input, setInput] = useState("");
+
+  // Hydrate conversations on mount (client-only).
+  useEffect(() => {
+    const { list, activeId } = loadConversations();
+    setConversations(list);
+    setActiveId(activeId);
+  }, []);
+
+  const activeConvo = conversations.find((c) => c.id === activeId);
+  const messages = activeConvo?.messages ?? [INITIAL_GREETING];
+
+  // Persist whenever conversations change.
+  useEffect(() => {
+    if (conversations.length === 0) return;
+    try {
+      localStorage.setItem(CONVO_STORAGE_KEY, JSON.stringify(conversations));
+      if (activeId) localStorage.setItem(ACTIVE_CONVO_KEY, activeId);
+    } catch { /* ignore quota */ }
+  }, [conversations, activeId]);
+
+  function setMessages(updater: ChatMsg[] | ((prev: ChatMsg[]) => ChatMsg[])) {
+    setConversations((prev) =>
+      prev.map((c) => {
+        if (c.id !== activeId) return c;
+        const next = typeof updater === "function" ? (updater as (p: ChatMsg[]) => ChatMsg[])(c.messages) : updater;
+        return { ...c, messages: next, title: deriveTitle(next), updatedAt: Date.now() };
+      }),
+    );
+  }
+
+  function startNewConversation() {
+    const c = newConversation();
+    setConversations((prev) => [c, ...prev]);
+    setActiveId(c.id);
+    setPending(null);
+    setSavedId(null);
+    setInput("");
+    setPendingImages([]);
+  }
+
+  function clearActiveConversation() {
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === activeId ? { ...c, messages: [INITIAL_GREETING], title: "New conversation", updatedAt: Date.now() } : c,
+      ),
+    );
+    setPending(null);
+    setSavedId(null);
+  }
+
+  function deleteConversation(id: string) {
+    setConversations((prev) => {
+      const next = prev.filter((c) => c.id !== id);
+      if (next.length === 0) {
+        const c = newConversation();
+        setActiveId(c.id);
+        return [c];
+      }
+      if (id === activeId) setActiveId(next[0].id);
+      return next;
+    });
+  }
+
+  function switchConversation(id: string) {
+    setActiveId(id);
+    setPending(null);
+    setSavedId(null);
+    setInput("");
+    setPendingImages([]);
+  }
+
   const [pendingImages, setPendingImages] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<PendingSpec | null>(null);
@@ -315,6 +431,53 @@ function AdminPage() {
       <div className="flex-1 min-h-0 grid grid-cols-[1fr_1fr_320px]">
         {/* Chat panel */}
         <section className="flex flex-col border-r border-border min-h-0 min-w-0">
+          <div className="flex items-center gap-1 px-3 py-1.5 border-b border-border bg-muted/30">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="ghost" className="h-7 text-xs gap-1.5 max-w-[60%] justify-start">
+                  <MessagesSquare className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{activeConvo?.title ?? "Conversation"}</span>
+                  <span className="text-muted-foreground text-[10px] shrink-0">({conversations.length})</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-72 max-h-80 overflow-auto">
+                <DropdownMenuLabel className="text-xs">Conversations</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {[...conversations].sort((a, b) => b.updatedAt - a.updatedAt).map((c) => (
+                  <DropdownMenuItem
+                    key={c.id}
+                    onSelect={(e) => { e.preventDefault(); switchConversation(c.id); }}
+                    className="flex items-center gap-2 group"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs truncate">{c.title}</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {c.messages.length} msg{c.id === activeId ? " · active" : ""}
+                      </div>
+                    </div>
+                    {conversations.length > 1 && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteConversation(c.id); }}
+                        className="opacity-0 group-hover:opacity-100 text-destructive p-1"
+                        aria-label="Delete conversation"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <div className="flex-1" />
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={startNewConversation} title="New conversation">
+              <MessageSquarePlus className="h-3.5 w-3.5 mr-1" />
+              New
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={clearActiveConversation} title="Clear messages in this conversation">
+              <Eraser className="h-3.5 w-3.5 mr-1" />
+              Clear
+            </Button>
+          </div>
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 space-y-3">
             {messages.map((m, i) => (
               <div key={i} className={`text-sm min-w-0 ${m.role === "user" ? "text-foreground" : "text-foreground/90"}`}>
