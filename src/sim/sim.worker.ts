@@ -157,16 +157,19 @@ async function runProgram(code: string) {
   post({ type: "compile-ok", warnings: [] });
 
   // Bind setup/loop by executing translated source.
-  let executor: ((rt: typeof __rt, Ser: typeof Serial) => Promise<void>) | null = null;
+  let executor: (rt: typeof __rt, Ser: typeof Serial) => Promise<void>;
   try {
-    executor = new Function("__rt", "Serial", `return (async () => { ${js} })();`) as never;
+    executor = new Function(
+      "__rt", "Serial",
+      `return (async () => { ${js} })();`
+    ) as (rt: typeof __rt, Ser: typeof Serial) => Promise<void>;
   } catch (e) {
     post({ type: "error", message: "Translation error: " + (e as Error).message });
     return;
   }
 
   try {
-    await executor!(__rt, Serial);
+    await executor(__rt, Serial);
   } catch (e) {
     post({ type: "error", message: (e as Error).message });
     return;
