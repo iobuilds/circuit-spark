@@ -388,9 +388,20 @@ export const Uno3DViewer = forwardRef<Uno3DViewerHandle, Props>(function Uno3DVi
     loadUno().then(({ scene: unoScene, bbox }) => {
       if (disposed) return;
       // Clone so multiple mounted viewers don't fight over the same instance.
+      // We clone materials too (deep) so the audit panel's per-instance overrides
+      // don't bleed into other viewers sharing the cached scene.
       const clone = unoScene.clone(true);
+      clone.traverse((obj) => {
+        const mesh = obj as THREE.Mesh;
+        if (!mesh.isMesh || !mesh.material) return;
+        mesh.material = Array.isArray(mesh.material)
+          ? mesh.material.map((m) => m.clone())
+          : (mesh.material as THREE.Material).clone();
+      });
+      applyMaterialFixups(clone);
       scene.add(clone);
       runtime.bbox = bbox;
+      runtime.unoClone = clone;
 
       // Fit ortho camera to board top extents.
       const sizeX = bbox.max.x - bbox.min.x;
