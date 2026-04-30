@@ -149,4 +149,10 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
     kind: "custom", label: "Custom", category: "Basic", width: 80, height: 60,
     pins: [], available: true,
   },
+  // Board placeholder. Pins are resolved dynamically from the boardId stored
+  // in component props (Uno uses uno-pins, others use generic header pins).
+  board: {
+    kind: "board", label: "Board", category: "Basic", width: 360, height: 240,
+    pins: [], available: true,
+  },
 };
