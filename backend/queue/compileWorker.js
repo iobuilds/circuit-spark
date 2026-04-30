@@ -61,6 +61,7 @@ compileQueue.process(config.MAX_CONCURRENT_JOBS, async (job) => {
         };
       }
 
+      await emit('libraries', 40, 'Checking libraries...');
       const missing = await compiler.checkLibraries(libraries || []);
       if (missing.length > 0) {
         await emit('install_libs', 50, `Installing ${missing.length} missing libraries...`);
