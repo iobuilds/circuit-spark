@@ -508,8 +508,11 @@ function AdminPage() {
           </div>
           <div className="flex-1 min-h-0 overflow-auto p-2 space-y-2">
             {items.length === 0 && (
-              <div className="text-xs text-muted-foreground p-3 text-center">
-                No saved components yet.
+              <div className="text-xs text-muted-foreground p-3 text-center space-y-2">
+                <div>No saved components yet.</div>
+                <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                  <Upload className="h-3 w-3 mr-1.5" /> Import a ZIP pack
+                </Button>
               </div>
             )}
             {items.map((c) => (
