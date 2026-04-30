@@ -16,7 +16,12 @@ interface ChatMessageInput {
 
 export const aiBuilderChat = createServerFn({ method: "POST" })
   .inputValidator(
-    (input: { history: ChatMessageInput[]; message: string; images?: string[] }) => {
+    (input: {
+      history: ChatMessageInput[];
+      message: string;
+      images?: string[];
+      currentSpec?: unknown;
+    }) => {
       if (!input || typeof input.message !== "string") {
         throw new Error("message required");
       }
@@ -24,11 +29,16 @@ export const aiBuilderChat = createServerFn({ method: "POST" })
       const images = Array.isArray(input.images)
         ? input.images.filter((s) => typeof s === "string" && s.startsWith("data:image/")).slice(0, 4)
         : undefined;
-      return { history, message: input.message, images };
+      return {
+        history,
+        message: input.message,
+        images,
+        currentSpec: input.currentSpec ?? null,
+      };
     },
   )
   .handler(async ({ data }) => {
-    return runBuilderChat(data.history, data.message, data.images);
+    return runBuilderChat(data.history, data.message, data.images, data.currentSpec);
   });
 
 export const listCustomComponents = createServerFn({ method: "GET" }).handler(async () => {
