@@ -11,6 +11,7 @@ import { useAdminStore } from "@/sim/adminStore";
 import { CornerDownLeft, Lock, Plus, Trash2, X, Undo2, Redo2, Wand2, Share2, Move, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddItemDialog } from "./AddItemDialog";
+import { SensorControlsPanel } from "./SensorControlsPanel";
 
 interface Props {
   onPinInputChange: (pin: number, value: { digital?: 0 | 1; analog?: number }) => void;
