@@ -19,15 +19,19 @@ export interface BoardDef {
   available: boolean;
 }
 
+// Library wiped down to a single fully-functional Arduino Uno board (driven by
+// the imported STEP→GLB top view). Other entries remain in the type union for
+// backward-compat with persisted projects, but are flagged unavailable so they
+// don't appear in palettes/pickers.
 export const BOARDS: BoardDef[] = [
   { id: "uno", name: "Arduino Uno", mcu: "ATmega328P", digitalPins: 14, analogPins: 6, available: true },
-  { id: "mega", name: "Arduino Mega 2560", mcu: "ATmega2560", digitalPins: 54, analogPins: 16, available: true },
-  { id: "nano", name: "Arduino Nano", mcu: "ATmega328P", digitalPins: 14, analogPins: 8, available: true },
-  { id: "esp32", name: "ESP32 DevKit", mcu: "ESP32", digitalPins: 38, analogPins: 18, available: true },
-  { id: "esp8266", name: "ESP8266 NodeMCU", mcu: "ESP8266", digitalPins: 17, analogPins: 1, available: true },
-  { id: "stm32", name: "STM32 Blue Pill", mcu: "STM32F103C8T6", digitalPins: 37, analogPins: 10, available: true },
-  { id: "msp430", name: "MSP430 LaunchPad", mcu: "MSP430G2553", digitalPins: 16, analogPins: 8, available: true },
-  { id: "pico", name: "Raspberry Pi Pico", mcu: "RP2040", digitalPins: 26, analogPins: 3, available: true },
+  { id: "mega", name: "Arduino Mega 2560", mcu: "ATmega2560", digitalPins: 54, analogPins: 16, available: false },
+  { id: "nano", name: "Arduino Nano", mcu: "ATmega328P", digitalPins: 14, analogPins: 8, available: false },
+  { id: "esp32", name: "ESP32 DevKit", mcu: "ESP32", digitalPins: 38, analogPins: 18, available: false },
+  { id: "esp8266", name: "ESP8266 NodeMCU", mcu: "ESP8266", digitalPins: 17, analogPins: 1, available: false },
+  { id: "stm32", name: "STM32 Blue Pill", mcu: "STM32F103C8T6", digitalPins: 37, analogPins: 10, available: false },
+  { id: "msp430", name: "MSP430 LaunchPad", mcu: "MSP430G2553", digitalPins: 16, analogPins: 8, available: false },
+  { id: "pico", name: "Raspberry Pi Pico", mcu: "RP2040", digitalPins: 26, analogPins: 3, available: false },
 ];
 
 export type ComponentKind =

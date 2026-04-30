@@ -2,12 +2,14 @@
 // Schema versioned (_version: 1) for future migration.
 
 import { create } from "zustand";
-import { BOARDS, type BoardDef, type BoardId, type ComponentKind } from "./types";
+import { BOARDS, type BoardId, type ComponentKind } from "./types";
 import { COMPONENT_DEFS } from "./components";
-import { UNO_SVG } from "./boardSvgs/unoSvg";
 import { defaultUnoPins } from "./boardSvgs/unoPins";
 
-const STORAGE_VERSION = 3;
+// v4: library wiped to a single fully-functional Arduino Uno (3D GLB-based).
+// Bumping the version invalidates older persisted boards/components so the new
+// defaults take effect on next hydrate.
+const STORAGE_VERSION = 4;
 const KEY_BOARDS = "embedsim_boards";
 const KEY_COMPONENTS = "embedsim_components";
 
@@ -63,7 +65,9 @@ interface PersistedShape<T> {
 }
 
 function defaultBoards(): BoardEntry[] {
-  return BOARDS.map((b) => {
+  // Library now ships ONLY the Arduino Uno (rendered from the imported
+  // STEP→GLB top view). Other board kinds are filtered out of the defaults.
+  return BOARDS.filter((b) => b.available).map((b) => {
     const base: BoardEntry = {
       id: b.id,
       name: b.name,
@@ -74,7 +78,7 @@ function defaultBoards(): BoardEntry[] {
       builtIn: true,
     };
     if (b.id === "uno") {
-      base.svg = UNO_SVG;
+      // No SVG: the Uno is rendered from /models/uno.glb in the 3D workspace.
       base.pins = defaultUnoPins();
     }
     return base;
@@ -82,13 +86,19 @@ function defaultBoards(): BoardEntry[] {
 }
 
 function defaultComponents(): ComponentEntry[] {
-  return Object.values(COMPONENT_DEFS).map((c) => ({
-    id: c.kind,
-    label: c.label,
-    category: c.category,
-    enabled: c.available,
-    builtIn: true,
-  }));
+  // All built-in components are wiped from the default library. Users (or the
+  // admin AI builder) add components on demand. Built-in component kinds remain
+  // in COMPONENT_DEFS so existing saved circuits still resolve, but none are
+  // shipped enabled by default.
+  return Object.values(COMPONENT_DEFS)
+    .filter((c) => c.available)
+    .map((c) => ({
+      id: c.kind,
+      label: c.label,
+      category: c.category,
+      enabled: c.available,
+      builtIn: true,
+    }));
 }
 
 function loadPersisted<T>(key: string, fallback: T[]): T[] {
