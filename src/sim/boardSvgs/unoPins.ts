@@ -1,22 +1,22 @@
-// Realistic Arduino Uno pin layout, mapped to the GLB top-view coordinate space
-// used by the 3D pin editor (TOP_W=1000, TOP_H=700). Origin is top-left of the
-// board's bounding box in the orthographic top view.
+// Realistic Arduino Uno pin layout, mapped to the UNO_SVG coordinate space
+// (viewBox 360x240). Coordinates align exactly with the header sockets drawn
+// in src/sim/boardSvgs/unoSvg.ts so wires snap to the right holes.
 //
-// Layout (USB on the LEFT, power jack on the LEFT-bottom):
-//   - Top header (Y ~= 95):   D8..D13 + GND + AREF + SDA + SCL  (right block)
-//                             D0..D7                              (left block)
-//   - Bottom header (Y ~= 605):
-//       Power block (left): IOREF, RESET, 3.3V, 5V, GND, GND, VIN
-//       Analog block (right): A0..A5
+// Top header (y=18):
+//   D0..D13 at x = 95 + i*14, then GND at i=14, AREF at i=15.
 //
-// Coordinates were chosen to align visually with the imported uno.glb top view.
+// Bottom power header (y=222, left block): IOREF, RESET, 3.3V, 5V, GND, GND, VIN
+//   x positions: 100, 114, 128, 142, 156, 170, 184.
+//
+// Bottom analog header (y=222, right block): A0..A5 at x = 240 + i*14.
+
 import type { VisualPin } from "@/sim/adminStore";
 
-const TOP_Y = 95;
-const BOTTOM_Y = 605;
-
-// Header pin pitch in top-view units (~36 units per 0.1" pin pitch on this board).
-const PITCH = 36;
+const TOP_Y = 18;
+const BOTTOM_Y = 222;
+const PITCH = 14;
+const D_START_X = 95;
+const A_START_X = 240;
 
 const COLOR: Record<VisualPin["type"], string> = {
   digital: "#22c55e",
@@ -33,7 +33,7 @@ const COLOR: Record<VisualPin["type"], string> = {
 
 const PWM_PINS = new Set([3, 5, 6, 9, 10, 11]);
 
-function digital(num: number, x: number): VisualPin {
+function digital(num: number): VisualPin {
   const isPwm = PWM_PINS.has(num);
   const type: VisualPin["type"] = isPwm ? "pwm" : "digital";
   return {
@@ -41,19 +41,19 @@ function digital(num: number, x: number): VisualPin {
     label: isPwm ? `~${num}` : `${num}`,
     type,
     number: num,
-    x,
+    x: D_START_X + num * PITCH,
     y: TOP_Y,
     color: COLOR[type],
   };
 }
 
-function analog(idx: number, x: number): VisualPin {
+function analog(idx: number): VisualPin {
   return {
     id: `A${idx}`,
     label: `A${idx}`,
     type: "analog",
     number: 14 + idx,
-    x,
+    x: A_START_X + idx * PITCH,
     y: BOTTOM_Y,
     color: COLOR.analog,
   };
@@ -62,58 +62,33 @@ function analog(idx: number, x: number): VisualPin {
 export function defaultUnoPins(): VisualPin[] {
   const pins: VisualPin[] = [];
 
-  // Top header — left block: D0(RX), D1(TX), D2..D7
-  // Right block: D8..D13, GND, AREF, SDA, SCL
-  // The two blocks have a small gap in the middle (around the strain-relief notch).
-  const leftStart = 360;   // x of D0
-  const rightStart = 660;  // x of D8 (after the gap)
+  // Top header — D0..D13
+  for (let i = 0; i <= 13; i++) pins.push(digital(i));
 
-  // Left block D0..D7 (right-to-left on real board, but in top-view we lay
-  // increasing pin number from LEFT to RIGHT to match the GLB orientation).
-  for (let i = 0; i <= 7; i++) {
-    pins.push(digital(i, leftStart + i * PITCH));
-  }
-  // Right block D8..D13
-  for (let i = 8; i <= 13; i++) {
-    pins.push(digital(i, rightStart + (i - 8) * PITCH));
-  }
-  // GND, AREF, SDA, SCL after D13
-  const afterD13 = rightStart + 6 * PITCH;
+  // GND + AREF after D13
   pins.push({
     id: "GND_TOP", label: "GND", type: "ground",
-    x: afterD13, y: TOP_Y, color: COLOR.ground,
+    x: D_START_X + 14 * PITCH, y: TOP_Y, color: COLOR.ground,
   });
   pins.push({
     id: "AREF", label: "AREF", type: "other",
-    x: afterD13 + PITCH, y: TOP_Y, color: COLOR.other,
-  });
-  pins.push({
-    id: "SDA", label: "SDA", type: "i2c-sda",
-    x: afterD13 + 2 * PITCH, y: TOP_Y, color: COLOR["i2c-sda"],
-  });
-  pins.push({
-    id: "SCL", label: "SCL", type: "i2c-scl",
-    x: afterD13 + 3 * PITCH, y: TOP_Y, color: COLOR["i2c-scl"],
+    x: D_START_X + 15 * PITCH, y: TOP_Y, color: COLOR.other,
   });
 
-  // Bottom header — power block (left): IOREF, RESET, 3.3V, 5V, GND, GND, VIN
-  const powerStart = 200;
+  // Bottom power block
   const power: VisualPin[] = [
-    { id: "IOREF", label: "IOREF", type: "other",  x: powerStart + 0 * PITCH, y: BOTTOM_Y, color: COLOR.other },
-    { id: "RESET", label: "RST",   type: "other",  x: powerStart + 1 * PITCH, y: BOTTOM_Y, color: COLOR.other },
-    { id: "3V3",   label: "3.3V",  type: "power",  x: powerStart + 2 * PITCH, y: BOTTOM_Y, color: COLOR.power },
-    { id: "5V",    label: "5V",    type: "power",  x: powerStart + 3 * PITCH, y: BOTTOM_Y, color: COLOR.power },
-    { id: "GND1",  label: "GND",   type: "ground", x: powerStart + 4 * PITCH, y: BOTTOM_Y, color: COLOR.ground },
-    { id: "GND2",  label: "GND",   type: "ground", x: powerStart + 5 * PITCH, y: BOTTOM_Y, color: COLOR.ground },
-    { id: "VIN",   label: "VIN",   type: "power",  x: powerStart + 6 * PITCH, y: BOTTOM_Y, color: COLOR.power },
+    { id: "IOREF", label: "IOREF", type: "other",  x: 100, y: BOTTOM_Y, color: COLOR.other },
+    { id: "RESET", label: "RST",   type: "other",  x: 114, y: BOTTOM_Y, color: COLOR.other },
+    { id: "3V3",   label: "3.3V",  type: "power",  x: 128, y: BOTTOM_Y, color: COLOR.power },
+    { id: "5V",    label: "5V",    type: "power",  x: 142, y: BOTTOM_Y, color: COLOR.power },
+    { id: "GND1",  label: "GND",   type: "ground", x: 156, y: BOTTOM_Y, color: COLOR.ground },
+    { id: "GND2",  label: "GND",   type: "ground", x: 170, y: BOTTOM_Y, color: COLOR.ground },
+    { id: "VIN",   label: "VIN",   type: "power",  x: 184, y: BOTTOM_Y, color: COLOR.power },
   ];
   pins.push(...power);
 
-  // Bottom header — analog block (right): A0..A5
-  const analogStart = 660;
-  for (let i = 0; i <= 5; i++) {
-    pins.push(analog(i, analogStart + i * PITCH));
-  }
+  // Bottom analog A0..A5
+  for (let i = 0; i <= 5; i++) pins.push(analog(i));
 
   return pins;
 }

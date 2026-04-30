@@ -5,11 +5,12 @@ import { create } from "zustand";
 import { BOARDS, type BoardId, type ComponentKind } from "./types";
 import { COMPONENT_DEFS } from "./components";
 import { defaultUnoPins } from "./boardSvgs/unoPins";
+import { UNO_SVG } from "./boardSvgs/unoSvg";
 
-// v4: library wiped to a single fully-functional Arduino Uno (3D GLB-based).
-// Bumping the version invalidates older persisted boards/components so the new
-// defaults take effect on next hydrate.
-const STORAGE_VERSION = 4;
+// v5: switched Uno from 3D GLB to flat 2D SVG (Tinkercad-style top view).
+// Bumping the version invalidates older persisted boards so the new SVG +
+// realigned pins take effect on next hydrate.
+const STORAGE_VERSION = 5;
 const KEY_BOARDS = "embedsim_boards";
 const KEY_COMPONENTS = "embedsim_components";
 
@@ -78,7 +79,9 @@ function defaultBoards(): BoardEntry[] {
       builtIn: true,
     };
     if (b.id === "uno") {
-      // No SVG: the Uno is rendered from /models/uno.glb in the 3D workspace.
+      // 2D Tinkercad-style top view (360x240 viewBox). Pins align with the
+      // SVG header sockets so wires snap to real holes.
+      base.svg = UNO_SVG;
       base.pins = defaultUnoPins();
     }
     return base;
