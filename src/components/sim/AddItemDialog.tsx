@@ -166,6 +166,32 @@ function Section({ title, icon, children }: { title: string; icon?: React.ReactN
   );
 }
 
+/** Pretty 60x36 silhouettes per board family — gives users a visual cue. */
+function BoardIcon({ id }: { id: string }) {
+  const fill =
+    id === "esp32" || id === "esp8266" ? "oklch(0.50 0.18 25)"
+    : id === "stm32" ? "oklch(0.45 0.14 250)"
+    : id === "pico"  ? "oklch(0.92 0.02 250)"
+    : id === "nano"  ? "oklch(0.55 0.16 165)"
+    : id === "mega"  ? "oklch(0.55 0.16 165)"
+    : "oklch(0.55 0.16 165)";
+  return (
+    <svg viewBox="0 0 60 36" className="w-14 h-9">
+      <rect x={3} y={5} width={54} height={26} rx={3} fill={fill} />
+      {/* header strips (digital + power) */}
+      <rect x={8} y={8} width={44} height={3} rx={0.5} fill="oklch(0.10 0.01 250)" />
+      <rect x={8} y={25} width={44} height={3} rx={0.5} fill="oklch(0.10 0.01 250)" />
+      {/* MCU chip */}
+      <rect x={22} y={14} width={16} height={9} rx={1} fill="oklch(0.18 0.02 240)" />
+      {/* mounting holes */}
+      <circle cx={6} cy={8} r={1.1} fill="oklch(0.18 0.02 240)" />
+      <circle cx={6} cy={28} r={1.1} fill="oklch(0.18 0.02 240)" />
+      <circle cx={54} cy={8} r={1.1} fill="oklch(0.18 0.02 240)" />
+      <circle cx={54} cy={28} r={1.1} fill="oklch(0.18 0.02 240)" />
+    </svg>
+  );
+}
+
 function BoardCard({ board, onPick }: { board: { id: string; name: string; mcu: string }; onPick: () => void }) {
   return (
     <button
@@ -173,19 +199,169 @@ function BoardCard({ board, onPick }: { board: { id: string; name: string; mcu: 
       className="group rounded-md border bg-card p-3 text-left hover:border-primary hover:bg-accent transition-colors"
     >
       <div className="flex items-center justify-center h-12 mb-2">
-        <svg viewBox="0 0 60 36" className="w-14 h-9">
-          <rect x={3} y={5} width={54} height={26} rx={3} fill="oklch(0.55 0.16 165)" />
-          <rect x={22} y={13} width={16} height={10} rx={1} fill="oklch(0.18 0.02 240)" />
-          <circle cx={8} cy={10} r={1.5} fill="oklch(0.85 0.15 90)" />
-          <circle cx={8} cy={26} r={1.5} fill="oklch(0.85 0.15 90)" />
-          <circle cx={52} cy={10} r={1.5} fill="oklch(0.85 0.15 90)" />
-          <circle cx={52} cy={26} r={1.5} fill="oklch(0.85 0.15 90)" />
-        </svg>
+        <BoardIcon id={board.id} />
       </div>
       <div className="text-sm font-medium truncate">{board.name}</div>
       <div className="text-[10px] text-muted-foreground truncate">{board.mcu}</div>
     </button>
   );
+}
+
+/** Distinct vector icons per built-in component kind. */
+function ComponentIcon({ kind }: { kind: ComponentKind }) {
+  const cls = "w-9 h-9";
+  switch (kind) {
+    case "led":
+      return (
+        <svg viewBox="0 0 36 36" className={cls}>
+          <ellipse cx={18} cy={14} rx={9} ry={10} fill="oklch(0.7 0.25 25)" />
+          <ellipse cx={15} cy={10} rx={3} ry={4} fill="oklch(0.95 0.1 25)" opacity={0.7} />
+          <line x1={14} y1={28} x2={14} y2={34} stroke="currentColor" strokeWidth={1.5} />
+          <line x1={22} y1={24} x2={22} y2={34} stroke="currentColor" strokeWidth={1.5} />
+        </svg>
+      );
+    case "rgb-led":
+      return (
+        <svg viewBox="0 0 36 36" className={cls}>
+          <defs>
+            <radialGradient id="rgbg" cx="50%" cy="40%" r="60%">
+              <stop offset="0%" stopColor="oklch(0.95 0.1 145)" />
+              <stop offset="50%" stopColor="oklch(0.7 0.22 25)" />
+              <stop offset="100%" stopColor="oklch(0.6 0.2 250)" />
+            </radialGradient>
+          </defs>
+          <ellipse cx={18} cy={14} rx={9} ry={10} fill="url(#rgbg)" />
+          {[12, 16, 20, 24].map((x) => (
+            <line key={x} x1={x} y1={24} x2={x} y2={34} stroke="currentColor" strokeWidth={1} />
+          ))}
+        </svg>
+      );
+    case "resistor":
+      return (
+        <svg viewBox="0 0 36 36" className={cls}>
+          <line x1={2} y1={18} x2={9} y2={18} stroke="currentColor" strokeWidth={1.5} />
+          <rect x={9} y={13} width={18} height={10} rx={2} fill="oklch(0.75 0.05 60)" stroke="currentColor" strokeWidth={0.6} />
+          <rect x={12} y={13} width={1.5} height={10} fill="oklch(0.5 0.15 25)" />
+          <rect x={16} y={13} width={1.5} height={10} fill="oklch(0.4 0.05 60)" />
+          <rect x={20} y={13} width={1.5} height={10} fill="oklch(0.6 0.18 60)" />
+          <line x1={27} y1={18} x2={34} y2={18} stroke="currentColor" strokeWidth={1.5} />
+        </svg>
+      );
+    case "button":
+      return (
+        <svg viewBox="0 0 36 36" className={cls}>
+          <rect x={6} y={10} width={24} height={16} rx={2} fill="oklch(0.30 0.02 250)" stroke="currentColor" strokeWidth={0.6} />
+          <circle cx={18} cy={18} r={6} fill="oklch(0.55 0.18 25)" stroke="oklch(0.3 0.1 25)" strokeWidth={0.8} />
+          <circle cx={18} cy={18} r={3} fill="oklch(0.7 0.2 25)" />
+        </svg>
+      );
+    case "potentiometer":
+      return (
+        <svg viewBox="0 0 36 36" className={cls}>
+          <circle cx={18} cy={17} r={11} fill="oklch(0.40 0.02 250)" stroke="currentColor" strokeWidth={0.6} />
+          <circle cx={18} cy={17} r={6} fill="oklch(0.55 0.04 250)" />
+          <line x1={18} y1={17} x2={24} y2={11} stroke="oklch(0.95 0.05 60)" strokeWidth={1.5} strokeLinecap="round" />
+        </svg>
+      );
+    case "buzzer":
+      return (
+        <svg viewBox="0 0 36 36" className={cls}>
+          <circle cx={18} cy={17} r={11} fill="oklch(0.18 0.01 250)" stroke="currentColor" strokeWidth={0.6} />
+          <circle cx={18} cy={17} r={2} fill="oklch(0.55 0.04 250)" />
+        </svg>
+      );
+    case "switch":
+      return (
+        <svg viewBox="0 0 36 36" className={cls}>
+          <rect x={6} y={12} width={24} height={12} rx={2} fill="oklch(0.85 0.01 250)" stroke="currentColor" strokeWidth={0.6} />
+          <rect x={18} y={13} width={10} height={10} rx={1} fill="oklch(0.30 0.02 250)" />
+        </svg>
+      );
+    case "lcd1602":
+      return (
+        <svg viewBox="0 0 36 36" className={cls}>
+          <rect x={3} y={9} width={30} height={18} rx={1.5} fill="oklch(0.45 0.10 220)" stroke="currentColor" strokeWidth={0.6} />
+          <rect x={5} y={12} width={26} height={5} fill="oklch(0.85 0.13 220)" />
+          <rect x={5} y={19} width={26} height={5} fill="oklch(0.85 0.13 220)" />
+        </svg>
+      );
+    case "oled":
+      return (
+        <svg viewBox="0 0 36 36" className={cls}>
+          <rect x={4} y={9} width={28} height={18} rx={1.5} fill="oklch(0.12 0.01 250)" stroke="currentColor" strokeWidth={0.6} />
+          <text x={18} y={21} textAnchor="middle" fontSize={6} fill="oklch(0.85 0.13 220)" fontFamily="monospace">OLED</text>
+        </svg>
+      );
+    case "7seg":
+      return (
+        <svg viewBox="0 0 36 36" className={cls}>
+          <rect x={9} y={5} width={18} height={26} rx={2} fill="oklch(0.18 0.01 250)" stroke="currentColor" strokeWidth={0.6} />
+          <text x={18} y={25} textAnchor="middle" fontSize={18} fill="oklch(0.7 0.25 25)" fontFamily="monospace" fontWeight={700}>8</text>
+        </svg>
+      );
+    case "servo":
+      return (
+        <svg viewBox="0 0 36 36" className={cls}>
+          <rect x={6} y={12} width={18} height={18} rx={1.5} fill="oklch(0.85 0.01 250)" stroke="currentColor" strokeWidth={0.6} />
+          <circle cx={26} cy={14} r={4} fill="oklch(0.75 0.02 250)" stroke="currentColor" strokeWidth={0.6} />
+          <line x1={26} y1={14} x2={32} y2={9} stroke="currentColor" strokeWidth={1.5} />
+        </svg>
+      );
+    case "relay":
+      return (
+        <svg viewBox="0 0 36 36" className={cls}>
+          <rect x={4} y={8} width={28} height={20} rx={1.5} fill="oklch(0.55 0.18 25)" stroke="currentColor" strokeWidth={0.6} />
+          <rect x={8} y={12} width={10} height={12} rx={1} fill="oklch(0.30 0.02 250)" />
+          <text x={26} y={22} textAnchor="middle" fontSize={7} fill="oklch(0.95 0 0)" fontFamily="monospace" fontWeight={700}>R</text>
+        </svg>
+      );
+    case "dht11":
+      return (
+        <svg viewBox="0 0 36 36" className={cls}>
+          <rect x={9} y={4} width={18} height={28} rx={1.5} fill="oklch(0.65 0.12 220)" stroke="currentColor" strokeWidth={0.6} />
+          <g fill="oklch(0.18 0.02 250)">
+            {[8, 12, 16, 20, 24, 28].map((y) => <rect key={y} x={11} y={y} width={14} height={1.5} />)}
+          </g>
+        </svg>
+      );
+    case "ultrasonic":
+      return (
+        <svg viewBox="0 0 36 36" className={cls}>
+          <rect x={3} y={10} width={30} height={16} rx={1.5} fill="oklch(0.30 0.02 250)" stroke="currentColor" strokeWidth={0.6} />
+          <circle cx={11} cy={18} r={5} fill="oklch(0.85 0.01 250)" stroke="currentColor" strokeWidth={0.6} />
+          <circle cx={25} cy={18} r={5} fill="oklch(0.85 0.01 250)" stroke="currentColor" strokeWidth={0.6} />
+        </svg>
+      );
+    case "pir":
+      return (
+        <svg viewBox="0 0 36 36" className={cls}>
+          <rect x={4} y={4} width={28} height={28} rx={3} fill="oklch(0.30 0.04 130)" stroke="currentColor" strokeWidth={0.6} />
+          <circle cx={18} cy={18} r={9} fill="oklch(0.85 0.05 60)" />
+          <circle cx={18} cy={18} r={4} fill="oklch(0.55 0.04 60)" />
+        </svg>
+      );
+    case "ldr":
+      return (
+        <svg viewBox="0 0 36 36" className={cls}>
+          <circle cx={18} cy={18} r={11} fill="oklch(0.85 0.05 60)" stroke="currentColor" strokeWidth={0.6} />
+          <path d="M10 14 L26 22 M10 18 L26 14 M10 22 L26 18" stroke="oklch(0.30 0.02 250)" strokeWidth={1} fill="none" />
+        </svg>
+      );
+    case "battery":
+      return (
+        <svg viewBox="0 0 36 36" className={cls}>
+          <rect x={9} y={6} width={18} height={24} rx={2} fill="oklch(0.55 0.18 25)" stroke="currentColor" strokeWidth={0.6} />
+          <rect x={14} y={3} width={8} height={3} rx={0.5} fill="oklch(0.18 0.02 250)" />
+          <text x={18} y={22} textAnchor="middle" fontSize={9} fontWeight={700} fill="oklch(0.98 0 0)" fontFamily="monospace">9V</text>
+        </svg>
+      );
+    default:
+      return (
+        <svg viewBox="0 0 36 36" className={cls}>
+          <rect x={6} y={10} width={24} height={16} rx={2} fill="oklch(0.32 0.04 195)" stroke="currentColor" strokeWidth={0.6} />
+        </svg>
+      );
+  }
 }
 
 function ComponentCard({ kind, label, category, onPick }: { kind: ComponentKind; label: string; category: string; onPick: () => void }) {
@@ -194,10 +370,8 @@ function ComponentCard({ kind, label, category, onPick }: { kind: ComponentKind;
       onClick={onPick}
       className="group rounded-md border bg-card p-3 text-left hover:border-primary hover:bg-accent transition-colors"
     >
-      <div className="flex items-center justify-center h-12 mb-2 text-foreground">
-        <svg viewBox="0 0 24 24" className="w-7 h-7">
-          <rect x={3} y={6} width={18} height={12} rx={2} fill="oklch(0.32 0.04 195)" stroke="currentColor" strokeWidth={0.5} />
-        </svg>
+      <div className="flex items-center justify-center h-12 mb-2 text-foreground/70">
+        <ComponentIcon kind={kind} />
       </div>
       <div className="text-sm font-medium truncate">{label}</div>
       <div className="text-[10px] text-muted-foreground truncate">{category} · {kind}</div>
