@@ -7,7 +7,7 @@ import { COMPONENT_DEFS } from "./components";
 import { UNO_SVG } from "./boardSvgs/unoSvg";
 import { defaultUnoPins } from "./boardSvgs/unoPins";
 
-const STORAGE_VERSION = 2;
+const STORAGE_VERSION = 3;
 const KEY_BOARDS = "embedsim_boards";
 const KEY_COMPONENTS = "embedsim_components";
 
@@ -98,7 +98,7 @@ function loadPersisted<T>(key: string, fallback: T[]): T[] {
     const parsed = JSON.parse(raw) as PersistedShape<T>;
     if (!parsed || !Array.isArray(parsed.items)) return fallback;
     // Forward-compatible: v1 data has the same shape minus svg/pins (both optional).
-    if (parsed._version !== STORAGE_VERSION && parsed._version !== 1) return fallback;
+    if (parsed._version !== STORAGE_VERSION) return fallback;
     return parsed.items;
   } catch { return fallback; }
 }
