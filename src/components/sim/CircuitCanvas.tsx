@@ -329,6 +329,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
 
           // Not drawing: clear selection / start panning.
           setSelected(null);
+          setSelectedWireId(null);
           if (e.button === 0 && (e.altKey || e.metaKey)) setPanning(true);
           else if (e.button === 1) setPanning(true);
         }}
