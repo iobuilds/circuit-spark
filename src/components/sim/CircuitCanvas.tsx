@@ -16,6 +16,17 @@ interface Props {
   onPinInputChange: (pin: number, value: { digital?: 0 | 1; analog?: number }) => void;
 }
 
+/** Pin metadata surfaced by hover, used to render the floating pin-info tooltip. */
+interface HoveredPin {
+  id: string;
+  label: string;
+  kind: "digital" | "analog" | "power" | "ground" | "other";
+  number?: number;
+  /** Screen-space position (canvas-local pixels) for tooltip placement. */
+  sx: number;
+  sy: number;
+}
+
 const BOARD_X = 90;
 const BOARD_Y = 80;
 
