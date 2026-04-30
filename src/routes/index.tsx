@@ -253,7 +253,7 @@ function SimulatorPage() {
                 progress={compileProgress}
                 compiling={compiling}
                 onClose={() => { setCompileOutput(null); setCompileProgress(null); }}
-                onErrorClick={(file, line) => jumpToError(file, line)}
+                onErrorClick={(file, line, col) => jumpToError(file, line, col)}
               />
             )}
           </section>
