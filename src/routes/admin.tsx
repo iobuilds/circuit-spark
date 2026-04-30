@@ -88,6 +88,7 @@ function AdminPage() {
   const chatFn = useServerFn(aiBuilderChat);
   const saveFn = useServerFn(saveCustomComponent);
   const deleteFn = useServerFn(deleteCustomComponent);
+  const libsFn = useServerFn(findArduinoLibraries);
 
   const [messages, setMessages] = useState<ChatMsg[]>([
     { role: "assistant", content: "Hi! Describe a component or board you want to build — for example: *'a small DC motor with speed and direction inputs that burns over 12V'*. You don't need to provide an SVG; I'll draw one for you. Once we agree, say **build it** and I'll emit a final spec with a live behavior simulator." },
@@ -96,9 +97,36 @@ function AdminPage() {
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<PendingSpec | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [libs, setLibs] = useState<ArduinoLibMatch[]>([]);
+  const [libsLoading, setLibsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { load(); }, [load]);
+
+  // Auto-fetch compatible Arduino libraries whenever a spec is set/changed.
+  useEffect(() => {
+    if (!pending) {
+      setLibs([]);
+      return;
+    }
+    let cancelled = false;
+    setLibsLoading(true);
+    libsFn({
+      data: {
+        name: pending.name,
+        slug: pending.slug,
+        description: pending.description,
+        keywords: pending.pins.map((p) => p.label).slice(0, 6),
+        limit: 8,
+      },
+    })
+      .then((r) => {
+        if (!cancelled) setLibs((r.matches as ArduinoLibMatch[]) ?? []);
+      })
+      .catch(() => { if (!cancelled) setLibs([]); })
+      .finally(() => { if (!cancelled) setLibsLoading(false); });
+    return () => { cancelled = true; };
+  }, [pending?.slug, pending?.name, pending?.description, libsFn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function send() {
     const text = input.trim();
