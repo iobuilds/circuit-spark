@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { CodeEditor } from "@/components/sim/CodeEditor";
 import { CircuitCanvas } from "@/components/sim/CircuitCanvas";
-import { ComponentPalette } from "@/components/sim/ComponentPalette";
+
 import { SerialPanel } from "@/components/sim/SerialPanel";
 import { Toolbar } from "@/components/sim/Toolbar";
 import { IdeMenubar } from "@/components/sim/IdeMenubar";
@@ -142,10 +142,7 @@ function SimulatorPage() {
       <IdeMenubar onCompile={handleBackendCompile} onUpload={handleUpload} />
 
       <div className="flex-1 min-h-0 flex w-full overflow-hidden">
-        {/* Left: Component palette */}
-        <aside className="w-56 shrink-0 border-r border-border overflow-hidden">
-          <ComponentPalette />
-        </aside>
+        {/* Components palette removed — use the floating "+" button on the canvas to add boards/components. */}
 
         {/* Middle: Builder workspace (canvas + pin states + serial) */}
         <section className="flex-1 min-w-0 flex flex-col border-r border-border relative">

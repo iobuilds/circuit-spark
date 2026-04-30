@@ -16,6 +16,17 @@ interface Props {
   onPinInputChange: (pin: number, value: { digital?: 0 | 1; analog?: number }) => void;
 }
 
+/** Pin metadata surfaced by hover, used to render the floating pin-info tooltip. */
+interface HoveredPin {
+  id: string;
+  label: string;
+  kind: "digital" | "analog" | "power" | "ground" | "other";
+  number?: number;
+  /** Screen-space position (canvas-local pixels) for tooltip placement. */
+  sx: number;
+  sy: number;
+}
+
 const BOARD_X = 90;
 const BOARD_Y = 80;
 
@@ -26,7 +37,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const drawingWaypoints = useSimStore((s) => s.drawingWaypoints);
   const selectedId = useSimStore((s) => s.selectedId);
   const pinStates = useSimStore((s) => s.pinStates);
-  const boardId = useSimStore((s) => s.boardId);
+  
   const status = useSimStore((s) => s.status);
   const setBoard = useSimStore((s) => s.setBoard);
 
@@ -57,8 +68,20 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const [zoom, setZoom] = useState(1);
   const [panning, setPanning] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [hovered, setHovered] = useState<HoveredPin | null>(null);
 
   const placedBoards = useMemo(() => components.filter((c) => c.kind === "board"), [components]);
+
+  /**
+   * Seed a default Uno board on first load so users see something to wire,
+   * but make it a regular placed board (deletable like any other).
+   */
+  useEffect(() => {
+    if (components.length === 0 && wires.length === 0) {
+      addComponent("board", BOARD_X, BOARD_Y, "uno");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const net = useMemo(() => buildNetGraph(components, wires), [components, wires]);
 
@@ -271,28 +294,17 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         }}
       >
         <g transform={`scale(${zoom}) translate(${pan.x} ${pan.y})`}>
-          {/* Legacy primary board at fixed position. Stays as the active sim target. */}
-          {boardId === "uno" ? (
-            <ArduinoUnoBoard
-              x={BOARD_X}
-              y={BOARD_Y}
-              highlightPin={drawingFrom?.componentId === "board" ? drawingFrom.pinId : undefined}
-              onPinClick={(pinId) => handleBoardPinClick("board", pinId)}
-            />
-          ) : (
-            <GenericBoard
-              boardId={boardId}
-              x={BOARD_X}
-              y={BOARD_Y}
-              highlightPin={drawingFrom?.componentId === "board" ? drawingFrom.pinId : undefined}
-              onPinClick={(pinId) => handleBoardPinClick("board", pinId)}
-            />
-          )}
-
-          {/* Additional placed boards (multi-board) */}
+          {/* Placed boards (multi-board). The default Uno is auto-seeded on first load. */}
           {placedBoards.map((b) => {
             const bid = (b.props.boardId as BoardId) ?? "uno";
             const isSel = selectedId === b.id;
+            const hoverHandler = (pin: { id: string; label: string; kind: HoveredPin["kind"]; number?: number; x: number; y: number } | null) => {
+              if (!pin) { setHovered(null); return; }
+              // Convert pin board-local coords to canvas-local pixels.
+              const sx = (b.x + pin.x + pan.x) * zoom;
+              const sy = (b.y + pin.y + pan.y) * zoom;
+              setHovered({ id: pin.id, label: pin.label, kind: pin.kind, number: pin.number, sx, sy });
+            };
             return (
               <g
                 key={b.id}
@@ -304,6 +316,8 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                   const p = clientToSvg(e);
                   setDragId(b.id);
                   setDragOffset({ x: p.x - b.x, y: p.y - b.y });
+                  // Make this board the active simulation target.
+                  setBoard(bid);
                 }}
                 style={{ cursor: locked ? "default" : "grab" }}
               >
@@ -313,6 +327,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                     y={b.y}
                     highlightPin={drawingFrom?.componentId === b.id ? drawingFrom.pinId : undefined}
                     onPinClick={(pinId) => handleBoardPinClick(b.id, pinId)}
+                    onPinHover={hoverHandler}
                   />
                 ) : (
                   <GenericBoard
@@ -321,6 +336,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                     y={b.y}
                     highlightPin={drawingFrom?.componentId === b.id ? drawingFrom.pinId : undefined}
                     onPinClick={(pinId) => handleBoardPinClick(b.id, pinId)}
+                    onPinHover={hoverHandler}
                   />
                 )}
                 {isSel && (
@@ -490,6 +506,39 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
           <span>Workspace locked while simulation is {status}. Stop the sim to edit.</span>
         </div>
       )}
+
+      {/* Floating pin info popup on hover (id, kind/role, live value if simulating). */}
+      {hovered && (() => {
+        const pinNum = hovered.number;
+        const live = pinNum !== undefined ? pinStates[pinNum] : undefined;
+        const kindLabel =
+          hovered.kind === "power" ? "Power"
+          : hovered.kind === "ground" ? "Ground"
+          : hovered.kind === "digital" ? `Digital (D${pinNum ?? ""})`
+          : hovered.kind === "analog" ? `Analog (A${pinNum !== undefined ? pinNum - 14 : ""})`
+          : "Pin";
+        return (
+          <div
+            className="pointer-events-none absolute z-20 rounded-md border border-border bg-card/95 backdrop-blur px-2.5 py-1.5 text-[11px] shadow-lg font-mono"
+            style={{
+              left: Math.max(8, hovered.sx + 14),
+              top: Math.max(8, hovered.sy - 36),
+            }}
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="text-primary font-bold">{hovered.label}</span>
+              <span className="text-muted-foreground">·</span>
+              <span className="text-foreground">{kindLabel}</span>
+            </div>
+            {live && (
+              <div className="text-muted-foreground mt-0.5">
+                {live.digital !== undefined && <>digital: <span className="text-foreground">{live.digital}</span> </>}
+                {live.analog !== undefined && <>analog: <span className="text-foreground">{live.analog}</span></>}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       <AddItemDialog
         open={addOpen}
