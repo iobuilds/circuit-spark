@@ -6,7 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
-import { Loader2, Send, Save, Download, Upload, Trash2, Sparkles, ArrowLeft, Pencil, X, BookOpen, Check, Library, ExternalLink, ImagePlus, MessageSquarePlus, MessagesSquare, Eraser } from "lucide-react";
+import { Loader2, Send, Save, Download, Upload, Trash2, Sparkles, ArrowLeft, Pencil, X, BookOpen, Check, Library, ExternalLink, ImagePlus, MessageSquarePlus, MessagesSquare, Eraser, Code2, Eye } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useServerFn } from "@tanstack/react-start";
 import {
