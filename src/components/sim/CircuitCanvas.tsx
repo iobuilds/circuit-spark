@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSimStore } from "@/sim/store";
 import { COMPONENT_DEFS } from "@/sim/components";
 import { ArduinoUnoBoard } from "./ArduinoUnoBoard";
+import { GenericBoard } from "./GenericBoard";
 import { CircuitComponentNode } from "./CircuitComponentNode";
 import { findUnoPin, UNO_HEIGHT, UNO_WIDTH } from "@/sim/uno-pins";
 import { buildNetGraph, evaluateInputs, isLedPowered } from "@/sim/netlist";
@@ -208,16 +209,30 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         }}
       >
         <g transform={`scale(${zoom}) translate(${pan.x} ${pan.y})`}>
-          {/* Board */}
-          <ArduinoUnoBoard
-            x={BOARD_X}
-            y={BOARD_Y}
-            highlightPin={drawingFrom?.componentId === "board" ? drawingFrom.pinId : undefined}
-            onPinClick={(pinId) => {
-              if (drawingFrom) finishWire("board", pinId);
-              else startWire("board", pinId);
-            }}
-          />
+          {/* Board — Uno gets the realistic art, other boards use a generic
+              renderer driven by their pin counts. */}
+          {boardId === "uno" ? (
+            <ArduinoUnoBoard
+              x={BOARD_X}
+              y={BOARD_Y}
+              highlightPin={drawingFrom?.componentId === "board" ? drawingFrom.pinId : undefined}
+              onPinClick={(pinId) => {
+                if (drawingFrom) finishWire("board", pinId);
+                else startWire("board", pinId);
+              }}
+            />
+          ) : (
+            <GenericBoard
+              boardId={boardId}
+              x={BOARD_X}
+              y={BOARD_Y}
+              highlightPin={drawingFrom?.componentId === "board" ? drawingFrom.pinId : undefined}
+              onPinClick={(pinId) => {
+                if (drawingFrom) finishWire("board", pinId);
+                else startWire("board", pinId);
+              }}
+            />
+          )}
 
           {/* Components */}
           {components.map((c) => (
