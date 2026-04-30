@@ -58,7 +58,7 @@ export function CodeEditor() {
       },
     });
     monaco.languages.registerCompletionItemProvider("arduino", {
-      provideCompletionItems: (model, position) => {
+      provideCompletionItems: (model: { getWordUntilPosition: (p: { lineNumber: number; column: number }) => { startColumn: number; endColumn: number } }, position: { lineNumber: number; column: number }) => {
         const word = model.getWordUntilPosition(position);
         const range = {
           startLineNumber: position.lineNumber,
