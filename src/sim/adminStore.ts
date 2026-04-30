@@ -231,6 +231,65 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     persist(KEY_COMPONENTS, merged);
     set({ components: merged });
   },
+
+  updateBoard: (id, patch) => {
+    const next = get().boards.map((b) => (b.id === id ? { ...b, ...patch, id: b.id } : b));
+    persist(KEY_BOARDS, next);
+    set({ boards: next });
+  },
+  updateComponent: (id, patch) => {
+    const next = get().components.map((c) => (c.id === id ? { ...c, ...patch, id: c.id } : c));
+    persist(KEY_COMPONENTS, next);
+    set({ components: next });
+  },
+  createCustomBoard: (init) => {
+    const id = init?.id ?? `custom-board-${Date.now().toString(36)}`;
+    const entry: BoardEntry = {
+      id,
+      name: init?.name ?? "Untitled Board",
+      mcu: init?.mcu ?? "ATmega328P",
+      digitalPins: init?.digitalPins ?? 14,
+      analogPins: init?.analogPins ?? 6,
+      enabled: init?.enabled ?? true,
+      builtIn: false,
+      svg: init?.svg,
+      pins: init?.pins ?? [],
+    };
+    const next = [...get().boards, entry];
+    persist(KEY_BOARDS, next);
+    set({ boards: next });
+    return id;
+  },
+  createCustomComponent: (init) => {
+    const id = init?.id ?? `custom-component-${Date.now().toString(36)}`;
+    const entry: ComponentEntry = {
+      id,
+      label: init?.label ?? "Untitled Component",
+      category: init?.category ?? "custom",
+      enabled: init?.enabled ?? true,
+      builtIn: false,
+      behavior: init?.behavior ?? "passive",
+      svg: init?.svg,
+      pins: init?.pins ?? [],
+      bodyColor: init?.bodyColor,
+      width: init?.width,
+      height: init?.height,
+    };
+    const next = [...get().components, entry];
+    persist(KEY_COMPONENTS, next);
+    set({ components: next });
+    return id;
+  },
+  deleteBoard: (id) => {
+    const next = get().boards.filter((b) => !(b.id === id && !b.builtIn));
+    persist(KEY_BOARDS, next);
+    set({ boards: next });
+  },
+  deleteComponent: (id) => {
+    const next = get().components.filter((c) => !(c.id === id && !c.builtIn));
+    persist(KEY_COMPONENTS, next);
+    set({ components: next });
+  },
 }));
 
 /** Convenience: sets of ids that are enabled. Used by the simulator. */
