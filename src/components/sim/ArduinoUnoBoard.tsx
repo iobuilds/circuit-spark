@@ -1,6 +1,6 @@
 import { UNO_PINS, UNO_WIDTH, UNO_HEIGHT, type BoardPin } from "@/sim/uno-pins";
 import { useSimStore } from "@/sim/store";
-import { useAdminStore } from "@/sim/adminStore";
+import { useAdminStore, type VisualPin } from "@/sim/adminStore";
 import { useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +10,37 @@ interface Props {
   highlightPin?: string;
   onPinClick?: (pinId: string, e: React.MouseEvent) => void;
   onPinHover?: (pin: BoardPin | null, e?: React.MouseEvent) => void;
+}
+
+/** Map a VisualPin (admin schema, fine-grained type tags) to the coarse BoardPin
+ *  kind expected by the rest of the simulator UI (hover popup, etc.). */
+function visualToBoardPin(p: VisualPin): BoardPin {
+  let kind: BoardPin["kind"] = "other";
+  switch (p.type) {
+    case "digital":
+    case "pwm":
+      kind = "digital";
+      break;
+    case "analog":
+      kind = "analog";
+      break;
+    case "power":
+      kind = "power";
+      break;
+    case "ground":
+      kind = "ground";
+      break;
+    default:
+      kind = "other";
+  }
+  return {
+    id: p.id,
+    label: p.label,
+    kind,
+    x: p.x,
+    y: p.y,
+    number: p.number,
+  };
 }
 
 export function ArduinoUnoBoard({ x, y, highlightPin, onPinClick, onPinHover }: Props) {
@@ -28,6 +59,14 @@ export function ArduinoUnoBoard({ x, y, highlightPin, onPinClick, onPinHover }: 
     const m = uno.svg.match(/<svg[^>]*>([\s\S]*)<\/svg>/i);
     return m ? m[1] : null;
   }, [uno?.svg]);
+
+  // Live pins come from the admin store so the user-facing canvas stays in sync
+  // with the admin board editor (drag/align/move pins, add/remove). Fall back
+  // to the static layout only when the admin entry has none configured.
+  const pins: BoardPin[] = useMemo(() => {
+    if (uno?.pins && uno.pins.length > 0) return uno.pins.map(visualToBoardPin);
+    return UNO_PINS;
+  }, [uno?.pins]);
 
   // Light up the on-board "L" LED (D13) by overlaying a glowing circle when output is HIGH.
   const ledOn = pinStates[13]?.digital === 1;
@@ -53,7 +92,7 @@ export function ArduinoUnoBoard({ x, y, highlightPin, onPinClick, onPinHover }: 
       )}
 
       {/* Interactive pin hit-targets (kept on top so wiring still works) */}
-      {UNO_PINS.map((pin) => {
+      {pins.map((pin) => {
         const isOutput = pin.number !== undefined && pinStates[pin.number]?.digital === 1;
         const isHi = highlightPin === pin.id;
         return (
