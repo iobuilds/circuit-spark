@@ -150,8 +150,8 @@ export const useIdeStore = create<IdeState>((set, get) => ({
     });
   },
 
-  installBoard: (id, version) => {
-    const next = [...get().installedBoards.filter((b) => b.id !== id), { id, version }];
+  installBoard: (b) => {
+    const next = [...get().installedBoards.filter((x) => x.id !== b.id), b];
     saveJson(KEY_BOARDS, next);
     set({ installedBoards: next });
   },
