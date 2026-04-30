@@ -87,13 +87,19 @@ function defaultBoards(): BoardEntry[] {
 }
 
 function defaultComponents(): ComponentEntry[] {
-  return Object.values(COMPONENT_DEFS).map((c) => ({
-    id: c.kind,
-    label: c.label,
-    category: c.category,
-    enabled: c.available,
-    builtIn: true,
-  }));
+  // All built-in components are wiped from the default library. Users (or the
+  // admin AI builder) add components on demand. Built-in component kinds remain
+  // in COMPONENT_DEFS so existing saved circuits still resolve, but none are
+  // shipped enabled by default.
+  return Object.values(COMPONENT_DEFS)
+    .filter((c) => c.available)
+    .map((c) => ({
+      id: c.kind,
+      label: c.label,
+      category: c.category,
+      enabled: c.available,
+      builtIn: true,
+    }));
 }
 
 function loadPersisted<T>(key: string, fallback: T[]): T[] {
