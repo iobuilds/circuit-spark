@@ -94,6 +94,7 @@ function AdminPage() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<PendingSpec | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { load(); }, [load]);
@@ -108,7 +109,10 @@ function AdminPage() {
     try {
       const res = await chatFn({ data: { history: next, message: text } });
       setMessages((m) => [...m, { role: "assistant", content: res.reply }]);
-      if (res.spec) setPending(res.spec as PendingSpec);
+      if (res.spec) {
+        setPending(res.spec as PendingSpec);
+        setSavedId(null);
+      }
     } catch (e) {
       toast.error(`AI error: ${(e as Error).message}`);
     } finally {
@@ -122,10 +126,38 @@ function AdminPage() {
       const row = await saveFn({ data: { spec: pending as never } });
       upsertLocal(row as unknown as CustomComponentRow);
       toast.success(`Saved ${pending.name} to library`);
-      setPending(null);
+      setSavedId((row as unknown as CustomComponentRow).id);
+      // Keep `pending` visible — user explicitly clears it.
     } catch (e) {
       toast.error(`Save failed: ${(e as Error).message}`);
     }
+  }
+
+  function clearPending() {
+    setPending(null);
+    setSavedId(null);
+  }
+
+  function editComponent(c: CustomComponentRow) {
+    const spec = (c.spec ?? {}) as Partial<PendingSpec>;
+    setPending({
+      name: c.name,
+      slug: c.slug,
+      kind: (c.kind as "component" | "board") ?? "component",
+      description: c.description ?? "",
+      svg: c.svg ?? "",
+      width: spec.width ?? 160,
+      height: spec.height ?? 120,
+      pins: spec.pins ?? [],
+      behaviorNotes: spec.behaviorNotes ?? c.behavior ?? "",
+      behavior: spec.behavior,
+      defaults: spec.defaults,
+    });
+    setSavedId(c.id);
+    setMessages((m) => [
+      ...m,
+      { role: "assistant", content: `Loaded **${c.name}** for editing. Tell me what to change (e.g. "add a 3rd pin", "make the screen larger", "lower burn voltage to 8V"), then say **build it** to re-emit. Saving will bump the version.` },
+    ]);
   }
 
   async function handleExport(c: CustomComponentRow) {
