@@ -66,7 +66,9 @@ interface PersistedShape<T> {
 }
 
 function defaultBoards(): BoardEntry[] {
-  return BOARDS.map((b) => {
+  // Library now ships ONLY the Arduino Uno (rendered from the imported
+  // STEP→GLB top view). Other board kinds are filtered out of the defaults.
+  return BOARDS.filter((b) => b.available).map((b) => {
     const base: BoardEntry = {
       id: b.id,
       name: b.name,
@@ -77,7 +79,7 @@ function defaultBoards(): BoardEntry[] {
       builtIn: true,
     };
     if (b.id === "uno") {
-      base.svg = UNO_SVG;
+      // No SVG: the Uno is rendered from /models/uno.glb in the 3D workspace.
       base.pins = defaultUnoPins();
     }
     return base;
