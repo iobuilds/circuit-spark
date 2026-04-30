@@ -68,8 +68,20 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const [zoom, setZoom] = useState(1);
   const [panning, setPanning] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [hovered, setHovered] = useState<HoveredPin | null>(null);
 
   const placedBoards = useMemo(() => components.filter((c) => c.kind === "board"), [components]);
+
+  /**
+   * Seed a default Uno board on first load so users see something to wire,
+   * but make it a regular placed board (deletable like any other).
+   */
+  useEffect(() => {
+    if (components.length === 0 && wires.length === 0) {
+      addComponent("board", BOARD_X, BOARD_Y, "uno");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const net = useMemo(() => buildNetGraph(components, wires), [components, wires]);
 
