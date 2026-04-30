@@ -115,7 +115,17 @@ export function PngToSvgConverter({ onSvg, onCancel, width = 800, height = 480 }
   };
 
   return (
-    <div className="space-y-3">
+    <Tabs defaultValue="image" className="space-y-3">
+      <TabsList>
+        <TabsTrigger value="image">From PNG/JPG</TabsTrigger>
+        <TabsTrigger value="paste">Paste SVG</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="paste" className="m-0">
+        <PasteSvgPanel onSvg={onSvg} onCancel={onCancel} />
+      </TabsContent>
+
+      <TabsContent value="image" className="m-0 space-y-3">
       <div className="flex flex-wrap items-start gap-4 p-3 border border-border rounded-lg bg-card">
         <div className="space-y-2 min-w-[260px]">
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -281,6 +291,95 @@ export function PngToSvgConverter({ onSvg, onCancel, width = 800, height = 480 }
         become the SVG viewBox, so pin coordinates map 1:1 to the source image.
       </p>
       <span hidden>{width}</span>
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+function PasteSvgPanel({
+  onSvg,
+  onCancel,
+}: {
+  onSvg: (svg: string) => void;
+  onCancel?: () => void;
+}) {
+  const [text, setText] = useState("");
+  const trimmed = text.trim();
+  const valid = trimmed.includes("<svg") && trimmed.includes("</svg>");
+
+  return (
+    <div className="space-y-3 p-3 border border-border rounded-lg bg-card">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 min-h-[360px]">
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+            SVG markup
+          </Label>
+          <Textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            spellCheck={false}
+            placeholder='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 240">…</svg>'
+            className="font-mono text-xs flex-1 min-h-[320px] resize-none"
+          />
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                try {
+                  const t = await navigator.clipboard.readText();
+                  if (t) setText(t);
+                } catch {
+                  toast.error("Clipboard read blocked — paste manually");
+                }
+              }}
+            >
+              <ClipboardPaste className="h-4 w-4 mr-1.5" /> Paste from clipboard
+            </Button>
+            <span className="text-[11px] text-muted-foreground">
+              {trimmed.length > 0
+                ? valid
+                  ? "Valid <svg> markup"
+                  : "Missing <svg>…</svg>"
+                : "Paste or type SVG markup"}
+            </span>
+          </div>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+            Live preview
+          </Label>
+          <div className="flex-1 min-h-[320px] rounded-md border border-border bg-muted/20 p-2 overflow-hidden">
+            {valid ? (
+              <div
+                className="w-full h-full grid place-items-center [&>svg]:max-w-full [&>svg]:max-h-full"
+                dangerouslySetInnerHTML={{ __html: trimmed }}
+              />
+            ) : (
+              <div className="text-xs text-muted-foreground grid place-items-center h-full">
+                Preview appears here once your markup contains an &lt;svg&gt; element.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center justify-end gap-2">
+        {onCancel && (
+          <Button size="sm" variant="ghost" onClick={onCancel}>
+            Cancel
+          </Button>
+        )}
+        <Button
+          size="sm"
+          disabled={!valid}
+          onClick={() => {
+            onSvg(trimmed);
+            toast.success("SVG added");
+          }}
+        >
+          <Check className="h-4 w-4 mr-1.5" /> Use this SVG
+        </Button>
+      </div>
     </div>
   );
 }
