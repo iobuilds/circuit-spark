@@ -140,7 +140,7 @@ function SimulatorPage() {
 
       <div className="flex-1 min-h-0">
         <PanelGroup orientation="horizontal">
-          <Panel defaultSize={16} minSize={12} maxSize={24}>
+          <Panel defaultSize={18} minSize={14} maxSize={28}>
             <ComponentPalette />
           </Panel>
           <PanelResizeHandle className="w-1 bg-border hover:bg-primary/40 transition-colors" />
