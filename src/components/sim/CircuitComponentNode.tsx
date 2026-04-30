@@ -34,7 +34,7 @@ const LED_COLORS: Record<string, { off: string; on: string; glow: string }> = {
   yellow: { off: "oklch(0.5 0.10 90)",  on: "oklch(0.85 0.18 90)",  glow: "led-glow-yellow" },
 };
 
-export function CircuitComponentNode({ comp, isPowered, onPinClick, onSelect, onDragStart, selected }: Props) {
+export function CircuitComponentNode({ comp, isPowered, onPinClick, onSelect, onDragStart, selected, pinEditMode, toCanvasPoint }: Props) {
   const def = COMPONENT_DEFS[comp.kind];
   const setProp = useSimStore((s) => s.setComponentProp);
   const adminComps = useAdminStore((s) => s.components);
@@ -53,16 +53,45 @@ export function CircuitComponentNode({ comp, isPowered, onPinClick, onSelect, on
     return m ? m[1] : customEntry.svg;
   }, [customEntry?.svg]);
 
-  // Pin list to render: built-ins use COMPONENT_DEFS.pins, customs use admin pins.
+  const overrides = useMemo(() => readPinOverrides(comp), [comp.props.pinOverrides, comp]);
+
+  // Pin list to render: built-ins use COMPONENT_DEFS.pins, customs use admin pins (with optional per-instance overrides).
   const pins = useMemo(() => {
-    if (comp.kind === "custom" && customEntry?.pins) {
-      return customEntry.pins.map((p) => ({ id: p.id, label: p.label, x: p.x, y: p.y }));
-    }
-    return def.pins;
-  }, [comp.kind, customEntry?.pins, def.pins]);
+    const base = comp.kind === "custom" && customEntry?.pins
+      ? customEntry.pins.map((p) => ({ id: p.id, label: p.label, x: p.x, y: p.y }))
+      : def.pins;
+    if (comp.kind !== "custom") return base;
+    return base.map((p) => {
+      const o = overrides[p.id];
+      return o ? { ...p, x: o.x, y: o.y } : p;
+    });
+  }, [comp.kind, customEntry?.pins, def.pins, overrides]);
 
   const width = comp.kind === "custom" ? (customEntry?.width ?? def.width) : def.width;
   const height = comp.kind === "custom" ? (customEntry?.height ?? def.height) : def.height;
+
+  /** Pin-edit drag: start moving a pin. */
+  const startPinDrag = (pinId: string, e: React.MouseEvent) => {
+    if (!pinEditMode || comp.kind !== "custom" || !toCanvasPoint) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const onMove = (ev: MouseEvent) => {
+      const pt = toCanvasPoint(ev);
+      // Pin coords are relative to the component's top-left (comp.x, comp.y).
+      const nx = Math.round(pt.x - comp.x);
+      const ny = Math.round(pt.y - comp.y);
+      const cur = readPinOverrides(comp);
+      cur[pinId] = { x: nx, y: ny };
+      setProp(comp.id, "pinOverrides", JSON.stringify(cur));
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
 
   return (
     <g
