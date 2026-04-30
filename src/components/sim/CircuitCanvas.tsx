@@ -595,8 +595,56 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
       {selectedId && !locked && (() => {
         const sel = components.find((c) => c.id === selectedId);
         const isCustom = sel?.kind === "custom";
+        const isLed = sel?.kind === "led";
+        const ledColors = ["red", "green", "blue", "yellow", "white", "orange", "purple"] as const;
+        const ledColorSwatch: Record<string, string> = {
+          red: "oklch(0.7 0.25 25)", green: "oklch(0.78 0.22 145)", blue: "oklch(0.7 0.22 245)",
+          yellow: "oklch(0.85 0.18 90)", white: "oklch(0.96 0.02 90)",
+          orange: "oklch(0.78 0.20 55)", purple: "oklch(0.7 0.22 305)",
+        };
         return (
-          <div className="absolute top-3 right-3 flex items-center gap-2">
+          <div className="absolute top-3 right-3 flex items-center gap-2 flex-wrap justify-end max-w-[calc(100%-1.5rem)]">
+            {isLed && sel && (
+              <div className="flex items-center gap-2 rounded-md border border-border bg-card/95 backdrop-blur px-2 py-1 text-xs shadow">
+                <span className="text-muted-foreground">Color</span>
+                <div className="flex items-center gap-1">
+                  {ledColors.map((col) => (
+                    <button
+                      key={col}
+                      onClick={() => setComponentProp(selectedId, "color", col)}
+                      className={[
+                        "w-5 h-5 rounded-full border transition",
+                        String(sel.props.color || "red") === col ? "ring-2 ring-primary border-primary" : "border-border",
+                      ].join(" ")}
+                      style={{ background: ledColorSwatch[col] }}
+                      title={col}
+                    />
+                  ))}
+                </div>
+                <span className="text-muted-foreground ml-2">Size</span>
+                <input
+                  type="range"
+                  min={0.6}
+                  max={2}
+                  step={0.1}
+                  value={Number(sel.props.size ?? 1)}
+                  onChange={(e) => setComponentProp(selectedId, "size", Number(e.target.value))}
+                  className="w-20 accent-primary"
+                  title="LED size"
+                />
+                <span className="text-muted-foreground ml-2">Mode</span>
+                <select
+                  value={String(sel.props.mode ?? "auto")}
+                  onChange={(e) => setComponentProp(selectedId, "mode", e.target.value)}
+                  className="bg-input border border-border rounded px-1.5 py-0.5 text-xs"
+                  title="auto = power or GPIO; power = only rails (3V3/5V/VIN); gpio = only GPIO HIGH"
+                >
+                  <option value="auto">Auto</option>
+                  <option value="power">Power indicator</option>
+                  <option value="gpio">GPIO-driven</option>
+                </select>
+              </div>
+            )}
             {isCustom && (
               <>
                 <Button
