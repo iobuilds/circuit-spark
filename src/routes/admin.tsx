@@ -425,6 +425,51 @@ function AdminPage() {
                   <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Wiring example</div>
                   <pre className="text-[11px] font-mono bg-muted/50 rounded p-2 overflow-x-auto leading-relaxed">{buildWiringExample(pending)}</pre>
                 </Card>
+
+                {/* Compatible Arduino libraries (live from Arduino library index) */}
+                <Card className="p-4 max-w-md mx-auto">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Library className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-semibold">Compatible Arduino libraries</h3>
+                    {libsLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mb-2">
+                    Pulled live from the official Arduino library registry, ranked by relevance.
+                  </p>
+                  {!libsLoading && libs.length === 0 && (
+                    <div className="text-xs text-muted-foreground italic">No matches found in the Arduino library index.</div>
+                  )}
+                  <ul className="space-y-2">
+                    {libs.map((l) => (
+                      <li key={`${l.name}@${l.version}`} className="text-xs border border-border rounded p-2 bg-muted/30">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="font-medium text-foreground truncate">{l.name}</div>
+                            <div className="text-[10px] text-muted-foreground truncate">
+                              v{l.version} · by {l.author}{l.category ? ` · ${l.category}` : ""}
+                            </div>
+                          </div>
+                          {(l.website || l.repository) && (
+                            <a
+                              href={l.website || l.repository}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-primary shrink-0 hover:underline inline-flex items-center gap-0.5"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                        </div>
+                        {l.sentence && (
+                          <div className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{l.sentence}</div>
+                        )}
+                        <div className="mt-1 text-[10px] font-mono text-muted-foreground">
+                          #include &lt;{libIncludeName(l.name)}.h&gt;
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
               </>
             ) : (
               <div className="h-full flex items-center justify-center">
