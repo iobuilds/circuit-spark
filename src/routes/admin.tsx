@@ -24,6 +24,7 @@ import {
   type CustomComponentRow,
 } from "@/sim/componentPack";
 import { CustomComponentSvg } from "@/components/sim/CustomComponentSvg";
+import { ComponentBehaviorPreview } from "@/components/sim/ComponentBehaviorPreview";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -47,6 +48,33 @@ interface PendingSpec {
   height: number;
   pins: { id: string; label: string; x: number; y: number; role?: string }[];
   behaviorNotes?: string;
+  behavior?: {
+    params?: Array<{
+      id: string;
+      label: string;
+      type: "number" | "boolean" | "enum";
+      min?: number;
+      max?: number;
+      step?: number;
+      default?: number | boolean | string;
+      options?: string[];
+      unit?: string;
+    }>;
+    states?: Array<{
+      id: string;
+      label: string;
+      when?: string;
+      visual?: {
+        filter?: string;
+        spinSelector?: string;
+        glowSelector?: string;
+        flickerSelector?: string;
+        overlay?: "smoke" | "spark" | "flame" | null;
+      };
+    }>;
+    failures?: Array<{ when: string; state: string; reason: string }>;
+    notes?: string;
+  };
   defaults?: Record<string, string | number | boolean>;
 }
 
@@ -61,7 +89,7 @@ function AdminPage() {
   const deleteFn = useServerFn(deleteCustomComponent);
 
   const [messages, setMessages] = useState<ChatMsg[]>([
-    { role: "assistant", content: "Hi! Describe a component or board you want to build. You can paste reference SVG markup, list pins, and we'll iterate together. When ready, say **build it** and I'll emit a final spec you can save to the library." },
+    { role: "assistant", content: "Hi! Describe a component or board you want to build — for example: *'a small DC motor with speed and direction inputs that burns over 12V'*. You don't need to provide an SVG; I'll draw one for you. Once we agree, say **build it** and I'll emit a final spec with a live behavior simulator." },
   ]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -208,25 +236,20 @@ function AdminPage() {
               </Button>
             )}
           </div>
-          <div className="flex-1 min-h-0 overflow-auto p-6 flex flex-col items-center justify-center">
+          <div className="flex-1 min-h-0 overflow-auto p-6">
             {pending ? (
-              <Card className="p-6 max-w-md">
-                <div className="flex items-center justify-center mb-4 bg-card rounded border border-border p-4">
-                  <CustomComponentSvg
-                    comp={{
-                      id: "preview",
-                      name: pending.name,
-                      slug: pending.slug,
-                      kind: pending.kind,
-                      description: pending.description,
-                      svg: pending.svg,
-                      spec: { width: pending.width, height: pending.height, pins: pending.pins },
-                      behavior: pending.behaviorNotes ?? "",
-                      version: 1,
-                    }}
-                  />
-                </div>
-                <div className="space-y-2 text-sm">
+              <Card className="p-4 max-w-md mx-auto">
+                <ComponentBehaviorPreview
+                  spec={{
+                    name: pending.name,
+                    width: pending.width,
+                    height: pending.height,
+                    svg: pending.svg,
+                    pins: pending.pins,
+                    behavior: pending.behavior,
+                  }}
+                />
+                <div className="space-y-2 text-sm mt-4 pt-3 border-t border-border">
                   <div className="flex items-center justify-between">
                     <strong>{pending.name}</strong>
                     <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary">
@@ -253,8 +276,10 @@ function AdminPage() {
                 </div>
               </Card>
             ) : (
-              <div className="text-sm text-muted-foreground text-center max-w-sm">
-                Chat with the AI to design a component. The live preview appears here when a spec is ready, with a Save button to add it to your library.
+              <div className="h-full flex items-center justify-center">
+                <div className="text-sm text-muted-foreground text-center max-w-sm">
+                  Chat with the AI to design a component. The live behavior simulator (with sliders, state badges, and failure modes like "burned") appears here when a spec is ready.
+                </div>
               </div>
             )}
           </div>
