@@ -34,12 +34,20 @@ function LibraryManager() {
             Enable, disable and reorder the boards and components shown in the simulator. Only enabled items appear when users add parts to a project. Changes save automatically.
           </p>
         </div>
-        <Button asChild>
-          <Link to="/admin/ai">
-            <Sparkles className="h-4 w-4 mr-1.5" />
-            AI Component Builder
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <Link to="/admin/uno-3d">
+              <Box className="h-4 w-4 mr-1.5" />
+              Uno 3D Pin Editor
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link to="/admin/ai">
+              <Sparkles className="h-4 w-4 mr-1.5" />
+              AI Component Builder
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="boards" className="w-full">
