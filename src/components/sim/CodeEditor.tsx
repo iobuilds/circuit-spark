@@ -101,7 +101,10 @@ export function CodeEditor() {
     // Library-aware completion provider
     monaco.languages.registerCompletionItemProvider("arduino", {
       triggerCharacters: ["<", " ", "."],
-      provideCompletionItems: (model: monaco.editor.ITextModel, position: monaco.Position) => {
+      provideCompletionItems: (
+        model: { getWordUntilPosition: (p: { lineNumber: number; column: number }) => { startColumn: number; endColumn: number } },
+        position: { lineNumber: number; column: number },
+      ) => {
         const word = model.getWordUntilPosition(position);
         const range = {
           startLineNumber: position.lineNumber,
@@ -146,7 +149,10 @@ export function CodeEditor() {
 
     // Hover for built-in funcs
     monaco.languages.registerHoverProvider("arduino", {
-      provideHover: (model: monaco.editor.ITextModel, position: monaco.Position) => {
+      provideHover: (
+        model: { getWordAtPosition: (p: { lineNumber: number; column: number }) => { word: string } | null },
+        position: { lineNumber: number; column: number },
+      ) => {
         const word = model.getWordAtPosition(position);
         if (!word) return null;
         const docs: Record<string, string> = {
