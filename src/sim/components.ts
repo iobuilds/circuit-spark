@@ -81,7 +81,12 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
   },
   "7seg": {
     kind: "7seg", label: "7-Segment", category: "Displays", width: 90, height: 120,
-    pins: [], available: true,
+    pins: [
+      { id: "a", label: "a", x: 12, y: 118 }, { id: "b", label: "b", x: 24, y: 118 },
+      { id: "c", label: "c", x: 36, y: 118 }, { id: "d", label: "d", x: 48, y: 118 },
+      { id: "e", label: "e", x: 60, y: 118 }, { id: "f", label: "f", x: 72, y: 118 },
+      { id: "g", label: "g", x: 84, y: 118 }, { id: "GND", label: "GND", x: 6, y: 118 },
+    ], available: true,
   },
   servo: {
     kind: "servo", label: "Servo", category: "Actuators", width: 90, height: 80,
@@ -93,27 +98,50 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
   },
   relay: {
     kind: "relay", label: "Relay Module", category: "Actuators", width: 100, height: 80,
-    pins: [], available: true,
+    pins: [
+      { id: "VCC", label: "VCC", x: 14, y: 78 },
+      { id: "GND", label: "GND", x: 36, y: 78 },
+      { id: "IN",  label: "IN",  x: 58, y: 78 },
+    ], available: true,
   },
   dht11: {
     kind: "dht11", label: "DHT11", category: "Sensors", width: 80, height: 100,
-    pins: [], available: true,
+    pins: [
+      { id: "VCC",  label: "VCC",  x: 16, y: 98 },
+      { id: "DATA", label: "DATA", x: 40, y: 98 },
+      { id: "GND",  label: "GND",  x: 64, y: 98 },
+    ], available: true,
   },
   ultrasonic: {
     kind: "ultrasonic", label: "HC-SR04", category: "Sensors", width: 140, height: 70,
-    pins: [], available: true,
+    pins: [
+      { id: "VCC",  label: "VCC",  x: 24, y: 68 },
+      { id: "TRIG", label: "TRIG", x: 56, y: 68 },
+      { id: "ECHO", label: "ECHO", x: 84, y: 68 },
+      { id: "GND",  label: "GND",  x: 116, y: 68 },
+    ], available: true,
   },
   pir: {
     kind: "pir", label: "PIR Sensor", category: "Sensors", width: 90, height: 90,
-    pins: [], available: true,
+    pins: [
+      { id: "VCC", label: "VCC", x: 18, y: 88 },
+      { id: "OUT", label: "OUT", x: 45, y: 88 },
+      { id: "GND", label: "GND", x: 72, y: 88 },
+    ], available: true,
   },
   ldr: {
     kind: "ldr", label: "Photoresistor", category: "Sensors", width: 60, height: 80,
-    pins: [], available: true,
+    pins: [
+      { id: "1", label: "Pin 1", x: 14, y: 78 },
+      { id: "2", label: "Pin 2", x: 46, y: 78 },
+    ], available: true,
   },
   battery: {
     kind: "battery", label: "9V Battery", category: "Power", width: 80, height: 100,
-    pins: [], available: true,
+    pins: [
+      { id: "+", label: "+", x: 24, y: 98 },
+      { id: "-", label: "-", x: 56, y: 98 },
+    ], available: true,
   },
   // Generic placeholder for admin-defined custom components. Real visuals come
   // from the admin entry's SVG and pins (resolved at render time).
