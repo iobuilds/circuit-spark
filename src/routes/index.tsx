@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { CodeEditor } from "@/components/sim/CodeEditor";
 import { CircuitCanvas } from "@/components/sim/CircuitCanvas";
-import { ComponentPalette } from "@/components/sim/ComponentPalette";
+
 import { SerialPanel } from "@/components/sim/SerialPanel";
 import { Toolbar } from "@/components/sim/Toolbar";
 import { IdeMenubar } from "@/components/sim/IdeMenubar";
