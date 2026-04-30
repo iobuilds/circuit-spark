@@ -131,7 +131,7 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
     if (!f) return;
     const isSvg = f.name.toLowerCase().endsWith(".svg") || f.type === "image/svg+xml";
     if (!isSvg) {
-      toast.error("Use 'Convert PNG → SVG' for raster images");
+      toast.error("Use 'Add SVG / Convert PNG' for raster images");
       return;
     }
     f.text().then((txt) => {
@@ -391,7 +391,7 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
           </DialogTrigger>
           <DialogContent className="max-w-4xl">
             <DialogHeader>
-              <DialogTitle>Convert PNG → SVG</DialogTitle>
+              <DialogTitle>Add SVG / Convert PNG</DialogTitle>
             </DialogHeader>
             <PngToSvgConverter onSvg={(s) => acceptConvertedSvg(s)} />
           </DialogContent>
@@ -590,12 +590,12 @@ function UploadZone({
           <Dialog open={showConvert} onOpenChange={setShowConvert}>
             <DialogTrigger asChild>
               <Button size="sm" variant="outline">
-                <ImageIcon className="h-4 w-4 mr-1.5" /> Convert PNG → SVG
+                <ImageIcon className="h-4 w-4 mr-1.5" /> Add SVG / Convert PNG
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-4xl">
               <DialogHeader>
-                <DialogTitle>Convert PNG → SVG</DialogTitle>
+                <DialogTitle>Add SVG / Convert PNG</DialogTitle>
               </DialogHeader>
               <PngToSvgConverter
                 onSvg={(s) => { onConvertedSvg(s); setShowConvert(false); }}
