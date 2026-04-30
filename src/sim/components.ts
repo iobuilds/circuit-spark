@@ -29,7 +29,7 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
     pins: [
       { id: "1", label: "Pin 1", x: 4, y: 15 },
       { id: "2", label: "Pin 2", x: 96, y: 15 },
-    ], available: false,
+    ], available: true,
   },
   button: {
     kind: "button", label: "Push Button", category: "Basic", width: 70, height: 70,

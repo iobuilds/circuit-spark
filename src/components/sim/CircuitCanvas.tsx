@@ -596,14 +596,51 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         const sel = components.find((c) => c.id === selectedId);
         const isCustom = sel?.kind === "custom";
         const isLed = sel?.kind === "led";
+        const isResistor = sel?.kind === "resistor";
         const ledColors = ["red", "green", "blue", "yellow", "white", "orange", "purple"] as const;
         const ledColorSwatch: Record<string, string> = {
           red: "oklch(0.7 0.25 25)", green: "oklch(0.78 0.22 145)", blue: "oklch(0.7 0.22 245)",
           yellow: "oklch(0.85 0.18 90)", white: "oklch(0.96 0.02 90)",
           orange: "oklch(0.78 0.20 55)", purple: "oklch(0.7 0.22 305)",
         };
+        const resistorPresets = [220, 330, 470, 1_000, 2_200, 4_700, 10_000, 100_000];
+        const fmtOhms = (v: number) =>
+          v >= 1_000_000 ? `${+(v / 1_000_000).toFixed(2)}MΩ`
+          : v >= 1_000 ? `${+(v / 1_000).toFixed(2)}kΩ`
+          : `${v}Ω`;
         return (
           <div className="absolute top-3 right-3 flex items-center gap-2 flex-wrap justify-end max-w-[calc(100%-1.5rem)]">
+            {isResistor && sel && (
+              <div className="flex items-center gap-2 rounded-md border border-border bg-card/95 backdrop-blur px-2 py-1 text-xs shadow">
+                <span className="text-muted-foreground">Ω</span>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={Number(sel.props.ohms ?? 330)}
+                  onChange={(e) => {
+                    const n = Math.max(1, Math.round(Number(e.target.value) || 0));
+                    setComponentProp(selectedId, "ohms", n);
+                  }}
+                  className="bg-input border border-border rounded px-1.5 py-0.5 text-xs w-24 font-mono"
+                  title="Resistance in ohms"
+                />
+                <span className="text-muted-foreground font-mono">{fmtOhms(Number(sel.props.ohms ?? 330))}</span>
+                <span className="text-muted-foreground ml-1">Preset</span>
+                <select
+                  value=""
+                  onChange={(e) => {
+                    if (e.target.value) setComponentProp(selectedId, "ohms", Number(e.target.value));
+                  }}
+                  className="bg-input border border-border rounded px-1.5 py-0.5 text-xs"
+                >
+                  <option value="">—</option>
+                  {resistorPresets.map((v) => (
+                    <option key={v} value={v}>{fmtOhms(v)}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             {isLed && sel && (
               <div className="flex items-center gap-2 rounded-md border border-border bg-card/95 backdrop-blur px-2 py-1 text-xs shadow">
                 <span className="text-muted-foreground">Color</span>
