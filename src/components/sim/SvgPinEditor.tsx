@@ -37,6 +37,9 @@ import {
 import {
   MousePointer2, Plus, Trash2, ZoomIn, ZoomOut, Maximize2,
   Grid3x3, Code2, Upload, X, Image as ImageIcon,
+  AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
+  AlignStartVertical, AlignCenterVertical, AlignEndVertical,
+  AlignHorizontalSpaceBetween, AlignVerticalSpaceBetween,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { VisualPin } from "@/sim/adminStore";
