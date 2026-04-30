@@ -92,6 +92,12 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   function onSvgDragOver(e: React.DragEvent) { e.preventDefault(); }
   function onSvgDrop(e: React.DragEvent) {
     e.preventDefault();
+    // Board drop: switch active board on the canvas.
+    const boardPayload = e.dataTransfer.getData("application/x-embedsim-board");
+    if (boardPayload) {
+      useSimStore.getState().setBoard(boardPayload as never);
+      return;
+    }
     const payload = e.dataTransfer.getData("application/x-embedsim-component");
     if (!payload) return;
     const { x, y } = clientToSvg(e);

@@ -1,8 +1,10 @@
 import { COMPONENT_DEFS } from "@/sim/components";
-import type { ComponentKind } from "@/sim/types";
+import type { BoardId, ComponentKind } from "@/sim/types";
+import { BOARDS } from "@/sim/types";
 import { useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Search, Cpu } from "lucide-react";
 import { useAdminStore, type ComponentEntry } from "@/sim/adminStore";
+import { useSimStore } from "@/sim/store";
 
 const CATEGORIES = ["Basic", "Displays", "Sensors", "Actuators", "Power", "Comms"] as const;
 
@@ -74,6 +76,7 @@ export function ComponentPalette() {
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-thin py-2">
+        <BoardsSection query={q} />
         {[...CATEGORIES, "Custom"].map((cat) => {
           const items = filtered.filter((c) =>
             cat === "Custom" ? !!c.custom : c.category === cat && !c.custom
@@ -122,6 +125,53 @@ function PaletteItem({ entry }: { entry: PaletteEntry }) {
         {entry.custom ? <CustomThumb entry={entry.custom} /> : <PaletteIcon kind={entry.kind!} />}
       </div>
       <div className="truncate w-full text-center">{entry.label}</div>
+    </div>
+  );
+}
+
+function BoardsSection({ query }: { query: string }) {
+  const setBoard = useSimStore((s) => s.setBoard);
+  const activeBoard = useSimStore((s) => s.boardId);
+  const q = query.trim().toLowerCase();
+  const items = BOARDS.filter((b) => b.available && (!q || b.name.toLowerCase().includes(q) || b.mcu.toLowerCase().includes(q)));
+  if (!items.length) return null;
+  return (
+    <div className="mb-3">
+      <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1">
+        <Cpu className="h-3 w-3" /> Boards
+      </div>
+      <div className="grid grid-cols-2 gap-1.5 px-2">
+        {items.map((b) => (
+          <button
+            key={b.id}
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.setData("application/x-embedsim-board", b.id);
+              e.dataTransfer.effectAllowed = "copy";
+            }}
+            onClick={() => setBoard(b.id as BoardId)}
+            className={[
+              "rounded border p-2 text-xs flex flex-col items-center gap-1 transition-all cursor-grab active:cursor-grabbing text-left",
+              activeBoard === b.id
+                ? "border-primary bg-primary/10"
+                : "border-sidebar-border bg-sidebar-accent hover:border-primary",
+            ].join(" ")}
+            title={`${b.name} — ${b.mcu}`}
+          >
+            <div className="w-full h-8 flex items-center justify-center">
+              <svg viewBox="0 0 40 28" className="w-9 h-6">
+                <rect x={2} y={4} width={36} height={20} rx={2} fill="oklch(0.55 0.16 165)" />
+                <rect x={14} y={10} width={12} height={8} rx={1} fill="oklch(0.18 0.02 240)" />
+                <circle cx={6} cy={8} r={1} fill="oklch(0.85 0.15 90)" />
+                <circle cx={6} cy={20} r={1} fill="oklch(0.85 0.15 90)" />
+                <circle cx={34} cy={8} r={1} fill="oklch(0.85 0.15 90)" />
+                <circle cx={34} cy={20} r={1} fill="oklch(0.85 0.15 90)" />
+              </svg>
+            </div>
+            <div className="truncate w-full text-center text-[10px]">{b.name}</div>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

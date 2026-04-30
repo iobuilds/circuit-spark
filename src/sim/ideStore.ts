@@ -22,6 +22,10 @@ export interface SourceFile {
 export interface InstalledBoard {
   id: string;
   version: string;
+  name?: string;
+  /** Boards installed from the live Arduino package_index. */
+  live?: boolean;
+  boards?: string[];
 }
 export interface InstalledLibrary {
   id: string;
@@ -100,7 +104,7 @@ interface IdeState {
   prefs: IdePreferences;
 
   hydrate: () => void;
-  installBoard: (id: string, version: string) => void;
+  installBoard: (b: InstalledBoard) => void;
   removeBoard: (id: string) => void;
   installLibrary: (lib: InstalledLibrary) => void;
   removeLibrary: (id: string) => void;
@@ -146,8 +150,8 @@ export const useIdeStore = create<IdeState>((set, get) => ({
     });
   },
 
-  installBoard: (id, version) => {
-    const next = [...get().installedBoards.filter((b) => b.id !== id), { id, version }];
+  installBoard: (b) => {
+    const next = [...get().installedBoards.filter((x) => x.id !== b.id), b];
     saveJson(KEY_BOARDS, next);
     set({ installedBoards: next });
   },

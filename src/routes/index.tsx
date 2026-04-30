@@ -11,6 +11,8 @@ import { IdeMenubar } from "@/components/sim/IdeMenubar";
 import { FileTabs } from "@/components/sim/FileTabs";
 import { CompileOutputPanel } from "@/components/sim/CompileOutputPanel";
 import { PinStateTable } from "@/components/sim/PinStateTable";
+import { Button } from "@/components/ui/button";
+import { Code2, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { useSimController } from "@/sim/useSimController";
 import { useSimStore } from "@/sim/store";
 import { useIdeStore } from "@/sim/ideStore";
@@ -45,6 +47,7 @@ function SimulatorPage() {
   const [pausedFlag, setPausedFlag] = useState(false);
   const [compileOutput, setCompileOutput] = useState<CompileResult | null>(null);
   const [compiling, setCompiling] = useState(false);
+  const [showEditor, setShowEditor] = useState(true);
   const inputCacheRef = useRef<Record<number, { d?: 0 | 1; a?: number }>>({});
 
   useEffect(() => { if (!ideLoaded) ideHydrate(); }, [ideLoaded, ideHydrate]);
@@ -144,31 +147,56 @@ function SimulatorPage() {
           <ComponentPalette />
         </aside>
 
-        {/* Middle: Code editor + Serial */}
-        <section className="flex-1 min-w-0 flex flex-col border-r border-border">
-          <div className="flex-1 min-h-0 flex flex-col bg-card">
-            <FileTabs />
+        {/* Middle: Builder workspace (canvas + pin states + serial) */}
+        <section className="flex-1 min-w-0 flex flex-col border-r border-border relative">
+          <div className="flex-1 min-h-0 relative">
+            <CircuitCanvas onPinInputChange={pushPinInput} />
+            {!showEditor && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="absolute top-3 right-3 h-8 shadow-md"
+                onClick={() => setShowEditor(true)}
+                title="Show code editor"
+              >
+                <PanelRightOpen className="h-3.5 w-3.5 mr-1.5" />
+                <Code2 className="h-3.5 w-3.5 mr-1" /> Code
+              </Button>
+            )}
+          </div>
+          <div className="h-44 shrink-0 border-t border-border">
+            <PinStateTable />
+          </div>
+          <div className="h-56 shrink-0 border-t border-border">
+            <SerialPanel onSerialIn={(t) => ctrl.serialIn(t)} />
+          </div>
+        </section>
+
+        {/* Right: Code editor (toggleable) */}
+        {showEditor && (
+          <section className="w-[42%] min-w-[360px] max-w-[720px] flex flex-col bg-card">
+            <div className="flex items-center justify-between border-b border-border bg-muted/30">
+              <div className="flex-1 min-w-0">
+                <FileTabs />
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0 shrink-0"
+                onClick={() => setShowEditor(false)}
+                title="Hide code editor"
+              >
+                <PanelRightClose className="h-4 w-4" />
+              </Button>
+            </div>
             <div className="flex-1 min-h-0">
               <CodeEditor />
             </div>
             {compileOutput && (
               <CompileOutputPanel output={compileOutput} onClose={() => setCompileOutput(null)} />
             )}
-          </div>
-          <div className="h-64 shrink-0 border-t border-border">
-            <SerialPanel onSerialIn={(t) => ctrl.serialIn(t)} />
-          </div>
-        </section>
-
-        {/* Right: Canvas + Pin states */}
-        <section className="flex-1 min-w-0 flex flex-col">
-          <div className="flex-1 min-h-0">
-            <CircuitCanvas onPinInputChange={pushPinInput} />
-          </div>
-          <div className="h-44 shrink-0 border-t border-border">
-            <PinStateTable />
-          </div>
-        </section>
+          </section>
+        )}
       </div>
 
       <div className="flex items-center gap-4 px-3 py-1 text-[11px] font-mono border-t border-border bg-card text-muted-foreground">

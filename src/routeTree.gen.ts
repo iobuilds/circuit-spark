@@ -17,6 +17,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as ApiLibrariesSearchRouteImport } from './routes/api/libraries.search'
 import { Route as ApiLibrariesDownloadRouteImport } from './routes/api/libraries.download'
+import { Route as ApiBoardsSearchRouteImport } from './routes/api/boards.search'
 import { Route as AdminComponentsComponentIdEditRouteImport } from './routes/admin.components.$componentId.edit'
 import { Route as AdminBoardsBoardIdEditRouteImport } from './routes/admin.boards.$boardId.edit'
 
@@ -60,6 +61,11 @@ const ApiLibrariesDownloadRoute = ApiLibrariesDownloadRouteImport.update({
   path: '/api/libraries/download',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiBoardsSearchRoute = ApiBoardsSearchRouteImport.update({
+  id: '/api/boards/search',
+  path: '/api/boards/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminComponentsComponentIdEditRoute =
   AdminComponentsComponentIdEditRouteImport.update({
     id: '/components/$componentId/edit',
@@ -79,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/docs': typeof DocsRoute
   '/examples': typeof ExamplesRoute
   '/admin/': typeof AdminIndexRoute
+  '/api/boards/search': typeof ApiBoardsSearchRoute
   '/api/libraries/download': typeof ApiLibrariesDownloadRoute
   '/api/libraries/search': typeof ApiLibrariesSearchRoute
   '/admin/boards/$boardId/edit': typeof AdminBoardsBoardIdEditRoute
@@ -90,6 +97,7 @@ export interface FileRoutesByTo {
   '/docs': typeof DocsRoute
   '/examples': typeof ExamplesRoute
   '/admin': typeof AdminIndexRoute
+  '/api/boards/search': typeof ApiBoardsSearchRoute
   '/api/libraries/download': typeof ApiLibrariesDownloadRoute
   '/api/libraries/search': typeof ApiLibrariesSearchRoute
   '/admin/boards/$boardId/edit': typeof AdminBoardsBoardIdEditRoute
@@ -103,6 +111,7 @@ export interface FileRoutesById {
   '/docs': typeof DocsRoute
   '/examples': typeof ExamplesRoute
   '/admin/': typeof AdminIndexRoute
+  '/api/boards/search': typeof ApiBoardsSearchRoute
   '/api/libraries/download': typeof ApiLibrariesDownloadRoute
   '/api/libraries/search': typeof ApiLibrariesSearchRoute
   '/admin/boards/$boardId/edit': typeof AdminBoardsBoardIdEditRoute
@@ -117,6 +126,7 @@ export interface FileRouteTypes {
     | '/docs'
     | '/examples'
     | '/admin/'
+    | '/api/boards/search'
     | '/api/libraries/download'
     | '/api/libraries/search'
     | '/admin/boards/$boardId/edit'
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
     | '/docs'
     | '/examples'
     | '/admin'
+    | '/api/boards/search'
     | '/api/libraries/download'
     | '/api/libraries/search'
     | '/admin/boards/$boardId/edit'
@@ -140,6 +151,7 @@ export interface FileRouteTypes {
     | '/docs'
     | '/examples'
     | '/admin/'
+    | '/api/boards/search'
     | '/api/libraries/download'
     | '/api/libraries/search'
     | '/admin/boards/$boardId/edit'
@@ -152,6 +164,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   DocsRoute: typeof DocsRoute
   ExamplesRoute: typeof ExamplesRoute
+  ApiBoardsSearchRoute: typeof ApiBoardsSearchRoute
   ApiLibrariesDownloadRoute: typeof ApiLibrariesDownloadRoute
   ApiLibrariesSearchRoute: typeof ApiLibrariesSearchRoute
 }
@@ -214,6 +227,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiLibrariesDownloadRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/boards/search': {
+      id: '/api/boards/search'
+      path: '/api/boards/search'
+      fullPath: '/api/boards/search'
+      preLoaderRoute: typeof ApiBoardsSearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/components/$componentId/edit': {
       id: '/admin/components/$componentId/edit'
       path: '/components/$componentId/edit'
@@ -251,6 +271,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   DocsRoute: DocsRoute,
   ExamplesRoute: ExamplesRoute,
+  ApiBoardsSearchRoute: ApiBoardsSearchRoute,
   ApiLibrariesDownloadRoute: ApiLibrariesDownloadRoute,
   ApiLibrariesSearchRoute: ApiLibrariesSearchRoute,
 }
