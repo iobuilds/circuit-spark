@@ -12,7 +12,7 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
       { id: "A", label: "Anode (+)", x: 20, y: 78 },
       { id: "K", label: "Cathode (-)", x: 40, y: 78 },
     ],
-    available: false,
+    available: true,
     color: "red",
   },
   "rgb-led": {
