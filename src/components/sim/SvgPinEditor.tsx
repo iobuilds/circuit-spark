@@ -36,10 +36,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   MousePointer2, Plus, Trash2, ZoomIn, ZoomOut, Maximize2,
-  Grid3x3, Code2, Upload, X,
+  Grid3x3, Code2, Upload, X, Image as ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { VisualPin } from "@/sim/adminStore";
+import { PngToSvgConverter } from "@/components/sim/PngToSvgConverter";
+import { PinPropertyPicker } from "@/components/sim/PinPropertyPicker";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 const CANVAS_W = 800;
 const CANVAS_H = 600;
@@ -119,12 +122,13 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPin]);
 
-  // ---- Upload handlers ----
+  // ---- Upload handlers (.svg only; PNG goes through PngToSvgConverter) ----
   const handleFiles = useCallback((files: FileList | null) => {
     const f = files?.[0];
     if (!f) return;
-    if (!f.name.toLowerCase().endsWith(".svg") && f.type !== "image/svg+xml") {
-      toast.error("Only .svg files are supported");
+    const isSvg = f.name.toLowerCase().endsWith(".svg") || f.type === "image/svg+xml";
+    if (!isSvg) {
+      toast.error("Use 'Convert PNG → SVG' for raster images");
       return;
     }
     f.text().then((txt) => {
@@ -138,6 +142,14 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
       setZoom(1);
       setPan({ x: 0, y: 0 });
     });
+  }, [onChange, pins]);
+
+  const acceptConvertedSvg = useCallback((svg: string) => {
+    onChange({ svg, pins });
+    setDrawerSvg(svg);
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    toast.success("Converted PNG → SVG");
   }, [onChange, pins]);
 
   // ---- Coordinate conversion: screen px -> SVG user-space ----
