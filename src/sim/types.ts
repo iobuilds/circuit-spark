@@ -47,7 +47,8 @@ export type ComponentKind =
   | "rgb-led"
   | "switch"
   | "7seg"
-  | "relay";
+  | "relay"
+  | "custom";
 
 export interface ComponentDef {
   kind: ComponentKind;
