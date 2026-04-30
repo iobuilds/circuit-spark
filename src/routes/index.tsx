@@ -140,7 +140,7 @@ function SimulatorPage() {
 
       <div className="flex-1 min-h-0">
         <PanelGroup orientation="horizontal">
-          <Panel defaultSize={18} minSize={14} maxSize={28}>
+          <Panel defaultSize={17} minSize={14} maxSize={28}>
             <ComponentPalette />
           </Panel>
           <PanelResizeHandle className="w-1 bg-border hover:bg-primary/40 transition-colors" />
@@ -166,7 +166,7 @@ function SimulatorPage() {
           </Panel>
           <PanelResizeHandle className="w-1 bg-border hover:bg-primary/40 transition-colors" />
 
-          <Panel defaultSize={44} minSize={25}>
+          <Panel defaultSize={43} minSize={25}>
             <PanelGroup orientation="vertical">
               <Panel defaultSize={75} minSize={30}>
                 <CircuitCanvas onPinInputChange={pushPinInput} />
