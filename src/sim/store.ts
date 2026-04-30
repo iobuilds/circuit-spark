@@ -38,6 +38,11 @@ export interface SimState {
   /** Intermediate click points while drawing a wire, in canvas coordinates. */
   drawingWaypoints: { x: number; y: number }[];
 
+  /** Past wire-array snapshots for undo (most recent at end). */
+  wireHistory: Wire[][];
+  /** Wire snapshots that have been undone, available for redo. */
+  wireFuture: Wire[][];
+
   // editor / runtime
   code: string;
   status: SimStatus;
@@ -67,6 +72,16 @@ export interface SimState {
   updateWireWaypoint: (wireId: string, idx: number, point: { x: number; y: number }) => void;
   insertWireWaypoint: (wireId: string, idx: number, point: { x: number; y: number }) => void;
   setWireStyle: (wireId: string, style: { color?: string; thickness?: number }) => void;
+  /** Replace the entire wires array (used by bulk operations like apply-to-net or auto-route). */
+  setWires: (next: Wire[]) => void;
+
+  /** Undo the last wire-changing action (history-based). */
+  undoWires: () => void;
+  /** Redo the last undone wire-changing action. */
+  redoWires: () => void;
+  /** Whether undo / redo are currently available. */
+  canUndoWires: () => boolean;
+  canRedoWires: () => boolean;
 
   setStatus: (s: SimStatus) => void;
   setPinStates: (s: Record<number, PinState>) => void;
