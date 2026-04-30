@@ -257,6 +257,7 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
         onFiles={handleFiles}
         fileRef={fileRef}
         onStartBlank={() => onChange({ svg: BLANK_SVG, pins })}
+        onConvertedSvg={acceptConvertedSvg}
       />
     );
   }
