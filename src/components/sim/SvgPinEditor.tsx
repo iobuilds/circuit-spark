@@ -637,13 +637,20 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
                 const cx = (p.x - svgInfo.vbX) * fit.scale + fit.offsetX;
                 const cy = (p.y - svgInfo.vbY) * fit.scale + fit.offsetY;
                 const isSel = p.id === selectedPin;
+                const isMulti = selectedIds.has(p.id);
                 return (
                   <g key={p.id} style={{ pointerEvents: "auto" }}>
-                    {isSel && (
-                      <circle cx={cx} cy={cy} r={9} fill="none" stroke="hsl(var(--primary))" strokeWidth={2} />
+                    {(isSel || isMulti) && (
+                      <circle
+                        cx={cx} cy={cy} r={9}
+                        fill="none"
+                        stroke={isMulti ? "hsl(var(--primary))" : "hsl(var(--primary))"}
+                        strokeWidth={2}
+                        strokeDasharray={isMulti && !isSel ? "3 2" : undefined}
+                      />
                     )}
                     <Popover
-                      open={popoverOpen && isSel}
+                      open={popoverOpen && isSel && selectedIds.size <= 1}
                       onOpenChange={(o) => { if (isSel) setPopoverOpen(o); }}
                     >
                       <PopoverTrigger asChild>
@@ -656,12 +663,34 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
                           onMouseDown={(e) => {
                             e.stopPropagation();
                             e.preventDefault();
+                            const additive = e.shiftKey || e.metaKey || e.ctrlKey;
+                            setSelectedIds((prev) => {
+                              const next = new Set(prev);
+                              if (additive) {
+                                if (next.has(p.id)) next.delete(p.id);
+                                else next.add(p.id);
+                              } else if (!next.has(p.id)) {
+                                next.clear();
+                                next.add(p.id);
+                              }
+                              return next;
+                            });
                             setSelectedPin(p.id);
                             setDragPinId(p.id);
+                            // Snapshot positions of all selected pins for group-drag
+                            const origin = new Map<string, { x: number; y: number }>();
+                            const movingNow = (selectedIds.has(p.id) && selectedIds.size > 1)
+                              ? selectedIds
+                              : new Set([p.id]);
+                            pins.forEach((pp) => {
+                              if (movingNow.has(pp.id)) origin.set(pp.id, { x: pp.x, y: pp.y });
+                            });
+                            if (!origin.has(p.id)) origin.set(p.id, { x: p.x, y: p.y });
                             dragStateRef.current = {
                               startX: e.clientX,
                               startY: e.clientY,
                               moved: false,
+                              origin,
                             };
                           }}
                         />
@@ -687,6 +716,19 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
                 );
               })}
             </svg>
+          )}
+
+          {/* Marquee rubber-band overlay */}
+          {marquee && (
+            <div
+              className="absolute pointer-events-none border border-primary bg-primary/10"
+              style={{
+                left: Math.min(marquee.x0, marquee.x1),
+                top: Math.min(marquee.y0, marquee.y1),
+                width: Math.abs(marquee.x1 - marquee.x0),
+                height: Math.abs(marquee.y1 - marquee.y0),
+              }}
+            />
           )}
         </div>
 
