@@ -139,14 +139,14 @@ function SimulatorPage() {
       <IdeMenubar onCompile={handleBackendCompile} onUpload={handleUpload} />
 
       <div className="flex-1 min-h-0">
-        <PanelGroup direction="horizontal">
+        <PanelGroup orientation="horizontal">
           <Panel defaultSize={16} minSize={12} maxSize={24}>
             <ComponentPalette />
           </Panel>
           <PanelResizeHandle className="w-1 bg-border hover:bg-primary/40 transition-colors" />
 
           <Panel defaultSize={40} minSize={24}>
-            <PanelGroup direction="vertical">
+            <PanelGroup orientation="vertical">
               <Panel defaultSize={62} minSize={20}>
                 <div className="h-full flex flex-col bg-card">
                   <FileTabs />
@@ -167,7 +167,7 @@ function SimulatorPage() {
           <PanelResizeHandle className="w-1 bg-border hover:bg-primary/40 transition-colors" />
 
           <Panel defaultSize={44} minSize={25}>
-            <PanelGroup direction="vertical">
+            <PanelGroup orientation="vertical">
               <Panel defaultSize={75} minSize={30}>
                 <CircuitCanvas onPinInputChange={pushPinInput} />
               </Panel>
