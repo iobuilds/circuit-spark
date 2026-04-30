@@ -87,6 +87,7 @@ export const useSimStore = create<SimState>((set, get) => ({
   wires: [],
   selectedId: null,
   drawingFrom: null,
+  drawingWaypoints: [],
 
   code: DEFAULT_CODE,
   status: "idle",
