@@ -196,28 +196,33 @@ Rules for the spec:
 - pins.x / pins.y are in SVG-local coords inside the viewBox 0 0 width height. Place pins on the visible edge so wires can attach.
 - svg: inner markup only (no outer <svg> tag). Use <rect>, <circle>, <line>, <path>, <text>, <g> with sensible fills/strokes. Avoid external assets, scripts, or event handlers. No <foreignObject>.
 - **Tag animatable parts** with data attributes so the live simulator can animate them:
-   - \`data-spin="true"\` on rotor / shaft / fan blades (e.g. motor shaft, fan)
-   - \`data-glow="true"\` on LEDs, screens, indicators
+   - \`data-spin="true"\` on rotor / shaft / fan blades
+   - \`data-glow="true"\` on LEDs, indicators, status lamps
    - \`data-flicker="true"\` on parts that flicker when broken
-   - Wrap the spinning element in a <g> centered on its rotation point.
+   - \`data-screen="true"\` on the visible display surface of OLEDs/LCDs/TFTs/7-segments. Make it a single <rect> sized to the active pixel area — the simulator overlays rendered text/graphics on top of it.
+   - Wrap any spinning element in a <g> centered on its rotation point.
 - width / height: integers, typically 60-220 for components, 240-400 for boards.
 
-**Behavior model (REQUIRED for active components):**
-- params: tunable inputs the user can play with in the live preview. Examples:
-   - Motor: { speed: number 0..100, direction: enum [forward, reverse], voltage: number 0..15 }
-   - LED: { brightness: number 0..255, voltage: number 0..6 }
-   - Servo: { angle: number 0..180 }
-- states: visual states like "idle", "running", "burned", "broken", "no-power". Use \`when\` expressions over params (e.g. "speed > 0 && !burned"). Attach \`visual\` overrides:
+**Behavior model (REQUIRED for active components — including displays):**
+- params: tunable inputs surfaced as live controls. Examples:
+   - DC motor: { speed 0..100, direction enum [forward,reverse], voltage 0..15 }
+   - LED: { brightness 0..255, voltage 0..6 }
+   - Servo: { angle 0..180 }
+   - **0.96" SSD1306 I2C OLED**: { i2cAddress enum ["0x3C","0x3D"], voltage 0..6, contrast 0..255, text string default "Hello, World!", invert boolean }
+   - LCD 16x2: { line1 string, line2 string, backlight boolean, contrast 0..100 }
+   - 7-segment: { digit string default "8", decimalPoint boolean }
+- states: visual states like "idle", "powered", "displaying", "burned", "no-power". Use \`when\` expressions over params (e.g. "voltage >= 3 && !burned"). Attach \`visual\` overrides:
    - filter: CSS filter (e.g. "brightness(1.4) saturate(1.3)")
-   - spinSelector: CSS selector for the part to rotate (use "[data-spin]")
-   - glowSelector: "[data-glow]"
-   - overlay: "smoke" | "spark" | "flame" — drawn on top in the burned state
-- failures: conditions that flip the component into a damaged state, e.g. \`{ when: "voltage > 12", state: "burned", reason: "Exceeded max voltage" }\`. ALWAYS include at least one realistic failure mode for active components (motor burns at over-voltage, LED burns without resistor, etc).
+   - spinSelector / glowSelector / flickerSelector — default to "[data-spin]" etc.
+   - overlay: "smoke" | "spark" | "flame" for burned state
+- failures: ALWAYS include at least one realistic failure for active components. Examples: motor burns when \`voltage > 12\`; LED burns when \`voltage > 5\`; OLED burns when \`voltage > 5.5\` or wrong I2C address (\`i2cAddress != "0x3C" && i2cAddress != "0x3D"\` → "no-response", not burned).
 - notes: 1-2 sentence plain-English summary.
 
-Passive components (resistor, capacitor, switch) can have empty behavior or just one state.
+**Make components feel REAL.** For an I2C OLED (SSD1306), include the I2C address selector, treat \`text\` as the buffer being displayed, and tag the screen rect with \`data-screen="true"\` so the simulator can draw the text on it. For LCDs, expose line1/line2. For 7-segments, expose the digit. The user must be able to type into the params and see the display change instantly.
 
-- behaviorNotes: 1-3 sentence summary (legacy text field — still fill it).
+Passive components (resistor, capacitor, switch, button) can have empty behavior or just one state.
+
+- behaviorNotes: 1-3 sentence summary describing real-world part, voltage range, communication protocol (I2C/SPI/PWM/analog), and typical wiring.
 - Always emit the tool when the user says "build", "save", "generate", "create it", or after one or two clarifying turns.
 
 Reply in plain text for chat turns; only call the tool when finalizing.`;
