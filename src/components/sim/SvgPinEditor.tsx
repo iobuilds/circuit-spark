@@ -496,15 +496,21 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
                     >
                       <PopoverTrigger asChild>
                         <circle
-                          cx={cx} cy={cy} r={4.5}
+                          cx={cx} cy={cy} r={6}
                           fill={p.color ?? TYPE_COLORS[p.type]}
                           stroke="white"
                           strokeWidth={1.5}
-                          style={{ cursor: "pointer" }}
-                          onClick={(e) => {
+                          style={{ cursor: dragPinId === p.id ? "grabbing" : "grab" }}
+                          onMouseDown={(e) => {
                             e.stopPropagation();
+                            e.preventDefault();
                             setSelectedPin(p.id);
-                            setPopoverOpen(true);
+                            setDragPinId(p.id);
+                            dragStateRef.current = {
+                              startX: e.clientX,
+                              startY: e.clientY,
+                              moved: false,
+                            };
                           }}
                         />
                       </PopoverTrigger>
