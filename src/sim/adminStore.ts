@@ -154,6 +154,13 @@ interface AdminState {
   resetComponents: () => void;
   importBoards: (items: BoardEntry[]) => void;
   importComponents: (items: ComponentEntry[]) => void;
+
+  updateBoard: (id: string, patch: Partial<BoardEntry>) => void;
+  updateComponent: (id: string, patch: Partial<ComponentEntry>) => void;
+  createCustomBoard: (init?: Partial<BoardEntry>) => string;
+  createCustomComponent: (init?: Partial<ComponentEntry>) => string;
+  deleteBoard: (id: string) => void;
+  deleteComponent: (id: string) => void;
 }
 
 export const useAdminStore = create<AdminState>((set, get) => ({
