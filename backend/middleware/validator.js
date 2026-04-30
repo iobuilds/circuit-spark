@@ -6,7 +6,7 @@ const fileSchema = Joi.object({
 });
 
 const compileSchema = Joi.object({
-  board: Joi.string().alphanum().max(50).required(),
+  board: Joi.string().pattern(/^[a-zA-Z0-9_\-:=.]+$/).max(100).required(),
   files: Joi.array().items(fileSchema).min(1).max(20).required(),
   libraries: Joi.array().items(Joi.string().max(100)).max(50).default([]),
   clientId: Joi.string().max(100).optional(),
