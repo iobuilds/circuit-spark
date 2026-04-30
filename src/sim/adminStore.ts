@@ -4,6 +4,8 @@
 import { create } from "zustand";
 import { BOARDS, type BoardDef, type BoardId, type ComponentKind } from "./types";
 import { COMPONENT_DEFS } from "./components";
+import { UNO_SVG } from "./boardSvgs/unoSvg";
+import { defaultUnoPins } from "./boardSvgs/unoPins";
 
 const STORAGE_VERSION = 2;
 const KEY_BOARDS = "embedsim_boards";
@@ -61,15 +63,22 @@ interface PersistedShape<T> {
 }
 
 function defaultBoards(): BoardEntry[] {
-  return BOARDS.map((b) => ({
-    id: b.id,
-    name: b.name,
-    mcu: b.mcu,
-    digitalPins: b.digitalPins,
-    analogPins: b.analogPins,
-    enabled: b.available,
-    builtIn: true,
-  }));
+  return BOARDS.map((b) => {
+    const base: BoardEntry = {
+      id: b.id,
+      name: b.name,
+      mcu: b.mcu,
+      digitalPins: b.digitalPins,
+      analogPins: b.analogPins,
+      enabled: b.available,
+      builtIn: true,
+    };
+    if (b.id === "uno") {
+      base.svg = UNO_SVG;
+      base.pins = defaultUnoPins();
+    }
+    return base;
+  });
 }
 
 function defaultComponents(): ComponentEntry[] {
@@ -109,7 +118,15 @@ function mergeBoards(persisted: BoardEntry[]): BoardEntry[] {
   persisted.forEach((p) => {
     const def = map.get(p.id);
     if (def) {
-      ordered.push({ ...def, ...p, builtIn: true });
+      // Backfill svg/pins from defaults when persisted entry doesn't have them yet.
+      const merged: BoardEntry = {
+        ...def,
+        ...p,
+        builtIn: true,
+        svg: p.svg ?? def.svg,
+        pins: p.pins && p.pins.length > 0 ? p.pins : def.pins,
+      };
+      ordered.push(merged);
       map.delete(p.id);
     } else if (!p.builtIn) {
       ordered.push(p);

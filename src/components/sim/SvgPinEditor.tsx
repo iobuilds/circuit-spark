@@ -43,6 +43,11 @@ import type { VisualPin } from "@/sim/adminStore";
 
 const CANVAS_W = 800;
 const CANVAS_H = 600;
+const BLANK_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 240" preserveAspectRatio="xMidYMid meet">' +
+  '<rect x="0" y="0" width="360" height="240" rx="8" fill="hsl(220 14% 96%)" stroke="hsl(220 13% 80%)" stroke-width="0.6"/>' +
+  '<text x="180" y="124" text-anchor="middle" font-family="monospace" font-size="11" fill="hsl(220 9% 46%)">Blank canvas — place pins or edit SVG markup</text>' +
+  "</svg>";
 const PIN_TYPES: VisualPin["type"][] = [
   "digital", "analog", "pwm", "power", "ground",
   "i2c-sda", "i2c-scl", "spi", "uart", "other",
@@ -239,6 +244,7 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
       <UploadZone
         onFiles={handleFiles}
         fileRef={fileRef}
+        onStartBlank={() => onChange({ svg: BLANK_SVG, pins })}
       />
     );
   }
@@ -489,10 +495,11 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
 /* ---------------- Sub-components ---------------- */
 
 function UploadZone({
-  onFiles, fileRef,
+  onFiles, fileRef, onStartBlank,
 }: {
   onFiles: (f: FileList | null) => void;
   fileRef: React.RefObject<HTMLInputElement | null>;
+  onStartBlank?: () => void;
 }) {
   const [over, setOver] = useState(false);
   return (
@@ -500,16 +507,25 @@ function UploadZone({
       onDragOver={(e) => { e.preventDefault(); setOver(true); }}
       onDragLeave={() => setOver(false)}
       onDrop={(e) => { e.preventDefault(); setOver(false); onFiles(e.dataTransfer.files); }}
-      onClick={() => fileRef.current?.click()}
       className={
-        "flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed cursor-pointer transition-colors " +
-        (over ? "border-primary bg-primary/5" : "border-border bg-muted/20 hover:bg-muted/30")
+        "flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed transition-colors " +
+        (over ? "border-primary bg-primary/5" : "border-border bg-muted/20")
       }
       style={{ width: CANVAS_W, height: CANVAS_H, maxWidth: "100%" }}
     >
       <Upload className="h-10 w-10 text-muted-foreground" />
       <div className="text-sm font-medium">Drop your SVG file here</div>
-      <div className="text-xs text-muted-foreground">or click to browse · .svg only</div>
+      <div className="text-xs text-muted-foreground">.svg only</div>
+      <div className="flex items-center gap-2 mt-2">
+        <Button size="sm" onClick={() => fileRef.current?.click()}>
+          <Upload className="h-4 w-4 mr-1.5" /> Browse for SVG
+        </Button>
+        {onStartBlank && (
+          <Button size="sm" variant="outline" onClick={onStartBlank}>
+            Start with blank canvas
+          </Button>
+        )}
+      </div>
       <input
         ref={fileRef}
         type="file"
