@@ -144,7 +144,7 @@ function score(e: ArduinoBoardEntry, q: string): number {
 export const Route = createFileRoute("/api/boards/search")({
   server: {
     handlers: {
-      GET: async ({ request }) => {
+      GET: async ({ request }: { request: Request }) => {
         const url = new URL(request.url);
         const q = (url.searchParams.get("q") ?? "").trim().toLowerCase();
         const category = url.searchParams.get("category") ?? "";

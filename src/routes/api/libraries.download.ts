@@ -40,7 +40,7 @@ function evictIfNeeded() {
 export const Route = createFileRoute("/api/libraries/download")({
   server: {
     handlers: {
-      GET: async ({ request }) => {
+      GET: async ({ request }: { request: Request }) => {
         const url = new URL(request.url);
         const name = url.searchParams.get("name") ?? "";
         const version = url.searchParams.get("version") ?? "";

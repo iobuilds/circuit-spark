@@ -1,0 +1,40 @@
+version: '3.8'
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  api:
+    build: ..
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - REDIS_URL=redis://redis:6379
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - MAX_CONCURRENT_JOBS=4
+    depends_on:
+      - redis
+    volumes:
+      - /tmp/embedsim:/tmp/embedsim
+      - /var/log/embedsim:/var/log/embedsim
+    command: node server.js
+
+  worker:
+    build: ..
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - REDIS_URL=redis://redis:6379
+      - MAX_CONCURRENT_JOBS=4
+    depends_on:
+      - redis
+    volumes:
+      - /tmp/embedsim:/tmp/embedsim
+    command: node queue/compileWorker.js
+
+volumes:
+  redis_data:

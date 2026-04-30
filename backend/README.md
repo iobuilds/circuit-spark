@@ -1,61 +1,107 @@
 # EmbedSim Compilation Backend
 
-Drop-in **Node.js + Express + arduino-cli** server that powers real Arduino
-compilation for the EmbedSim frontend.
+Production-grade Arduino compilation backend powered by `arduino-cli`, Express, Socket.IO, Bull (Redis), and PM2.
 
-## Quick start (Ubuntu 22.04 VPS)
+## Architecture
+
+```
+Browser  ──HTTP/WS──▶  API (Express + Socket.IO)  ──Bull queue──▶  Worker (arduino-cli)
+                              │                                          │
+                              └──── Redis (queue + cache) ◀──────────────┘
+```
+
+- **API** (`server.js`) — accepts compile requests, queues jobs, streams progress over Socket.IO, exposes Bull-board admin UI at `/admin/queues`.
+- **Worker** (`queue/compileWorker.js`) — pulls jobs, runs `arduino-cli compile` with a timeout, parses errors/warnings, returns base64 binary + memory stats. Hits Redis cache for identical builds (smart hash of files + board + libraries).
+- **Redis** — Bull job storage + compile-result cache (TTL configurable).
+- **Nginx** — reverse-proxies `/api`, `/socket.io`, `/admin/queues` to port 3001.
+
+## Quick start (local dev)
 
 ```bash
-# 1. Copy setup-vps.sh to your server
-scp setup-vps.sh root@YOUR_SERVER_IP:/root/
-
-# 2. Run it
-ssh root@YOUR_SERVER_IP
-chmod +x setup-vps.sh
-sudo ./setup-vps.sh
+cp .env.example .env
+npm install
+# In one terminal:
+npm run dev
+# In another:
+npm run worker
 ```
 
-When the script finishes:
-- API runs on port `3001` and is reverse-proxied by Nginx on port `80`
-- arduino-cli + AVR/ESP32/ESP8266/STM32/RP2040 cores + ~18 popular libraries are installed
-- PM2 keeps the server alive across reboots
+You also need Redis (`redis-server`) and `arduino-cli` available on `$PATH` or at `ARDUINO_CLI_PATH`.
 
-## Wiring up the frontend
+## VPS deployment
 
-Create a `.env` file in the React project root:
+Run `scripts/setup-vps.sh` on a fresh Ubuntu 22.04 box (as root). It installs Node 20, Redis, Nginx, `arduino-cli`, all common board cores (AVR, SAMD, ESP32, ESP8266, STM32, RP2040), 20+ common libraries, configures Nginx, and starts both processes under PM2.
 
-```
-VITE_API_URL=https://your-domain.com
+```bash
+cd /opt/embedsim   # clone or copy this folder here first
+bash scripts/setup-vps.sh
 ```
 
-Then re-deploy. When `VITE_API_URL` is set, the IDE talks to your server.
-When unset, it falls back to a local mock so the UI remains usable.
+For TLS:
 
-## API endpoints
-
-| Method | Path | Purpose |
-|---|---|---|
-| `POST` | `/api/compile` | Compile a multi-file sketch, returns base64 .hex |
-| `POST` | `/api/libraries/install` | Install a library by name |
-| `POST` | `/api/libraries/upload` | Install a library from an uploaded `.zip` |
-| `GET`  | `/api/libraries/installed` | List installed libraries |
-| `GET`  | `/api/libraries/search?q=` | Search the Arduino library index |
-| `GET`  | `/api/boards/installed` | List installed board cores |
-| `POST` | `/api/boards/install` | Install a board core (e.g. `esp32:esp32`) |
-| `GET`  | `/api/health` | Health probe |
-
-## Compile request shape
-
-```json
-{
-  "board": "uno",
-  "files": [
-    { "name": "sketch.ino", "content": "void setup(){} void loop(){}" },
-    { "name": "helpers.h",  "content": "#pragma once" }
-  ],
-  "libraries": ["DHT sensor library"]
-}
+```bash
+certbot --nginx -d yourdomain.com
 ```
 
-`board` accepts both internal sim ids (`uno`, `esp32`, …) and raw FQBNs
-(`arduino:avr:uno`, `esp32:esp32:esp32dev`).
+## Docker
+
+```bash
+cd docker
+CORS_ORIGIN=https://yourdomain.com docker compose up -d --build
+```
+
+## API
+
+| Method | Path                         | Purpose                                         |
+| ------ | ---------------------------- | ----------------------------------------------- |
+| GET    | `/api/health`                | Service + queue stats + arduino-cli version     |
+| GET    | `/api/boards`                | All supported boards (id → fqbn, name, sizes)   |
+| POST   | `/api/boards/install`        | `{ package: "esp32:esp32" }` — install a core   |
+| GET    | `/api/boards/installed`      | Installed cores                                 |
+| GET    | `/api/libraries`             | Installed libraries                             |
+| GET    | `/api/libraries/search?q=`   | Search registry                                 |
+| POST   | `/api/libraries/install`     | `{ name, version? }`                            |
+| POST   | `/api/libraries/upload`      | `multipart/form-data` field `zipfile`           |
+| DELETE | `/api/libraries/:name`       | Uninstall                                       |
+| POST   | `/api/compile`               | `{ board, files[], libraries[] }` → `{ jobId }` |
+| GET    | `/api/compile/:jobId`        | Poll job state (fallback when WS unavailable)   |
+
+Live updates over Socket.IO:
+
+```js
+socket.emit('subscribe:job', jobId);
+socket.on('compile:progress', ({ percent, step, message, lastLine }) => …);
+socket.on('compile:done',     ({ result }) => …);   // success or build failed
+socket.on('compile:error',    ({ error, errors }) => …);  // queue/worker crash
+```
+
+## Caching
+
+A SHA-256 of `{ files, board, libraries }` (file order normalised) keys the Redis result cache. Identical builds across users are served instantly with `fromCache: true`. TTL via `CACHE_TTL_SECONDS` (default 1h).
+
+## Limits & safety
+
+- `COMPILE_TIMEOUT_MS` per build (default 90s; SIGKILL on overrun).
+- Per-IP rate limit: `COMPILE_RATE_LIMIT_MAX` per minute.
+- Joi-validated payloads (file extension allowlist, size cap, max files).
+- Each job runs in `/tmp/embedsim/<jobId>/`; cleaned up after `CLEANUP_AFTER_MS` (default 10min so the user has time to download the binary).
+- Multer ZIP uploads capped at 20 MB.
+
+## Environment variables
+
+See `.env.example`. Important ones:
+
+| Var                     | Default              | Notes                                    |
+| ----------------------- | -------------------- | ---------------------------------------- |
+| `PORT`                  | `3001`               |                                          |
+| `CORS_ORIGIN`           | `*`                  | Set to your domain in production         |
+| `REDIS_URL`             | `redis://localhost`  |                                          |
+| `ARDUINO_CLI_PATH`      | `arduino-cli`        | Absolute path recommended                |
+| `MAX_CONCURRENT_JOBS`   | `4`                  | Worker concurrency                       |
+| `COMPILE_TIMEOUT_MS`    | `90000`              | Per-build timeout                        |
+| `CACHE_ENABLED`         | `true`               | Set to `false` to disable result cache   |
+| `CACHE_TTL_SECONDS`     | `3600`               |                                          |
+
+## Frontend wiring
+
+The frontend uses `src/services/compilerService.ts`. Set `VITE_API_URL` to your backend root (e.g. `https://api.yourdomain.com`). The Compile button in the IDE submits a job, listens for progress over Socket.IO, falls back to HTTP polling after 3s, and renders errors as Monaco markers + a result panel.
