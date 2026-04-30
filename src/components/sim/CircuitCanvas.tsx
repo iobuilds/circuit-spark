@@ -260,19 +260,75 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
             />
           ))}
 
-          {/* Wires (poly-line through waypoints, fall back to manhattan if none) */}
+          {/* Wires: draggable waypoints, click segment to add a bend, right-click to delete. */}
           {wires.map((w) => {
             const a = endpointPos(w.from.componentId, w.from.pinId);
             const b = endpointPos(w.to.componentId, w.to.pinId);
             if (!a || !b) return null;
-            const mids = w.waypoints && w.waypoints.length
-              ? w.waypoints
+            const userMids = w.waypoints && w.waypoints.length ? w.waypoints : [];
+            const mids = userMids.length
+              ? userMids
               : [{ x: a.x, y: (a.y + b.y) / 2 }, { x: b.x, y: (a.y + b.y) / 2 }];
             const d = wirePath(a, b, mids);
+            const segPts = [a, ...userMids, b];
             return (
-              <g key={w.id} className="cursor-pointer" onClick={() => removeWire(w.id)}>
-                <path d={d} stroke="oklch(0 0 0 / 0.4)" strokeWidth={4} fill="none" />
-                <path d={d} stroke="var(--color-wire)" strokeWidth={2.2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              <g key={w.id}>
+                {/* Visible wire — right-click deletes. */}
+                <path d={d} stroke="oklch(0 0 0 / 0.4)" strokeWidth={4} fill="none" pointerEvents="none" />
+                <path
+                  d={d}
+                  stroke="var(--color-wire)"
+                  strokeWidth={2.2}
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  pointerEvents="none"
+                />
+                {/* Per-segment hit zones: click inserts a new waypoint at that index. */}
+                {segPts.slice(0, -1).map((pt, i) => {
+                  const next = segPts[i + 1];
+                  const sd = `M ${pt.x} ${pt.y} L ${next.x} ${next.y}`;
+                  return (
+                    <path
+                      key={`seg-${i}`}
+                      d={sd}
+                      stroke="transparent"
+                      strokeWidth={10}
+                      fill="none"
+                      className="cursor-copy"
+                      onMouseDown={(e) => {
+                        if (e.button === 2) { e.preventDefault(); removeWire(w.id); return; }
+                        if (e.button !== 0) return;
+                        e.stopPropagation();
+                        const p = clientToSvg(e);
+                        const snap = (n: number) => Math.round(n / 5) * 5;
+                        const newPoint = { x: snap(p.x), y: snap(p.y) };
+                        insertWireWaypoint(w.id, i, newPoint);
+                        setWpDrag({ wireId: w.id, idx: i });
+                      }}
+                      onContextMenu={(e) => { e.preventDefault(); removeWire(w.id); }}
+                    />
+                  );
+                })}
+                {/* Draggable waypoint handles. */}
+                {userMids.map((pt, i) => (
+                  <circle
+                    key={`wp-${i}`}
+                    cx={pt.x}
+                    cy={pt.y}
+                    r={4}
+                    fill="var(--color-wire)"
+                    stroke="var(--color-background)"
+                    strokeWidth={1}
+                    className="cursor-move hover:fill-[var(--color-primary)]"
+                    onMouseDown={(e) => {
+                      if (e.button !== 0) return;
+                      e.stopPropagation();
+                      setWpDrag({ wireId: w.id, idx: i });
+                    }}
+                    onContextMenu={(e) => { e.preventDefault(); removeWire(w.id); }}
+                  />
+                ))}
               </g>
             );
           })}
