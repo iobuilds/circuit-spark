@@ -461,13 +461,49 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
           size="sm"
           variant="outline"
           className="h-8"
-          disabled={!selectedPin}
-          onClick={() => selectedPin && deletePin(selectedPin)}
+          disabled={!selectedPin && selectedIds.size === 0}
+          onClick={() => {
+            if (selectedIds.size > 0) deleteSelected();
+            else if (selectedPin) deletePin(selectedPin);
+          }}
         >
-          <Trash2 className="h-4 w-4 mr-1.5" /> Delete
+          <Trash2 className="h-4 w-4 mr-1.5" />
+          Delete{selectedIds.size > 1 ? ` (${selectedIds.size})` : ""}
         </Button>
 
         <div className="h-6 w-px bg-border mx-1" />
+
+        <div className="flex items-center gap-0.5">
+          <AlignBtn title="Align left" disabled={selectedIds.size < 2} onClick={() => alignSelection("left")}>
+            <AlignStartVertical className="h-4 w-4" />
+          </AlignBtn>
+          <AlignBtn title="Align center (vertical axis)" disabled={selectedIds.size < 2} onClick={() => alignSelection("centerV")}>
+            <AlignCenterVertical className="h-4 w-4" />
+          </AlignBtn>
+          <AlignBtn title="Align right" disabled={selectedIds.size < 2} onClick={() => alignSelection("right")}>
+            <AlignEndVertical className="h-4 w-4" />
+          </AlignBtn>
+          <div className="w-1" />
+          <AlignBtn title="Align top" disabled={selectedIds.size < 2} onClick={() => alignSelection("top")}>
+            <AlignStartHorizontal className="h-4 w-4" />
+          </AlignBtn>
+          <AlignBtn title="Align middle (horizontal axis)" disabled={selectedIds.size < 2} onClick={() => alignSelection("centerH")}>
+            <AlignCenterHorizontal className="h-4 w-4" />
+          </AlignBtn>
+          <AlignBtn title="Align bottom" disabled={selectedIds.size < 2} onClick={() => alignSelection("bottom")}>
+            <AlignEndHorizontal className="h-4 w-4" />
+          </AlignBtn>
+          <div className="w-1" />
+          <AlignBtn title="Distribute horizontally" disabled={selectedIds.size < 3} onClick={() => alignSelection("distH")}>
+            <AlignHorizontalSpaceBetween className="h-4 w-4" />
+          </AlignBtn>
+          <AlignBtn title="Distribute vertically" disabled={selectedIds.size < 3} onClick={() => alignSelection("distV")}>
+            <AlignVerticalSpaceBetween className="h-4 w-4" />
+          </AlignBtn>
+        </div>
+
+        <div className="h-6 w-px bg-border mx-1" />
+
 
         <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => setZoom((z) => Math.min(8, z * 1.2))}>
           <ZoomIn className="h-4 w-4" />
