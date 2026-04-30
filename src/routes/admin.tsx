@@ -284,14 +284,14 @@ function AdminPage() {
 
       <div className="flex-1 min-h-0 grid grid-cols-[1fr_1fr_320px]">
         {/* Chat panel */}
-        <section className="flex flex-col border-r border-border">
-          <div className="flex-1 min-h-0 overflow-auto p-4 space-y-3">
+        <section className="flex flex-col border-r border-border min-h-0 min-w-0">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 space-y-3">
             {messages.map((m, i) => (
-              <div key={i} className={`text-sm ${m.role === "user" ? "text-foreground" : "text-foreground/90"}`}>
+              <div key={i} className={`text-sm min-w-0 ${m.role === "user" ? "text-foreground" : "text-foreground/90"}`}>
                 <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">
                   {m.role === "user" ? "You" : "AI"}
                 </div>
-                <div className="whitespace-pre-wrap leading-relaxed">{m.content}</div>
+                <div className="whitespace-pre-wrap break-words leading-relaxed">{m.content}</div>
               </div>
             ))}
             {busy && (
