@@ -335,15 +335,15 @@ export async function runBuilderChat(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      // gpt-5-mini: strong reasoning + tool calling, much lower latency than
-      // full gpt-5. GPT-5 family on the Lovable AI Gateway requires
-      // `max_completion_tokens` (not max_tokens) and rejects custom
-      // temperature — keep this minimal.
-      model: "openai/gpt-5-mini",
+      // gemini-2.5-flash: fast + reliable tool calling for SVG/JSON specs.
+      // Much lower latency than GPT-5 family while keeping strong reasoning
+      // for structured output. Supports standard `max_tokens` + `temperature`.
+      model: "google/gemini-2.5-flash",
       messages,
       tools: [COMPONENT_SPEC_TOOL],
       tool_choice: "auto",
-      max_completion_tokens: 8192,
+      max_tokens: 8192,
+      temperature: 0.4,
     }),
   });
 
