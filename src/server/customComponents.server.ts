@@ -335,10 +335,9 @@ export async function runBuilderChat(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      // gemini-2.5-flash: fast + reliable tool calling for SVG/JSON specs.
-      // Much lower latency than GPT-5 family while keeping strong reasoning
-      // for structured output. Supports standard `max_tokens` + `temperature`.
-      model: "google/gemini-2.5-flash",
+      // gemini-3-flash-preview: latest fast Gemini with strong tool calling
+      // for SVG/JSON component specs. Default for the AI Builder.
+      model: "google/gemini-3-flash-preview",
       messages,
       tools: [COMPONENT_SPEC_TOOL],
       tool_choice: "auto",
