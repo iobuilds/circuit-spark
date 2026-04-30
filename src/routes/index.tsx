@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
+import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from "react-resizable-panels";
 import { Toaster } from "@/components/ui/sonner";
 import { CodeEditor } from "@/components/sim/CodeEditor";
 import { CircuitCanvas } from "@/components/sim/CircuitCanvas";
