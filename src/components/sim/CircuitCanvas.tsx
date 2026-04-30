@@ -37,7 +37,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const drawingWaypoints = useSimStore((s) => s.drawingWaypoints);
   const selectedId = useSimStore((s) => s.selectedId);
   const pinStates = useSimStore((s) => s.pinStates);
-  const boardId = useSimStore((s) => s.boardId);
+  
   const status = useSimStore((s) => s.status);
   const setBoard = useSimStore((s) => s.setBoard);
 
