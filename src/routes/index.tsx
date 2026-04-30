@@ -16,7 +16,7 @@ import { Code2, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { useSimController } from "@/sim/useSimController";
 import { useSimStore } from "@/sim/store";
 import { useIdeStore } from "@/sim/ideStore";
-import { compileSketch, fileSliceForCompile, type CompileResult } from "@/sim/compileApi";
+import { compileSketch, fileSliceForCompile, type CompileResult, type CompileProgress } from "@/sim/compileApi";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
@@ -55,6 +55,7 @@ function SimulatorPage() {
   const [pausedFlag, setPausedFlag] = useState(false);
   const [compileOutput, setCompileOutput] = useState<CompileResult | null>(null);
   const [compiling, setCompiling] = useState(false);
+  const [compileProgress, setCompileProgress] = useState<CompileProgress | null>(null);
   const [showEditor, setShowEditor] = useState(true);
   const inputCacheRef = useRef<Record<number, { d?: 0 | 1; a?: number }>>({});
 
@@ -81,15 +82,36 @@ function SimulatorPage() {
     const { files } = useIdeStore.getState();
     const installedLibraries = useIdeStore.getState().installedLibraries.map((l) => l.id);
     setCompiling(true);
-    const result = await compileSketch({
-      board: boardId,
-      files: fileSliceForCompile(files),
-      libraries: installedLibraries,
-    });
+    setCompileProgress({ step: "Queued", percent: 0, message: "Submitting job..." });
+    setCompileOutput(null);
+    const result = await compileSketch(
+      {
+        board: boardId,
+        files: fileSliceForCompile(files),
+        libraries: installedLibraries,
+      },
+      (p) => setCompileProgress(p),
+    );
     setCompileOutput(result);
     setCompiling(false);
-    if (result.success) toast.success(result.mock ? "Compile OK (mock)" : "Compile OK");
-    else toast.error(`Compilation failed: ${result.errors[0]?.message ?? "see output"}`);
+    setCompileProgress(null);
+    if (result.success) {
+      toast.success(
+        `Compile OK · Flash ${result.flashPercent?.toFixed(1) ?? "?"}% · RAM ${result.ramPercent?.toFixed(1) ?? "?"}%`,
+      );
+    } else {
+      toast.error(`Compilation failed: ${result.errors[0]?.message ?? "see output"}`);
+    }
+  }
+
+  function jumpToError(file: string, line: number) {
+    const { files, setActiveFile } = useIdeStore.getState();
+    const match = files.find((f) => f.name === file);
+    if (match) {
+      setActiveFile(match.id);
+      // Monaco listens to a custom event for line jumps
+      window.dispatchEvent(new CustomEvent("ide:goto-line", { detail: { line } }));
+    }
   }
 
   function handleUpload() {
@@ -201,8 +223,14 @@ function SimulatorPage() {
             <div className="flex-1 min-h-0">
               <CodeEditor />
             </div>
-            {compileOutput && (
-              <CompileOutputPanel output={compileOutput} onClose={() => setCompileOutput(null)} />
+            {(compileOutput || compiling) && (
+              <CompileOutputPanel
+                output={compileOutput}
+                progress={compileProgress}
+                compiling={compiling}
+                onClose={() => { setCompileOutput(null); setCompileProgress(null); }}
+                onErrorClick={(file, line) => jumpToError(file, line)}
+              />
             )}
           </section>
         )}
