@@ -87,6 +87,7 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
   const [snap, setSnap] = useState(false);
   const [gridSize, setGridSize] = useState(10);
   const [selectedPin, setSelectedPin] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [drawerSvg, setDrawerSvg] = useState(svg ?? "");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -94,7 +95,13 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
   const [panning, setPanning] = useState(false);
   /** Pin currently being dragged (set on mousedown over a pin marker). */
   const [dragPinId, setDragPinId] = useState<string | null>(null);
-  const dragStateRef = useRef<{ startX: number; startY: number; moved: boolean } | null>(null);
+  const dragStateRef = useRef<{
+    startX: number; startY: number; moved: boolean;
+    origin?: Map<string, { x: number; y: number }>;
+  } | null>(null);
+  // Marquee rubber-band selection (in screen px relative to canvas container)
+  const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
+  const marqueeRef = useRef<{ additive: boolean; baseline: Set<string> } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
