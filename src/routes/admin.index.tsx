@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { GripVertical, Download, Upload, RotateCcw, Search, Pencil, PlusCircle, Sparkles } from "lucide-react";
+import { GripVertical, Download, Upload, RotateCcw, Search, Pencil, PlusCircle, Sparkles, Box } from "lucide-react";
 
 export const Route = createFileRoute("/admin/")({
   head: () => ({
