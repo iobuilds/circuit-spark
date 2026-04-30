@@ -492,7 +492,7 @@ function UploadZone({
   onFiles, fileRef,
 }: {
   onFiles: (f: FileList | null) => void;
-  fileRef: React.RefObject<HTMLInputElement>;
+  fileRef: React.RefObject<HTMLInputElement | null>;
 }) {
   const [over, setOver] = useState(false);
   return (
