@@ -268,7 +268,9 @@ export function CodeEditor() {
       for (const [fileName, diags] of byFile) {
         const model = monaco.editor
           .getModels()
-          .find((m) => m.uri.path.endsWith("/" + fileName) || m.uri.path === fileName || m.uri.toString().endsWith(fileName));
+          .find((m: { uri: { path: string; toString: () => string } }) =>
+            m.uri.path.endsWith("/" + fileName) || m.uri.path === fileName || m.uri.toString().endsWith(fileName),
+          );
         if (!model) continue;
         const markers = diags.map((d) => {
           const lineLen = (() => {
