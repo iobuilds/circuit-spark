@@ -192,6 +192,7 @@ export function Uno3DViewer({
     });
 
     function onResize() {
+      if (!container) return;
       const w = container.clientWidth;
       const h = container.clientHeight;
       renderer.setSize(w, h);
