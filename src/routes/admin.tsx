@@ -144,15 +144,43 @@ function AdminPage() {
     return () => { cancelled = true; };
   }, [pending?.slug, pending?.name, pending?.description, libsFn]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  async function addChatImages(files: FileList | File[]) {
+    const arr = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    const room = Math.max(0, 4 - pendingImages.length);
+    const slice = arr.slice(0, room);
+    if (arr.length > room) toast.warning("Max 4 images per message");
+    const dataUrls = await Promise.all(
+      slice.map(
+        (f) =>
+          new Promise<string>((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(String(r.result));
+            r.onerror = () => reject(r.error);
+            r.readAsDataURL(f);
+          }),
+      ),
+    );
+    setPendingImages((prev) => [...prev, ...dataUrls]);
+  }
+
   async function send() {
     const text = input.trim();
-    if (!text || busy) return;
+    const imgs = pendingImages;
+    if ((!text && imgs.length === 0) || busy) return;
     setInput("");
-    const next = [...messages, { role: "user" as const, content: text }];
+    setPendingImages([]);
+    const userMsg: ChatMsg = { role: "user", content: text || "(image)", images: imgs };
+    const next = [...messages, userMsg];
     setMessages(next);
     setBusy(true);
     try {
-      const res = await chatFn({ data: { history: next, message: text } });
+      const res = await chatFn({
+        data: {
+          history: next.map(({ role, content }) => ({ role, content })),
+          message: text || "Use the attached reference image(s) to design this component.",
+          images: imgs,
+        },
+      });
       setMessages((m) => [...m, { role: "assistant", content: res.reply }]);
       if (res.spec) {
         setPending(res.spec as PendingSpec);
