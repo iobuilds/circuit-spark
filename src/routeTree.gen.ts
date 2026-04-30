@@ -15,6 +15,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as ApiLibrariesSearchRouteImport } from './routes/api/libraries.search'
 import { Route as AdminComponentsComponentIdEditRouteImport } from './routes/admin.components.$componentId.edit'
 import { Route as AdminBoardsBoardIdEditRouteImport } from './routes/admin.boards.$boardId.edit'
 
@@ -48,6 +49,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
+const ApiLibrariesSearchRoute = ApiLibrariesSearchRouteImport.update({
+  id: '/api/libraries/search',
+  path: '/api/libraries/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminComponentsComponentIdEditRoute =
   AdminComponentsComponentIdEditRouteImport.update({
     id: '/components/$componentId/edit',
@@ -67,6 +73,7 @@ export interface FileRoutesByFullPath {
   '/docs': typeof DocsRoute
   '/examples': typeof ExamplesRoute
   '/admin/': typeof AdminIndexRoute
+  '/api/libraries/search': typeof ApiLibrariesSearchRoute
   '/admin/boards/$boardId/edit': typeof AdminBoardsBoardIdEditRoute
   '/admin/components/$componentId/edit': typeof AdminComponentsComponentIdEditRoute
 }
@@ -76,6 +83,7 @@ export interface FileRoutesByTo {
   '/docs': typeof DocsRoute
   '/examples': typeof ExamplesRoute
   '/admin': typeof AdminIndexRoute
+  '/api/libraries/search': typeof ApiLibrariesSearchRoute
   '/admin/boards/$boardId/edit': typeof AdminBoardsBoardIdEditRoute
   '/admin/components/$componentId/edit': typeof AdminComponentsComponentIdEditRoute
 }
@@ -87,6 +95,7 @@ export interface FileRoutesById {
   '/docs': typeof DocsRoute
   '/examples': typeof ExamplesRoute
   '/admin/': typeof AdminIndexRoute
+  '/api/libraries/search': typeof ApiLibrariesSearchRoute
   '/admin/boards/$boardId/edit': typeof AdminBoardsBoardIdEditRoute
   '/admin/components/$componentId/edit': typeof AdminComponentsComponentIdEditRoute
 }
@@ -99,6 +108,7 @@ export interface FileRouteTypes {
     | '/docs'
     | '/examples'
     | '/admin/'
+    | '/api/libraries/search'
     | '/admin/boards/$boardId/edit'
     | '/admin/components/$componentId/edit'
   fileRoutesByTo: FileRoutesByTo
@@ -108,6 +118,7 @@ export interface FileRouteTypes {
     | '/docs'
     | '/examples'
     | '/admin'
+    | '/api/libraries/search'
     | '/admin/boards/$boardId/edit'
     | '/admin/components/$componentId/edit'
   id:
@@ -118,6 +129,7 @@ export interface FileRouteTypes {
     | '/docs'
     | '/examples'
     | '/admin/'
+    | '/api/libraries/search'
     | '/admin/boards/$boardId/edit'
     | '/admin/components/$componentId/edit'
   fileRoutesById: FileRoutesById
@@ -128,6 +140,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   DocsRoute: typeof DocsRoute
   ExamplesRoute: typeof ExamplesRoute
+  ApiLibrariesSearchRoute: typeof ApiLibrariesSearchRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -174,6 +187,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/api/libraries/search': {
+      id: '/api/libraries/search'
+      path: '/api/libraries/search'
+      fullPath: '/api/libraries/search'
+      preLoaderRoute: typeof ApiLibrariesSearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/components/$componentId/edit': {
       id: '/admin/components/$componentId/edit'
       path: '/components/$componentId/edit'
@@ -211,6 +231,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   DocsRoute: DocsRoute,
   ExamplesRoute: ExamplesRoute,
+  ApiLibrariesSearchRoute: ApiLibrariesSearchRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

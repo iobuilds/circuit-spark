@@ -6,10 +6,16 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, Library, Star, Trash2, Upload } from "lucide-react";
-import { LIBRARY_PACKAGES, LIBRARY_TOPICS, type LibraryPackage, type LibraryTopic } from "@/sim/ideCatalog";
+import { CheckCircle2, ExternalLink, Library, Loader2, Trash2, Upload, Wifi, WifiOff } from "lucide-react";
+import { LIBRARY_PACKAGES } from "@/sim/ideCatalog";
 import { useIdeStore } from "@/sim/ideStore";
 import { uploadZipLibrary } from "@/sim/compileApi";
+import {
+  ARDUINO_CATEGORIES,
+  ARDUINO_TYPES,
+  searchArduinoLibraries,
+  type ArduinoLibraryEntry,
+} from "@/sim/arduinoLibraryApi";
 import { toast } from "sonner";
 
 interface Props {
@@ -17,8 +23,28 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
-type SortKey = "relevance" | "name" | "stars" | "recent";
-type FilterType = "All" | "Recommended" | "Contributed" | "Partner" | "Retired";
+// Convert curated catalog entries into the same shape we use for live results,
+// so we can show both lists with one renderer when the API is unreachable.
+function curatedAsArduinoEntries(): ArduinoLibraryEntry[] {
+  return LIBRARY_PACKAGES.map((l) => ({
+    id: l.id,
+    name: l.name,
+    author: l.author,
+    maintainer: l.author,
+    latestVersion: l.version,
+    versions: [l.version],
+    sentence: l.description,
+    paragraph: "",
+    website: "",
+    category: l.topic,
+    architectures: ["*"],
+    types: [l.type],
+    headers: l.headers,
+    downloadUrl: "",
+    archiveFileName: "",
+    size: 0,
+  }));
+}
 
 export function LibraryManagerDialog({ open, onOpenChange }: Props) {
   const installed = useIdeStore((s) => s.installedLibraries);
@@ -30,37 +56,70 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
   useEffect(() => { if (!loaded) hydrate(); }, [loaded, hydrate]);
 
   const [query, setQuery] = useState("");
-  const [topic, setTopic] = useState<"All" | LibraryTopic>("All");
-  const [type, setType] = useState<FilterType>("All");
-  const [sort, setSort] = useState<SortKey>("relevance");
+  const [category, setCategory] = useState<string>("All");
+  const [type, setType] = useState<string>("All");
+  const [results, setResults] = useState<ArduinoLibraryEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [online, setOnline] = useState<boolean | null>(null); // null = unknown, true = live, false = fallback
+  const [total, setTotal] = useState<number | null>(null);
   const [progress, setProgress] = useState<Record<string, number>>({});
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    let arr: LibraryPackage[] = LIBRARY_PACKAGES.filter((l) => {
-      if (topic !== "All" && l.topic !== topic) return false;
-      if (type !== "All" && l.type !== type) return false;
-      if (!q) return true;
-      return (
-        l.name.toLowerCase().includes(q) ||
-        l.author.toLowerCase().includes(q) ||
-        l.description.toLowerCase().includes(q) ||
-        l.headers.some((h) => h.toLowerCase().includes(q))
-      );
-    });
+  // Debounced live search against the Arduino index.
+  useEffect(() => {
+    if (!open) return;
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
 
-    if (sort === "name") arr = [...arr].sort((a, b) => a.name.localeCompare(b.name));
-    else if (sort === "stars") arr = [...arr].sort((a, b) => b.stars - a.stars);
-    else if (sort === "recent") arr = [...arr].sort((a, b) => a.id.localeCompare(b.id));
-    return arr;
-  }, [query, topic, type, sort]);
+    const handle = setTimeout(async () => {
+      setLoading(true);
+      const res = await searchArduinoLibraries({
+        q: query,
+        category,
+        type,
+        limit: 80,
+        signal: ctrl.signal,
+      });
+      if (ctrl.signal.aborted) return;
 
-  function isInstalled(id: string) {
-    return installed.some((l) => l.id === id);
+      if (res.ok) {
+        setOnline(true);
+        setResults(res.results);
+        setTotal(res.total ?? res.results.length);
+      } else if (res.error !== "aborted") {
+        // Fall back to curated catalog so search still works offline / on first load.
+        setOnline(false);
+        const q = query.trim().toLowerCase();
+        const curated = curatedAsArduinoEntries().filter((e) => {
+          if (category !== "All" && e.category !== category) return false;
+          if (type !== "All" && !e.types.includes(type)) return false;
+          if (!q) return true;
+          return (
+            e.name.toLowerCase().includes(q) ||
+            e.author.toLowerCase().includes(q) ||
+            e.sentence.toLowerCase().includes(q) ||
+            e.headers.some((h) => h.toLowerCase().includes(q))
+          );
+        });
+        setResults(curated);
+        setTotal(curated.length);
+      }
+      setLoading(false);
+    }, query ? 300 : 0);
+
+    return () => {
+      clearTimeout(handle);
+      ctrl.abort();
+    };
+  }, [open, query, category, type]);
+
+  function isInstalled(id: string, name: string) {
+    return installed.some((l) => l.id === id || l.name === name);
   }
 
-  function startInstall(lib: LibraryPackage) {
+  function startInstall(lib: ArduinoLibraryEntry) {
     setProgress((p) => ({ ...p, [lib.id]: 5 }));
     let pct = 5;
     const tick = setInterval(() => {
@@ -72,12 +131,17 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
           delete next[lib.id];
           return next;
         });
-        installLib({ id: lib.id, version: lib.version, name: lib.name, headers: lib.headers });
+        installLib({
+          id: lib.id,
+          version: lib.latestVersion,
+          name: lib.name,
+          headers: lib.headers,
+        });
         toast.success(`${lib.name} installed`);
       } else {
         setProgress((p) => ({ ...p, [lib.id]: pct }));
       }
-    }, 160);
+    }, 140);
   }
 
   async function onZipPicked(e: React.ChangeEvent<HTMLInputElement>) {
@@ -128,6 +192,12 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
     }
   }
 
+  const statusLabel = useMemo(() => {
+    if (online === null) return "Connecting to Arduino library index…";
+    if (online) return "Live · Arduino library index";
+    return "Offline · curated catalog";
+  }, [online]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[88vh] flex flex-col p-0 gap-0">
@@ -136,45 +206,48 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
             <Library className="h-5 w-5" />
             Library Manager
           </DialogTitle>
-          <DialogDescription>
-            Browse and install Arduino libraries. Library headers become available for autocomplete in the editor.
+          <DialogDescription className="flex items-center gap-2">
+            {online === true ? (
+              <Wifi className="h-3.5 w-3.5 text-green-500" />
+            ) : online === false ? (
+              <WifiOff className="h-3.5 w-3.5 text-amber-500" />
+            ) : (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            )}
+            <span>{statusLabel} — same index used by the Arduino IDE.</span>
           </DialogDescription>
         </DialogHeader>
 
         <div className="px-6 py-3 border-b grid grid-cols-1 md:grid-cols-12 gap-2">
           <Input
-            className="md:col-span-5"
-            placeholder="Search by name, author, keyword..."
+            className="md:col-span-6"
+            placeholder="Search Arduino libraries (e.g. BNO055, Adafruit, DHT, Servo)…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          <Select value={topic} onValueChange={(v) => setTopic(v as typeof topic)}>
+          <Select value={type} onValueChange={setType}>
+            <SelectTrigger className="md:col-span-3"><SelectValue placeholder="Type" /></SelectTrigger>
+            <SelectContent>
+              {ARDUINO_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={category} onValueChange={setCategory}>
             <SelectTrigger className="md:col-span-3"><SelectValue placeholder="Topic" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="All">All topics</SelectItem>
-              {LIBRARY_TOPICS.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
-            </SelectContent>
-          </Select>
-          <Select value={type} onValueChange={(v) => setType(v as FilterType)}>
-            <SelectTrigger className="md:col-span-2"><SelectValue placeholder="Type" /></SelectTrigger>
-            <SelectContent>
-              {(["All", "Recommended", "Contributed", "Partner", "Retired"] as FilterType[]).map((t) =>
-                <SelectItem key={t} value={t}>{t}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
-            <SelectTrigger className="md:col-span-2"><SelectValue placeholder="Sort" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="relevance">Relevance</SelectItem>
-              <SelectItem value="name">Name A–Z</SelectItem>
-              <SelectItem value="stars">Most starred</SelectItem>
-              <SelectItem value="recent">Recently updated</SelectItem>
+              {ARDUINO_CATEGORIES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
 
         <div className="px-6 py-2 border-b flex items-center gap-2 text-xs text-muted-foreground">
-          <span>{filtered.length} libraries</span>
+          {loading ? (
+            <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin" /> Searching…</span>
+          ) : (
+            <span>
+              {results.length} shown
+              {total !== null && total > results.length ? <> · {total.toLocaleString()} total</> : null}
+            </span>
+          )}
           <span className="mx-1">·</span>
           <span>{installed.length} installed</span>
           <div className="flex-1" />
@@ -192,8 +265,8 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
 
         <ScrollArea className="flex-1 min-h-0">
           <div className="px-6 py-3 space-y-2">
-            {filtered.map((lib) => {
-              const installedFlag = isInstalled(lib.id);
+            {results.map((lib) => {
+              const installedFlag = isInstalled(lib.id, lib.name);
               const pct = progress[lib.id];
               const isInstalling = pct !== undefined;
               return (
@@ -201,23 +274,39 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-sm">{lib.name}</span>
-                      <span className="text-xs text-muted-foreground">v{lib.version}</span>
-                      <Badge variant="outline" className="text-[10px]">{lib.topic}</Badge>
-                      <Badge variant="outline" className="text-[10px]">{lib.type}</Badge>
-                      <span className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground">
-                        <Star className="h-3 w-3" />{lib.stars}
-                      </span>
+                      <span className="text-xs text-muted-foreground">v{lib.latestVersion}</span>
+                      {lib.category && <Badge variant="outline" className="text-[10px]">{lib.category}</Badge>}
+                      {lib.types?.[0] && <Badge variant="outline" className="text-[10px]">{lib.types[0]}</Badge>}
                       {installedFlag && (
                         <Badge variant="secondary" className="gap-1 text-[10px]">
                           <CheckCircle2 className="h-3 w-3" /> Installed
                         </Badge>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">by {lib.author}</p>
-                    <p className="text-sm mt-1">{lib.description}</p>
-                    <p className="text-[11px] text-muted-foreground mt-1 font-mono">
-                      {lib.headers.map((h) => `<${h}>`).join("  ")}
-                    </p>
+                    {(lib.author || lib.maintainer) && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        by {lib.author || lib.maintainer}
+                      </p>
+                    )}
+                    {lib.sentence && <p className="text-sm mt-1">{lib.sentence}</p>}
+                    {lib.paragraph && lib.paragraph !== lib.sentence && (
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{lib.paragraph}</p>
+                    )}
+                    {lib.headers.length > 0 && (
+                      <p className="text-[11px] text-muted-foreground mt-1 font-mono">
+                        {lib.headers.slice(0, 4).map((h) => `<${h}>`).join("  ")}
+                      </p>
+                    )}
+                    {lib.website && (
+                      <a
+                        href={lib.website}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] text-primary mt-1 hover:underline"
+                      >
+                        More info <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
                   </div>
                   <div className="shrink-0">
                     {isInstalling ? (
@@ -226,7 +315,16 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
                         <Progress value={pct} className="h-1.5" />
                       </div>
                     ) : installedFlag ? (
-                      <Button size="sm" variant="outline" onClick={() => { removeLib(lib.id); toast.success(`${lib.name} removed`); }}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          // remove by id OR name match (live entries may have different ids)
+                          const match = installed.find((l) => l.id === lib.id || l.name === lib.name);
+                          if (match) removeLib(match.id);
+                          toast.success(`${lib.name} removed`);
+                        }}
+                      >
                         <Trash2 className="h-3.5 w-3.5 mr-1" /> Remove
                       </Button>
                     ) : (
@@ -237,7 +335,6 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
               );
             })}
 
-            {/* Show in-progress ZIP uploads */}
             {Object.entries(progress).filter(([k]) => k.startsWith("__zip_")).map(([k, pct]) => (
               <div key={k} className="rounded-md border bg-muted/30 p-3 flex items-center gap-3">
                 <Upload className="h-4 w-4 text-muted-foreground" />
@@ -249,8 +346,12 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
               </div>
             ))}
 
-            {filtered.length === 0 && (
-              <div className="py-12 text-center text-muted-foreground text-sm">No libraries match your filters.</div>
+            {!loading && results.length === 0 && (
+              <div className="py-12 text-center text-muted-foreground text-sm">
+                {query
+                  ? `No libraries match “${query}”.`
+                  : "Type a library name to search the Arduino index."}
+              </div>
             )}
           </div>
         </ScrollArea>
