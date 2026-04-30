@@ -16,16 +16,19 @@ interface ChatMessageInput {
 
 export const aiBuilderChat = createServerFn({ method: "POST" })
   .inputValidator(
-    (input: { history: ChatMessageInput[]; message: string }) => {
+    (input: { history: ChatMessageInput[]; message: string; images?: string[] }) => {
       if (!input || typeof input.message !== "string") {
         throw new Error("message required");
       }
       const history = Array.isArray(input.history) ? input.history.slice(-30) : [];
-      return { history, message: input.message };
+      const images = Array.isArray(input.images)
+        ? input.images.filter((s) => typeof s === "string" && s.startsWith("data:image/")).slice(0, 4)
+        : undefined;
+      return { history, message: input.message, images };
     },
   )
   .handler(async ({ data }) => {
-    return runBuilderChat(data.history, data.message);
+    return runBuilderChat(data.history, data.message, data.images);
   });
 
 export const listCustomComponents = createServerFn({ method: "GET" }).handler(async () => {
