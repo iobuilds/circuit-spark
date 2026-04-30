@@ -37,12 +37,16 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const undoWireWaypoint = useSimStore((s) => s.undoWireWaypoint);
   const cancelWire = useSimStore((s) => s.cancelWire);
   const removeWire = useSimStore((s) => s.removeWire);
+  const updateWireWaypoint = useSimStore((s) => s.updateWireWaypoint);
+  const insertWireWaypoint = useSimStore((s) => s.insertWireWaypoint);
 
   const adminComps = useAdminStore((s) => s.components);
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
   const [dragId, setDragId] = useState<string | null>(null);
+  /** Active wire-waypoint drag: which wire and which waypoint index. */
+  const [wpDrag, setWpDrag] = useState<{ wireId: string; idx: number } | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -117,6 +121,10 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
       const snap = (n: number) => Math.round(n / 10) * 10;
       moveComponent(dragId, snap(p.x - dragOffset.x), snap(p.y - dragOffset.y));
     }
+    if (wpDrag) {
+      const snap = (n: number) => Math.round(n / 5) * 5;
+      updateWireWaypoint(wpDrag.wireId, wpDrag.idx, { x: snap(p.x), y: snap(p.y) });
+    }
     if (panning) {
       setPan((prev) => ({ x: prev.x + e.movementX / zoom, y: prev.y + e.movementY / zoom }));
     }
@@ -176,7 +184,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         onDragOver={onSvgDragOver}
         onDrop={onSvgDrop}
         onMouseMove={onMouseMove}
-        onMouseUp={() => { setDragId(null); setPanning(false); }}
+        onMouseUp={() => { setDragId(null); setPanning(false); setWpDrag(null); }}
         onWheel={onWheel}
         onMouseDown={(e) => {
           // Only react to clicks on the empty SVG background.
