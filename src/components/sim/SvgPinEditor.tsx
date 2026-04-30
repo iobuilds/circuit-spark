@@ -36,10 +36,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   MousePointer2, Plus, Trash2, ZoomIn, ZoomOut, Maximize2,
-  Grid3x3, Code2, Upload, X,
+  Grid3x3, Code2, Upload, X, Image as ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { VisualPin } from "@/sim/adminStore";
+import { PngToSvgConverter } from "@/components/sim/PngToSvgConverter";
+import { PinPropertyPicker } from "@/components/sim/PinPropertyPicker";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 const CANVAS_W = 800;
 const CANVAS_H = 600;
@@ -119,12 +122,13 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPin]);
 
-  // ---- Upload handlers ----
+  // ---- Upload handlers (.svg only; PNG goes through PngToSvgConverter) ----
   const handleFiles = useCallback((files: FileList | null) => {
     const f = files?.[0];
     if (!f) return;
-    if (!f.name.toLowerCase().endsWith(".svg") && f.type !== "image/svg+xml") {
-      toast.error("Only .svg files are supported");
+    const isSvg = f.name.toLowerCase().endsWith(".svg") || f.type === "image/svg+xml";
+    if (!isSvg) {
+      toast.error("Use 'Convert PNG → SVG' for raster images");
       return;
     }
     f.text().then((txt) => {
@@ -138,6 +142,14 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
       setZoom(1);
       setPan({ x: 0, y: 0 });
     });
+  }, [onChange, pins]);
+
+  const acceptConvertedSvg = useCallback((svg: string) => {
+    onChange({ svg, pins });
+    setDrawerSvg(svg);
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    toast.success("Converted PNG → SVG");
   }, [onChange, pins]);
 
   // ---- Coordinate conversion: screen px -> SVG user-space ----
@@ -245,6 +257,7 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
         onFiles={handleFiles}
         fileRef={fileRef}
         onStartBlank={() => onChange({ svg: BLANK_SVG, pins })}
+        onConvertedSvg={acceptConvertedSvg}
       />
     );
   }
@@ -338,6 +351,20 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
             </div>
           </SheetContent>
         </Sheet>
+
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button size="sm" variant="outline" className="h-8">
+              <ImageIcon className="h-4 w-4 mr-1.5" /> PNG → SVG
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Convert PNG → SVG</DialogTitle>
+            </DialogHeader>
+            <PngToSvgConverter onSvg={(s) => acceptConvertedSvg(s)} />
+          </DialogContent>
+        </Dialog>
 
         <AlertDialog>
           <AlertDialogTrigger asChild>
@@ -450,7 +477,7 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
                           }}
                         />
                       </PopoverTrigger>
-                      <PopoverContent className="w-72" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+                      <PopoverContent className="w-80" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
                         <PinPropertiesForm
                           pin={p}
                           onChange={(patch) => updatePin(p.id, patch)}
@@ -495,13 +522,15 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
 /* ---------------- Sub-components ---------------- */
 
 function UploadZone({
-  onFiles, fileRef, onStartBlank,
+  onFiles, fileRef, onStartBlank, onConvertedSvg,
 }: {
   onFiles: (f: FileList | null) => void;
   fileRef: React.RefObject<HTMLInputElement | null>;
   onStartBlank?: () => void;
+  onConvertedSvg?: (svg: string) => void;
 }) {
   const [over, setOver] = useState(false);
+  const [showConvert, setShowConvert] = useState(false);
   return (
     <div
       onDragOver={(e) => { e.preventDefault(); setOver(true); }}
@@ -515,11 +544,29 @@ function UploadZone({
     >
       <Upload className="h-10 w-10 text-muted-foreground" />
       <div className="text-sm font-medium">Drop your SVG file here</div>
-      <div className="text-xs text-muted-foreground">.svg only</div>
-      <div className="flex items-center gap-2 mt-2">
+      <div className="text-xs text-muted-foreground">.svg — or convert a PNG/JPG below</div>
+      <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
         <Button size="sm" onClick={() => fileRef.current?.click()}>
           <Upload className="h-4 w-4 mr-1.5" /> Browse for SVG
         </Button>
+        {onConvertedSvg && (
+          <Dialog open={showConvert} onOpenChange={setShowConvert}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline">
+                <ImageIcon className="h-4 w-4 mr-1.5" /> Convert PNG → SVG
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl">
+              <DialogHeader>
+                <DialogTitle>Convert PNG → SVG</DialogTitle>
+              </DialogHeader>
+              <PngToSvgConverter
+                onSvg={(s) => { onConvertedSvg(s); setShowConvert(false); }}
+                onCancel={() => setShowConvert(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
         {onStartBlank && (
           <Button size="sm" variant="outline" onClick={onStartBlank}>
             Start with blank canvas
@@ -626,6 +673,10 @@ function PinPropertiesForm({
           />
         </Field>
       </div>
+      <PinPropertyPicker
+        value={pin.properties ?? []}
+        onChange={(next) => onChange({ properties: next })}
+      />
       <Field label="Notes">
         <Textarea
           rows={2}

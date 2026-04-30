@@ -59,6 +59,45 @@ export type Database = {
         }
         Relationships: []
       }
+      pin_property_catalog: {
+        Row: {
+          builtin: boolean
+          category: string
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          key: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          builtin?: boolean
+          category?: string
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          key: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          builtin?: boolean
+          category?: string
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          key?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
