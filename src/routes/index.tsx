@@ -78,7 +78,7 @@ function SimulatorPage() {
 
   useEffect(() => { ctrl.setSpeed(speed); }, [speed, ctrl]);
 
-  async function handleBackendCompile() {
+  async function handleBackendCompile(): Promise<boolean> {
     const { files } = useIdeStore.getState();
     const installedLibraries = useIdeStore.getState().installedLibraries.map((l) => l.id);
     setCompiling(true);
@@ -99,9 +99,10 @@ function SimulatorPage() {
       toast.success(
         `Compile OK · Flash ${result.flashPercent?.toFixed(1) ?? "?"}% · RAM ${result.ramPercent?.toFixed(1) ?? "?"}%`,
       );
-    } else {
-      toast.error(`Compilation failed: ${result.errors[0]?.message ?? "see output"}`);
+      return true;
     }
+    toast.error(`Compilation failed: ${result.errors[0]?.message ?? "see output"}`);
+    return false;
   }
 
   function jumpToError(file: string, line: number) {
@@ -114,11 +115,18 @@ function SimulatorPage() {
     }
   }
 
+  // Simulation REQUIRES a successful compile first. If the compile fails, the
+  // errors stay visible in the CompileOutputPanel + a toast, and the sim does
+  // not start.
+  async function compileThenStart() {
+    const ok = await handleBackendCompile();
+    if (!ok) return;
+    ctrl.start(useSimStore.getState().code, useSimStore.getState().speed);
+  }
+
   function handleUpload() {
     // "Upload" in this browser context = compile + start the in-browser sim
-    handleBackendCompile().then(() => {
-      ctrl.start(useSimStore.getState().code, useSimStore.getState().speed);
-    });
+    void compileThenStart();
   }
 
   // Keyboard shortcuts
@@ -133,7 +141,7 @@ function SimulatorPage() {
       }
       if (meta && e.key === "Enter") {
         e.preventDefault();
-        ctrl.start(useSimStore.getState().code, useSimStore.getState().speed);
+        void compileThenStart();
       }
       if (meta && e.key === ".") {
         e.preventDefault();
@@ -164,7 +172,7 @@ function SimulatorPage() {
     <div className="h-screen flex flex-col bg-background text-foreground">
       <Toolbar
         onCompile={handleBackendCompile}
-        onStart={() => ctrl.start(useSimStore.getState().code, speed)}
+        onStart={() => void compileThenStart()}
         onPause={() => { ctrl.pause(); setPausedFlag(true); }}
         onResume={() => { ctrl.resume(); setPausedFlag(false); }}
         onStop={() => { ctrl.stop(); setPausedFlag(false); }}
