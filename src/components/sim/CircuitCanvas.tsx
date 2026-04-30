@@ -27,6 +27,11 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const selectedId = useSimStore((s) => s.selectedId);
   const pinStates = useSimStore((s) => s.pinStates);
   const boardId = useSimStore((s) => s.boardId);
+  const status = useSimStore((s) => s.status);
+  const setBoard = useSimStore((s) => s.setBoard);
+
+  /** Workspace is read-only while the simulator is running or paused. */
+  const locked = status === "running" || status === "paused";
 
   const addComponent = useSimStore((s) => s.addComponent);
   const moveComponent = useSimStore((s) => s.moveComponent);
@@ -46,14 +51,19 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
   const [dragId, setDragId] = useState<string | null>(null);
-  /** Active wire-waypoint drag: which wire and which waypoint index. */
   const [wpDrag, setWpDrag] = useState<{ wireId: string; idx: number } | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [panning, setPanning] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+
+  const placedBoards = useMemo(() => components.filter((c) => c.kind === "board"), [components]);
 
   const net = useMemo(() => buildNetGraph(components, wires), [components, wires]);
+
+  // Cancel any in-progress wire when the workspace becomes locked.
+  useEffect(() => { if (locked && drawingFrom) cancelWire(); }, [locked, drawingFrom, cancelWire]);
 
   // Push input states (pot, button) to worker
   useEffect(() => {
