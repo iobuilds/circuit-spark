@@ -2,7 +2,7 @@
 // Schema versioned (_version: 1) for future migration.
 
 import { create } from "zustand";
-import { BOARDS, type BoardDef, type BoardId, type ComponentKind } from "./types";
+import { BOARDS, type BoardId, type ComponentKind } from "./types";
 import { COMPONENT_DEFS } from "./components";
 import { defaultUnoPins } from "./boardSvgs/unoPins";
 
