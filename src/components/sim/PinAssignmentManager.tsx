@@ -181,9 +181,13 @@ export function PinAssignmentManager({ pins, onChange, selectedId, onSelect }: P
     let common: Set<string> | null = null;
     for (const p of pins) {
       if (!bulkIds.has(p.id)) continue;
-      const set = new Set(p.properties ?? []);
-      if (common === null) common = set;
-      else common = new Set([...common].filter((k) => set.has(k)));
+      const set = new Set<string>(p.properties ?? []);
+      if (common === null) {
+        common = set;
+      } else {
+        const prev: Set<string> = common;
+        common = new Set<string>(Array.from(prev).filter((k) => set.has(k)));
+      }
     }
     return common ? Array.from(common) : [];
   }, [pins, bulkIds]);
