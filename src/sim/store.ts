@@ -53,7 +53,7 @@ export interface SimState {
   // actions
   setBoard: (b: BoardId) => void;
   setCode: (c: string) => void;
-  addComponent: (kind: ComponentKind, x: number, y: number) => string;
+  addComponent: (kind: ComponentKind, x: number, y: number, customId?: string) => string;
   moveComponent: (id: string, x: number, y: number) => void;
   removeComponent: (id: string) => void;
   setSelected: (id: string | null) => void;
