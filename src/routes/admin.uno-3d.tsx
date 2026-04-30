@@ -3,8 +3,8 @@
 // array on the admin store, replacing the SVG-based Uno pin layout.
 
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Plus, Trash2, Save } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, Plus, Trash2, Save, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,8 @@ import {
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { Uno3DViewer, type Marker3D } from "@/components/sim/Uno3DViewer";
+import { Uno3DViewer, type Marker3D, type Uno3DViewerHandle } from "@/components/sim/Uno3DViewer";
+import { Uno3DMaterialAudit } from "@/components/sim/Uno3DMaterialAudit";
 import { useAdminStore, type VisualPin } from "@/sim/adminStore";
 
 export const Route = createFileRoute("/admin/uno-3d")({
@@ -48,6 +49,10 @@ function Uno3DAdminPage() {
   const [pins, setPins] = useState<VisualPin[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
+  // Material audit panel: toggled via the toolbar; talks to the live scene
+  // through the viewer's imperative handle.
+  const viewerRef = useRef<Uno3DViewerHandle | null>(null);
+  const [showAudit, setShowAudit] = useState(false);
 
   // Hydrate pins from the existing Uno board entry once it's loaded. Pins are
   // stored in SVG-viewBox space; we re-use that same coordinate system for the
@@ -117,6 +122,15 @@ function Uno3DAdminPage() {
         <h1 className="font-semibold">Uno 3D Pin Editor</h1>
         <span className="text-xs text-muted-foreground">click the top view to place pins</span>
         <div className="flex-1" />
+        <Button
+          size="sm"
+          variant={showAudit ? "default" : "outline"}
+          onClick={() => setShowAudit((v) => !v)}
+          title="Inspect GLB materials and reload colors"
+        >
+          <Palette className="h-3.5 w-3.5 mr-1.5" />
+          Material audit
+        </Button>
         <Button size="sm" disabled={!dirty} onClick={save}>
           <Save className="h-3.5 w-3.5 mr-1.5" />
           {dirty ? "Save pins" : "Saved"}
@@ -126,12 +140,19 @@ function Uno3DAdminPage() {
       <div className="flex-1 min-h-0 grid grid-cols-[1fr_320px]">
         <section className="relative bg-muted/20 border-r border-border">
           <Uno3DViewer
+            ref={viewerRef}
             topView
             topViewWidth={TOP_W}
             topViewHeight={TOP_H}
             onTopViewClick={handleTopViewClick}
             markers={markers}
           />
+          {/* Floating audit panel — overlays the top-view, draggable feel via fixed position */}
+          {showAudit && (
+            <div className="absolute top-2 right-2 w-[340px] max-h-[calc(100%-1rem)] flex flex-col shadow-xl">
+              <Uno3DMaterialAudit viewerRef={viewerRef} className="flex-1 min-h-0" />
+            </div>
+          )}
           <div className="absolute top-2 left-2 text-[10px] uppercase tracking-wide text-muted-foreground bg-background/80 backdrop-blur px-2 py-1 rounded">
             top view (orthographic) · {TOP_W}×{TOP_H}
           </div>

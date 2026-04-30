@@ -10,7 +10,7 @@
 //
 // NOTE: STEP→GLB happened offline; this only consumes the GLB.
 
-import { useEffect, useMemo, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
@@ -61,6 +61,167 @@ let cachedPromise: Promise<{ scene: THREE.Group; bbox: THREE.Box3 }> | null = nu
 // comfortable working size so the camera/lights set up in "centimeter-ish"
 // units (real Uno is ~53×69 mm) actually frame the board.
 const TARGET_BOARD_WIDTH = 70; // scene units across the long edge of the board
+
+/** Public audit row, one entry per unique material in the model. */
+export interface MaterialAuditEntry {
+  index: number;
+  name: string;
+  /** Hex of baseColorFactor (e.g. "#0a7a55"). */
+  color: string;
+  metalness: number;
+  roughness: number;
+  hasMap: boolean;
+  hasNormalMap: boolean;
+  hasEmissive: boolean;
+  /** Number of mesh primitives using this material. */
+  primCount: number;
+  /** Heuristic role label so the panel can flag suspicious assignments. */
+  role: "pcb" | "metal-gold" | "metal-silver" | "plastic-dark" | "plastic-light" | "blue" | "red" | "yellow" | "unknown";
+}
+
+/** Imperative handle exposed via ref so the audit panel can talk to the live scene. */
+export interface Uno3DViewerHandle {
+  /** Read materials currently applied to the loaded model. */
+  audit(): MaterialAuditEntry[];
+  /** Re-walk the scene and re-apply STEP→GLB material fix-ups. Returns the fresh audit. */
+  reloadMaterials(): MaterialAuditEntry[];
+  /** Override one material's color (any CSS color). Returns new audit. */
+  setMaterialColor(index: number, color: string): MaterialAuditEntry[];
+  /** True once the GLB finished loading. */
+  isReady(): boolean;
+  /** Quick stats from the source file (textures/images count). */
+  modelStats(): { materials: number; textures: number; images: number };
+}
+
+function classifyRole(hex: string, metal: number): MaterialAuditEntry["role"] {
+  // Hex like "#rrggbb"
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const sat = max === 0 ? 0 : (max - min) / max;
+  // Greens dominate G channel
+  if (g > r && g > b && sat > 0.2) return "pcb";
+  // Yellow / gold (R≈G, B much lower)
+  if (r > 0.7 && g > 0.5 && b < 0.4) return metal > 0.5 ? "metal-gold" : "yellow";
+  if (r > 0.55 && g > 0.45 && b < 0.35) return "metal-gold";
+  // Silver / chrome (R≈G≈B, fairly bright, metallic)
+  if (sat < 0.12 && max > 0.55) return metal > 0.5 ? "metal-silver" : "plastic-light";
+  // Blue
+  if (b > r && b > g && sat > 0.25) return "blue";
+  // Red
+  if (r > g && r > b && sat > 0.35) return "red";
+  // Dark
+  if (max < 0.25) return "plastic-dark";
+  if (max > 0.55) return "plastic-light";
+  return "unknown";
+}
+
+/** Apply the STEP→GLB fix-ups in place. Called on first load AND from the panel. */
+function applyMaterialFixups(scene: THREE.Group): void {
+  const seen = new Set<THREE.Material>();
+  scene.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const m of mats) {
+      if (!m || seen.has(m)) continue;
+      seen.add(m);
+      const std = m as THREE.MeshStandardMaterial;
+      if (!("isMeshStandardMaterial" in std)) continue;
+
+      // Bug from the converter: every material exports metallicFactor=1.0.
+      // That makes dielectrics (PCB, plastics) render as flat dark mirrors.
+      // We classify by base color and pick a sane PBR setup per role.
+      const c = std.color;
+      const hex = "#" + c.getHexString();
+      const role = classifyRole(hex, std.metalness ?? 1);
+      switch (role) {
+        case "pcb":
+          // If the converter actually made the PCB green-ish, keep the hue but
+          // saturate it toward Arduino teal; force dielectric.
+          std.color.set(hex);
+          std.metalness = 0.0;
+          std.roughness = 0.55;
+          break;
+        case "metal-gold":
+          std.metalness = 1.0;
+          std.roughness = 0.35;
+          break;
+        case "metal-silver":
+          std.metalness = 1.0;
+          std.roughness = 0.4;
+          break;
+        case "plastic-dark":
+        case "plastic-light":
+        case "blue":
+        case "red":
+        case "yellow":
+          std.metalness = 0.0;
+          std.roughness = 0.55;
+          break;
+        default:
+          std.metalness = 0.1;
+          std.roughness = 0.6;
+      }
+      std.needsUpdate = true;
+    }
+  });
+}
+
+/** Walk the scene and produce an audit row per unique material. */
+function auditScene(scene: THREE.Group): MaterialAuditEntry[] {
+  const map = new Map<THREE.Material, MaterialAuditEntry>();
+  scene.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const m of mats) {
+      if (!m) continue;
+      const existing = map.get(m);
+      if (existing) {
+        existing.primCount++;
+        continue;
+      }
+      const std = m as THREE.MeshStandardMaterial;
+      const hex = "#" + (std.color?.getHexString?.() ?? "808080");
+      const metal = std.metalness ?? 0;
+      map.set(m, {
+        index: map.size,
+        name: m.name || `mat_${map.size}`,
+        color: hex,
+        metalness: metal,
+        roughness: std.roughness ?? 1,
+        hasMap: !!std.map,
+        hasNormalMap: !!std.normalMap,
+        hasEmissive: !!std.emissiveMap || (std.emissive && std.emissive.getHex() !== 0),
+        primCount: 1,
+        role: classifyRole(hex, metal),
+      });
+    }
+  });
+  // Re-index in insertion order
+  return Array.from(map.values()).map((e, i) => ({ ...e, index: i }));
+}
+
+/** Map "audit index" → live material reference, for color overrides. */
+function indexedMaterials(scene: THREE.Group): THREE.Material[] {
+  const seen = new Set<THREE.Material>();
+  const list: THREE.Material[] = [];
+  scene.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const m of mats) {
+      if (!m || seen.has(m)) continue;
+      seen.add(m);
+      list.push(m);
+    }
+  });
+  return list;
+}
+
 function loadUno() {
   if (cachedScene && cachedBBox) {
     return Promise.resolve({ scene: cachedScene, bbox: cachedBBox });
@@ -72,7 +233,7 @@ function loadUno() {
       "/models/uno.glb",
       (gltf) => {
         const scene = gltf.scene;
-        // Measure original bounds and rescale uniformly to working units.
+        // Rescale to working units.
         const raw = new THREE.Box3().setFromObject(scene);
         const rawSize = new THREE.Vector3();
         raw.getSize(rawSize);
@@ -80,29 +241,13 @@ function loadUno() {
         const k = TARGET_BOARD_WIDTH / longest;
         scene.scale.setScalar(k);
         scene.updateMatrixWorld(true);
-        // Recenter so origin sits at the model center.
         const scaled = new THREE.Box3().setFromObject(scene);
         const center = new THREE.Vector3();
         scaled.getCenter(center);
         scene.position.sub(center);
         scene.updateMatrixWorld(true);
         const bbox2 = new THREE.Box3().setFromObject(scene);
-        // Brighten materials a touch — STEP→GLB conversions often leave
-        // PBR factors flat-looking under standard lighting.
-        scene.traverse((obj) => {
-          const mesh = obj as THREE.Mesh;
-          if (!mesh.isMesh) return;
-          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-          for (const m of mats) {
-            const std = m as THREE.MeshStandardMaterial;
-            if (std && "roughness" in std) {
-              // Slightly less rough so PCB green / gold pads catch light.
-              std.roughness = Math.min(std.roughness ?? 1, 0.55);
-              std.metalness = std.metalness ?? 0.1;
-              std.needsUpdate = true;
-            }
-          }
-        });
+        applyMaterialFixups(scene);
         cachedScene = scene;
         cachedBBox = bbox2;
         resolve({ scene, bbox: bbox2 });
@@ -114,15 +259,22 @@ function loadUno() {
   return cachedPromise;
 }
 
-export function Uno3DViewer({
-  topView = false,
-  topViewWidth = 1000,
-  topViewHeight = 700,
-  onTopViewClick,
-  markers,
-  tablePieces,
-  className,
-}: Props) {
+/** Source-file stats. Static for our shipped GLB; exposed via the handle so the
+ *  audit panel can show "0 textures / 0 images" without re-parsing the file. */
+const MODEL_STATS = { materials: 24, textures: 0, images: 0 };
+
+export const Uno3DViewer = forwardRef<Uno3DViewerHandle, Props>(function Uno3DViewer(
+  {
+    topView = false,
+    topViewWidth = 1000,
+    topViewHeight = 700,
+    onTopViewClick,
+    markers,
+    tablePieces,
+    className,
+  },
+  ref,
+) {
   const containerRef = useRef<HTMLDivElement>(null);
   // Latest props reachable from event handlers without re-creating the scene.
   const propsRef = useRef({ topView, topViewWidth, topViewHeight, onTopViewClick, markers, tablePieces });
@@ -135,8 +287,41 @@ export function Uno3DViewer({
       markersGroup: null as THREE.Group | null,
       piecesGroup: null as THREE.Group | null,
       bbox: null as THREE.Box3 | null,
+      /** The cloned, live Uno scene currently in the renderer (for audit/reload). */
+      unoClone: null as THREE.Group | null,
     }),
     [],
+  );
+
+  // Imperative API for the audit panel. Methods read from/mutate the LIVE clone
+  // so changes appear in the running renderer immediately.
+  useImperativeHandle(
+    ref,
+    () => ({
+      isReady: () => !!runtime.unoClone,
+      modelStats: () => MODEL_STATS,
+      audit: () => (runtime.unoClone ? auditScene(runtime.unoClone) : []),
+      reloadMaterials: () => {
+        if (!runtime.unoClone) return [];
+        applyMaterialFixups(runtime.unoClone);
+        return auditScene(runtime.unoClone);
+      },
+      setMaterialColor: (index, color) => {
+        if (!runtime.unoClone) return [];
+        const mats = indexedMaterials(runtime.unoClone);
+        const m = mats[index] as THREE.MeshStandardMaterial | undefined;
+        if (m && "color" in m) {
+          try {
+            m.color.set(color);
+            m.needsUpdate = true;
+          } catch {
+            /* ignore invalid CSS color */
+          }
+        }
+        return auditScene(runtime.unoClone);
+      },
+    }),
+    [runtime],
   );
 
   useEffect(() => {
@@ -203,9 +388,20 @@ export function Uno3DViewer({
     loadUno().then(({ scene: unoScene, bbox }) => {
       if (disposed) return;
       // Clone so multiple mounted viewers don't fight over the same instance.
+      // We clone materials too (deep) so the audit panel's per-instance overrides
+      // don't bleed into other viewers sharing the cached scene.
       const clone = unoScene.clone(true);
+      clone.traverse((obj) => {
+        const mesh = obj as THREE.Mesh;
+        if (!mesh.isMesh || !mesh.material) return;
+        mesh.material = Array.isArray(mesh.material)
+          ? mesh.material.map((m) => m.clone())
+          : (mesh.material as THREE.Material).clone();
+      });
+      applyMaterialFixups(clone);
       scene.add(clone);
       runtime.bbox = bbox;
+      runtime.unoClone = clone;
 
       // Fit ortho camera to board top extents.
       const sizeX = bbox.max.x - bbox.min.x;
@@ -350,4 +546,4 @@ export function Uno3DViewer({
   }, [tablePieces, topViewWidth, topViewHeight, runtime]);
 
   return <div ref={containerRef} className={className} style={{ width: "100%", height: "100%" }} />;
-}
+});
