@@ -152,6 +152,7 @@ function AdminPage() {
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string>("");
+  const [input, setInput] = useState("");
 
   // Hydrate conversations on mount (client-only).
   useEffect(() => {
