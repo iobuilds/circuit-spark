@@ -68,6 +68,7 @@ export function importedToRow(imp: ImportedComponent): CustomComponentRow {
       pins: imp.pins,
       defaults: imp.defaults,
       behaviorNotes: imp.behaviorNotes,
+      behavior: imp.behavior,
     },
     behavior: imp.behaviorNotes ?? "",
     version: 1,
