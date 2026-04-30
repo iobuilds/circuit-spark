@@ -46,12 +46,14 @@ function LibraryManager() {
 /* ---------------- Boards ---------------- */
 
 function BoardsTab() {
+  const navigate = useNavigate();
   const boards = useAdminStore((s) => s.boards);
   const setEnabled = useAdminStore((s) => s.setBoardEnabled);
   const bulk = useAdminStore((s) => s.bulkSetBoards);
   const reorder = useAdminStore((s) => s.reorderBoards);
   const reset = useAdminStore((s) => s.resetBoards);
   const importItems = useAdminStore((s) => s.importBoards);
+  const createCustom = useAdminStore((s) => s.createCustomBoard);
 
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
