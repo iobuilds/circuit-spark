@@ -11,20 +11,34 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { GripVertical, Download, Upload, RotateCcw, Search, Pencil, PlusCircle } from "lucide-react";
+import { GripVertical, Download, Upload, RotateCcw, Search, Pencil, PlusCircle, Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/admin/")({
+  head: () => ({
+    meta: [
+      { title: "Admin · Library Manager" },
+      { name: "description", content: "Enable, disable, and reorder boards and components shown to users in the simulator." },
+    ],
+  }),
   component: LibraryManager,
 });
 
 function LibraryManager() {
   return (
     <div className="space-y-4 max-w-5xl">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Library Manager</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Enable, disable and reorder the boards and components shown in the simulator. Changes take effect immediately and are saved to your browser.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Library Manager</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Enable, disable and reorder the boards and components shown in the simulator. Only enabled items appear when users add parts to a project. Changes save automatically.
+          </p>
+        </div>
+        <Button asChild>
+          <Link to="/admin/ai">
+            <Sparkles className="h-4 w-4 mr-1.5" />
+            AI Component Builder
+          </Link>
+        </Button>
       </div>
 
       <Tabs defaultValue="boards" className="w-full">

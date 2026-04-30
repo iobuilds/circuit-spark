@@ -11,10 +11,10 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ExamplesRouteImport } from './routes/examples'
 import { Route as DocsRouteImport } from './routes/docs'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminAiRouteImport } from './routes/admin.ai'
 import { Route as ApiLibrariesSearchRouteImport } from './routes/api/libraries.search'
 import { Route as ApiLibrariesDownloadRouteImport } from './routes/api/libraries.download'
 import { Route as ApiBoardsSearchRouteImport } from './routes/api/boards.search'
@@ -31,11 +31,6 @@ const DocsRoute = DocsRouteImport.update({
   path: '/docs',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AboutRoute = AboutRouteImport.update({
   id: '/about',
   path: '/about',
@@ -50,6 +45,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AdminRoute,
+} as any)
+const AdminAiRoute = AdminAiRouteImport.update({
+  id: '/admin/ai',
+  path: '/admin/ai',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiLibrariesSearchRoute = ApiLibrariesSearchRouteImport.update({
   id: '/api/libraries/search',
@@ -81,9 +81,9 @@ const AdminBoardsBoardIdEditRoute = AdminBoardsBoardIdEditRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/admin': typeof AdminRouteWithChildren
   '/docs': typeof DocsRoute
   '/examples': typeof ExamplesRoute
+  '/admin/ai': typeof AdminAiRoute
   '/admin/': typeof AdminIndexRoute
   '/api/boards/search': typeof ApiBoardsSearchRoute
   '/api/libraries/download': typeof ApiLibrariesDownloadRoute
@@ -96,6 +96,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/docs': typeof DocsRoute
   '/examples': typeof ExamplesRoute
+  '/admin/ai': typeof AdminAiRoute
   '/admin': typeof AdminIndexRoute
   '/api/boards/search': typeof ApiBoardsSearchRoute
   '/api/libraries/download': typeof ApiLibrariesDownloadRoute
@@ -107,9 +108,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/admin': typeof AdminRouteWithChildren
   '/docs': typeof DocsRoute
   '/examples': typeof ExamplesRoute
+  '/admin/ai': typeof AdminAiRoute
   '/admin/': typeof AdminIndexRoute
   '/api/boards/search': typeof ApiBoardsSearchRoute
   '/api/libraries/download': typeof ApiLibrariesDownloadRoute
@@ -122,9 +123,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
-    | '/admin'
     | '/docs'
     | '/examples'
+    | '/admin/ai'
     | '/admin/'
     | '/api/boards/search'
     | '/api/libraries/download'
@@ -137,6 +138,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/docs'
     | '/examples'
+    | '/admin/ai'
     | '/admin'
     | '/api/boards/search'
     | '/api/libraries/download'
@@ -147,9 +149,9 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/about'
-    | '/admin'
     | '/docs'
     | '/examples'
+    | '/admin/ai'
     | '/admin/'
     | '/api/boards/search'
     | '/api/libraries/download'
@@ -161,9 +163,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
-  AdminRoute: typeof AdminRouteWithChildren
   DocsRoute: typeof DocsRoute
   ExamplesRoute: typeof ExamplesRoute
+  AdminAiRoute: typeof AdminAiRoute
   ApiBoardsSearchRoute: typeof ApiBoardsSearchRoute
   ApiLibrariesDownloadRoute: typeof ApiLibrariesDownloadRoute
   ApiLibrariesSearchRoute: typeof ApiLibrariesSearchRoute
@@ -183,13 +185,6 @@ declare module '@tanstack/react-router' {
       path: '/docs'
       fullPath: '/docs'
       preLoaderRoute: typeof DocsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -212,6 +207,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/admin/ai': {
+      id: '/admin/ai'
+      path: '/admin/ai'
+      fullPath: '/admin/ai'
+      preLoaderRoute: typeof AdminAiRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/libraries/search': {
       id: '/api/libraries/search'
@@ -251,26 +253,12 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AdminRouteChildren {
-  AdminIndexRoute: typeof AdminIndexRoute
-  AdminBoardsBoardIdEditRoute: typeof AdminBoardsBoardIdEditRoute
-  AdminComponentsComponentIdEditRoute: typeof AdminComponentsComponentIdEditRoute
-}
-
-const AdminRouteChildren: AdminRouteChildren = {
-  AdminIndexRoute: AdminIndexRoute,
-  AdminBoardsBoardIdEditRoute: AdminBoardsBoardIdEditRoute,
-  AdminComponentsComponentIdEditRoute: AdminComponentsComponentIdEditRoute,
-}
-
-const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
-  AdminRoute: AdminRouteWithChildren,
   DocsRoute: DocsRoute,
   ExamplesRoute: ExamplesRoute,
+  AdminAiRoute: AdminAiRoute,
   ApiBoardsSearchRoute: ApiBoardsSearchRoute,
   ApiLibrariesDownloadRoute: ApiLibrariesDownloadRoute,
   ApiLibrariesSearchRoute: ApiLibrariesSearchRoute,

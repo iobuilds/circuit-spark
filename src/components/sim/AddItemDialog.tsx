@@ -35,18 +35,30 @@ export function AddItemDialog({ open, onOpenChange, onPickComponent, onPickCusto
 
   const queryLower = q.trim().toLowerCase();
 
+  // Admin store drives which boards & built-in components are exposed to users.
+  // Anything disabled in the Library Manager is filtered out here.
+  const adminBoards = useAdminStore((s) => s.boards);
+  const enabledBoardIds = useMemo(
+    () => new Set(adminBoards.filter((b) => b.enabled).map((b) => b.id)),
+    [adminBoards],
+  );
+  const enabledComponentKinds = useMemo(
+    () => new Set(adminComps.filter((c) => c.enabled && c.builtIn).map((c) => c.id)),
+    [adminComps],
+  );
+
   const matchedBoards = useMemo(
-    () => BOARDS.filter((b) => b.available && (
+    () => BOARDS.filter((b) => b.available && enabledBoardIds.has(b.id) && (
       !queryLower || b.name.toLowerCase().includes(queryLower) || b.mcu.toLowerCase().includes(queryLower) || b.id.includes(queryLower)
     )),
-    [queryLower],
+    [queryLower, enabledBoardIds],
   );
 
   const builtInComponents = useMemo(
     () => Object.values(COMPONENT_DEFS)
-      .filter((c) => c.available && c.kind !== "board" && c.kind !== "custom")
+      .filter((c) => c.available && c.kind !== "board" && c.kind !== "custom" && enabledComponentKinds.has(c.kind))
       .filter((c) => !queryLower || c.label.toLowerCase().includes(queryLower) || c.kind.includes(queryLower) || c.category.toLowerCase().includes(queryLower)),
-    [queryLower],
+    [queryLower, enabledComponentKinds],
   );
 
   const customs = useMemo(

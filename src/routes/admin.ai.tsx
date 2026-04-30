@@ -27,7 +27,7 @@ import {
 import { CustomComponentSvg } from "@/components/sim/CustomComponentSvg";
 import { ComponentBehaviorPreview } from "@/components/sim/ComponentBehaviorPreview";
 
-export const Route = createFileRoute("/admin")({
+export const Route = createFileRoute("/admin/ai")({
   head: () => ({
     meta: [
       { title: "Admin · AI Component Builder" },
