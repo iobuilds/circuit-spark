@@ -6,10 +6,11 @@ import { GenericBoard } from "./GenericBoard";
 import { CircuitComponentNode } from "./CircuitComponentNode";
 import { findUnoPin, UNO_HEIGHT, UNO_WIDTH } from "@/sim/uno-pins";
 import { buildNetGraph, evaluateInputs, isLedPowered } from "@/sim/netlist";
-import type { ComponentKind } from "@/sim/types";
+import type { BoardId, ComponentKind } from "@/sim/types";
 import { useAdminStore } from "@/sim/adminStore";
-import { CornerDownLeft, Trash2, X } from "lucide-react";
+import { CornerDownLeft, Lock, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AddItemDialog } from "./AddItemDialog";
 
 interface Props {
   onPinInputChange: (pin: number, value: { digital?: 0 | 1; analog?: number }) => void;
