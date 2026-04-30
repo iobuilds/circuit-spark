@@ -14,6 +14,49 @@ export interface ComponentPin {
   role?: "power" | "ground" | "digital" | "analog" | "io" | "signal";
 }
 
+export interface BehaviorParam {
+  id: string;
+  label: string;
+  type: "number" | "boolean" | "enum";
+  min?: number;
+  max?: number;
+  step?: number;
+  default?: number | boolean | string;
+  options?: string[];
+  unit?: string;
+}
+
+export interface BehaviorState {
+  id: string;
+  label: string;
+  /** Condition expression using params + pins, e.g. "speed > 0 && !burned" */
+  when?: string;
+  /** Visual hints applied to the SVG root in this state. */
+  visual?: {
+    /** CSS color filter or fill override applied to root <g>. */
+    filter?: string;
+    /** Optional element selector inside the SVG to spin (data-spin). */
+    spinSelector?: string;
+    /** Optional element selector to glow (data-glow). */
+    glowSelector?: string;
+    /** Optional element selector to flicker (data-flicker). */
+    flickerSelector?: string;
+    /** Smoke / spark overlay. */
+    overlay?: "smoke" | "spark" | "flame" | null;
+  };
+}
+
+export interface ComponentBehavior {
+  /** Tunable parameters surfaced as preview controls (speed, voltage, direction, etc). */
+  params?: BehaviorParam[];
+  /** Discrete visual states (idle, running, burned, etc). */
+  states?: BehaviorState[];
+  /** Failure conditions, e.g. "voltage > maxVoltage" -> burned state id. */
+  failures?: { when: string; state: string; reason: string }[];
+  /** Plain-English summary, for tooltip / docs. */
+  notes?: string;
+}
+
 export interface ComponentSpec {
   name: string;
   slug: string;
@@ -22,8 +65,10 @@ export interface ComponentSpec {
   width: number;
   height: number;
   pins: ComponentPin[];
-  /** Free-form behavior notes (not executed yet — surface for future runtime). */
+  /** Free-form behavior notes (legacy field). */
   behaviorNotes?: string;
+  /** Structured behavior used by the live preview simulator. */
+  behavior?: ComponentBehavior;
   /** Default props applied when dropped on the canvas. */
   defaults?: Record<string, string | number | boolean>;
 }
@@ -67,9 +112,69 @@ export const COMPONENT_SPEC_TOOL = {
         svg: {
           type: "string",
           description:
-            "Inner SVG markup (no outer <svg> wrapper). Use simple shapes; the viewBox will be 0 0 width height.",
+            "Inner SVG markup (no outer <svg> wrapper). Use simple shapes; the viewBox will be 0 0 width height. Tag movable / glowing parts with data-spin, data-glow, or data-flicker attributes so the simulator can animate them.",
         },
         behaviorNotes: { type: "string" },
+        behavior: {
+          type: "object",
+          description:
+            "Structured behavior model used by the live preview simulator. Define tunable params (speed, voltage, direction), discrete states (idle, running, burned, broken), and failure conditions.",
+          properties: {
+            params: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  id: { type: "string" },
+                  label: { type: "string" },
+                  type: { type: "string", enum: ["number", "boolean", "enum"] },
+                  min: { type: "number" },
+                  max: { type: "number" },
+                  step: { type: "number" },
+                  default: {},
+                  options: { type: "array", items: { type: "string" } },
+                  unit: { type: "string" },
+                },
+                required: ["id", "label", "type"],
+              },
+            },
+            states: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  id: { type: "string" },
+                  label: { type: "string" },
+                  when: { type: "string", description: "JS-like expression over params, e.g. 'speed > 0 && !burned'" },
+                  visual: {
+                    type: "object",
+                    properties: {
+                      filter: { type: "string" },
+                      spinSelector: { type: "string" },
+                      glowSelector: { type: "string" },
+                      flickerSelector: { type: "string" },
+                      overlay: { type: "string", enum: ["smoke", "spark", "flame"] },
+                    },
+                  },
+                },
+                required: ["id", "label"],
+              },
+            },
+            failures: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  when: { type: "string" },
+                  state: { type: "string" },
+                  reason: { type: "string" },
+                },
+                required: ["when", "state", "reason"],
+              },
+            },
+            notes: { type: "string" },
+          },
+        },
         defaults: {
           type: "object",
           additionalProperties: true,
@@ -83,16 +188,37 @@ export const COMPONENT_SPEC_TOOL = {
 
 export const SYSTEM_PROMPT = `You are an expert hardware component designer for an Arduino-style circuit simulator.
 
-When the user describes a component or board (with optional reference SVG), iterate together with them. Ask short clarifying questions only when essential. Once the design is concrete, CALL the \`emit_component_spec\` tool with the final design.
+When the user describes a component or board, iterate together with them. **You do NOT need a reference SVG** — if none is provided, generate one yourself from primitive SVG shapes that visually resembles the real-world part (e.g. a DC motor = circle body + shaft + 2 terminals; an LCD = rectangle with grid; a servo = box with horn). Ask short clarifying questions only when essential. Once the design is concrete, CALL the \`emit_component_spec\` tool.
 
 Rules for the spec:
 - slug: kebab-case, unique-ish.
 - kind: "board" only for full MCU dev boards; otherwise "component".
 - pins.x / pins.y are in SVG-local coords inside the viewBox 0 0 width height. Place pins on the visible edge so wires can attach.
-- svg: inner markup only (no outer <svg> tag). Use <rect>, <circle>, <line>, <path>, <text> with sensible fills/strokes. Avoid external assets, scripts, or event handlers. No <foreignObject>.
+- svg: inner markup only (no outer <svg> tag). Use <rect>, <circle>, <line>, <path>, <text>, <g> with sensible fills/strokes. Avoid external assets, scripts, or event handlers. No <foreignObject>.
+- **Tag animatable parts** with data attributes so the live simulator can animate them:
+   - \`data-spin="true"\` on rotor / shaft / fan blades (e.g. motor shaft, fan)
+   - \`data-glow="true"\` on LEDs, screens, indicators
+   - \`data-flicker="true"\` on parts that flicker when broken
+   - Wrap the spinning element in a <g> centered on its rotation point.
 - width / height: integers, typically 60-220 for components, 240-400 for boards.
-- behaviorNotes: 1-3 sentences describing what the component does electrically (e.g. "OUT pin goes HIGH when motion detected").
-- Always emit the tool when the user says "build", "save", "create it", or similar.
+
+**Behavior model (REQUIRED for active components):**
+- params: tunable inputs the user can play with in the live preview. Examples:
+   - Motor: { speed: number 0..100, direction: enum [forward, reverse], voltage: number 0..15 }
+   - LED: { brightness: number 0..255, voltage: number 0..6 }
+   - Servo: { angle: number 0..180 }
+- states: visual states like "idle", "running", "burned", "broken", "no-power". Use \`when\` expressions over params (e.g. "speed > 0 && !burned"). Attach \`visual\` overrides:
+   - filter: CSS filter (e.g. "brightness(1.4) saturate(1.3)")
+   - spinSelector: CSS selector for the part to rotate (use "[data-spin]")
+   - glowSelector: "[data-glow]"
+   - overlay: "smoke" | "spark" | "flame" — drawn on top in the burned state
+- failures: conditions that flip the component into a damaged state, e.g. \`{ when: "voltage > 12", state: "burned", reason: "Exceeded max voltage" }\`. ALWAYS include at least one realistic failure mode for active components (motor burns at over-voltage, LED burns without resistor, etc).
+- notes: 1-2 sentence plain-English summary.
+
+Passive components (resistor, capacitor, switch) can have empty behavior or just one state.
+
+- behaviorNotes: 1-3 sentence summary (legacy text field — still fill it).
+- Always emit the tool when the user says "build", "save", "generate", "create it", or after one or two clarifying turns.
 
 Reply in plain text for chat turns; only call the tool when finalizing.`;
 
