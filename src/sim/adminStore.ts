@@ -63,15 +63,22 @@ interface PersistedShape<T> {
 }
 
 function defaultBoards(): BoardEntry[] {
-  return BOARDS.map((b) => ({
-    id: b.id,
-    name: b.name,
-    mcu: b.mcu,
-    digitalPins: b.digitalPins,
-    analogPins: b.analogPins,
-    enabled: b.available,
-    builtIn: true,
-  }));
+  return BOARDS.map((b) => {
+    const base: BoardEntry = {
+      id: b.id,
+      name: b.name,
+      mcu: b.mcu,
+      digitalPins: b.digitalPins,
+      analogPins: b.analogPins,
+      enabled: b.available,
+      builtIn: true,
+    };
+    if (b.id === "uno") {
+      base.svg = UNO_SVG;
+      base.pins = defaultUnoPins();
+    }
+    return base;
+  });
 }
 
 function defaultComponents(): ComponentEntry[] {
