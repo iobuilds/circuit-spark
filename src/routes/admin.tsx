@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
-import { Loader2, Send, Save, Download, Upload, Trash2, Sparkles, ArrowLeft, Pencil, X, BookOpen, Check, Library, ExternalLink } from "lucide-react";
+import { Loader2, Send, Save, Download, Upload, Trash2, Sparkles, ArrowLeft, Pencil, X, BookOpen, Check, Library, ExternalLink, ImagePlus } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   aiBuilderChat,
