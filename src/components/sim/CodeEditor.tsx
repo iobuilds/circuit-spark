@@ -228,10 +228,79 @@ export function CodeEditor() {
     window.addEventListener("ide:format", onFormat);
     window.addEventListener("ide:find", onFind);
 
+    // Jump to a line/column when the error panel asks for it.
+    const onGotoLine = (e: Event) => {
+      const detail = (e as CustomEvent<{ line: number; col?: number }>).detail;
+      if (!detail || !detail.line) return;
+      const line = Math.max(1, detail.line);
+      const col = Math.max(1, detail.col ?? 1);
+      try {
+        editor.revealLineInCenter(line);
+        editor.setPosition({ lineNumber: line, column: col });
+        editor.focus();
+      } catch { /* model may not be ready */ }
+    };
+    window.addEventListener("ide:goto-line", onGotoLine);
+
+    // Apply compile diagnostics as inline Monaco markers (red squiggles in the
+    // editor + entries in the gutter / minimap). Markers are keyed by file
+    // name; we resolve the matching open model and set the markers there.
+    type Diag = { file: string; line: number; col?: number; severity?: "error" | "warning"; message: string };
+    const onDiagnostics = (e: Event) => {
+      const detail = (e as CustomEvent<{ errors?: Diag[]; warnings?: Diag[] }>).detail || {};
+      const all: Diag[] = [
+        ...(detail.errors ?? []).map((d) => ({ ...d, severity: "error" as const })),
+        ...(detail.warnings ?? []).map((d) => ({ ...d, severity: "warning" as const })),
+      ];
+      const byFile = new Map<string, Diag[]>();
+      for (const d of all) {
+        if (!d.file) continue;
+        const arr = byFile.get(d.file) ?? [];
+        arr.push(d);
+        byFile.set(d.file, arr);
+      }
+
+      // Clear markers on every model owned by us, then set fresh ones.
+      const owner = "embedsim-compiler";
+      for (const model of monaco.editor.getModels()) {
+        monaco.editor.setModelMarkers(model, owner, []);
+      }
+      for (const [fileName, diags] of byFile) {
+        const model = (monaco.editor.getModels() as unknown as Array<{
+          uri: { path: string; toString: () => string };
+          getLineMaxColumn: (line: number) => number;
+        }>).find((m) =>
+          m.uri.path.endsWith("/" + fileName) || m.uri.path === fileName || m.uri.toString().endsWith(fileName),
+        );
+        if (!model) continue;
+        const markers = diags.map((d) => {
+          const lineLen = (() => {
+            try { return model.getLineMaxColumn(d.line); } catch { return 1000; }
+          })();
+          const startCol = Math.max(1, d.col ?? 1);
+          return {
+            severity: d.severity === "warning"
+              ? monaco.MarkerSeverity.Warning
+              : monaco.MarkerSeverity.Error,
+            message: d.message,
+            startLineNumber: d.line,
+            startColumn: startCol,
+            endLineNumber: d.line,
+            endColumn: lineLen,
+            source: "EmbedSim",
+          };
+        });
+        monaco.editor.setModelMarkers(model, owner, markers);
+      }
+    };
+    window.addEventListener("ide:set-diagnostics", onDiagnostics);
+
     // Cleanup
     editor.onDidDispose(() => {
       window.removeEventListener("ide:format", onFormat);
       window.removeEventListener("ide:find", onFind);
+      window.removeEventListener("ide:goto-line", onGotoLine);
+      window.removeEventListener("ide:set-diagnostics", onDiagnostics);
     });
   }, [libHeaders]);
 

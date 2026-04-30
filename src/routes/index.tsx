@@ -78,6 +78,17 @@ function SimulatorPage() {
 
   useEffect(() => { ctrl.setSpeed(speed); }, [speed, ctrl]);
 
+  // Push compile diagnostics to the Monaco editor as inline markers (red
+  // squiggles for errors, yellow for warnings). Cleared when output is null.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("ide:set-diagnostics", {
+      detail: {
+        errors: compileOutput?.errors ?? [],
+        warnings: compileOutput?.warnings ?? [],
+      },
+    }));
+  }, [compileOutput]);
+
   async function handleBackendCompile(): Promise<boolean> {
     const { files } = useIdeStore.getState();
     const installedLibraries = useIdeStore.getState().installedLibraries.map((l) => l.id);
@@ -105,13 +116,13 @@ function SimulatorPage() {
     return false;
   }
 
-  function jumpToError(file: string, line: number) {
+  function jumpToError(file: string, line: number, col?: number) {
     const { files, setActiveFile } = useIdeStore.getState();
     const match = files.find((f) => f.name === file);
     if (match) {
       setActiveFile(match.id);
       // Monaco listens to a custom event for line jumps
-      window.dispatchEvent(new CustomEvent("ide:goto-line", { detail: { line } }));
+      window.dispatchEvent(new CustomEvent("ide:goto-line", { detail: { line, col } }));
     }
   }
 
@@ -242,7 +253,7 @@ function SimulatorPage() {
                 progress={compileProgress}
                 compiling={compiling}
                 onClose={() => { setCompileOutput(null); setCompileProgress(null); }}
-                onErrorClick={(file, line) => jumpToError(file, line)}
+                onErrorClick={(file, line, col) => jumpToError(file, line, col)}
               />
             )}
           </section>
