@@ -40,6 +40,14 @@ function SimulatorPage() {
   const wires = useSimStore((s) => s.wires);
   const loadProject = useSimStore((s) => s.loadProject);
   const boardId = useSimStore((s) => s.boardId);
+  const serialLen = useSimStore((s) => s.serial.length);
+  const pinStateCount = useSimStore((s) => Object.keys(s.pinStates).length);
+
+  // Show the Pin States + Serial panels only once the simulation actually
+  // has something to show — running/paused, errored, or any captured output.
+  const showSimPanels =
+    status === "running" || status === "paused" || status === "error"
+    || serialLen > 0 || pinStateCount > 0;
 
   const ideHydrate = useIdeStore((s) => s.hydrate);
   const ideLoaded = useIdeStore((s) => s.loaded);
@@ -161,12 +169,16 @@ function SimulatorPage() {
               </Button>
             )}
           </div>
-          <div className="h-44 shrink-0 border-t border-border">
-            <PinStateTable />
-          </div>
-          <div className="h-56 shrink-0 border-t border-border">
-            <SerialPanel onSerialIn={(t) => ctrl.serialIn(t)} />
-          </div>
+          {showSimPanels && (
+            <>
+              <div className="h-44 shrink-0 border-t border-border">
+                <PinStateTable />
+              </div>
+              <div className="h-56 shrink-0 border-t border-border">
+                <SerialPanel onSerialIn={(t) => ctrl.serialIn(t)} />
+              </div>
+            </>
+          )}
         </section>
 
         {/* Right: Code editor (toggleable) */}
