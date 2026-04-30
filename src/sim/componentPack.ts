@@ -1,6 +1,6 @@
 // Component pack ZIP utilities — runs in the browser.
 // A pack contains:
-//   manifest.json   — { name, slug, kind, description, version, width, height, pins, defaults, behaviorNotes }
+//   manifest.json   — full spec including structured behavior model
 //   svg/main.svg    — the component artwork
 //   behavior.js     — optional JS notes (text, not executed)
 //   assets/         — optional extra images
@@ -16,6 +16,30 @@ export interface ComponentPin {
   role?: string;
 }
 
+export interface BehaviorParam {
+  id: string;
+  label: string;
+  type: "number" | "boolean" | "enum";
+  min?: number;
+  max?: number;
+  step?: number;
+  default?: number | boolean | string;
+  options?: string[];
+  unit?: string;
+}
+
+export interface ComponentBehavior {
+  params?: BehaviorParam[];
+  states?: Array<{
+    id: string;
+    label: string;
+    when?: string;
+    visual?: Record<string, unknown>;
+  }>;
+  failures?: Array<{ when: string; state: string; reason: string }>;
+  notes?: string;
+}
+
 export interface CustomComponentRow {
   id: string;
   name: string;
@@ -29,6 +53,7 @@ export interface CustomComponentRow {
     pins: ComponentPin[];
     defaults?: Record<string, string | number | boolean>;
     behaviorNotes?: string;
+    behavior?: ComponentBehavior;
   };
   behavior: string | null;
   version: number;
@@ -48,33 +73,44 @@ export interface ImportedComponent {
   pins: ComponentPin[];
   defaults?: Record<string, string | number | boolean>;
   behaviorNotes?: string;
+  behavior?: ComponentBehavior;
 }
 
 export async function exportComponentZip(comp: CustomComponentRow): Promise<Blob> {
   const zip = new JSZip();
+  const spec = comp.spec ?? { width: 100, height: 80, pins: [] };
 
   const manifest = {
+    formatVersion: 2,
+    exportedAt: new Date().toISOString(),
     name: comp.name,
     slug: comp.slug,
     kind: comp.kind,
     description: comp.description ?? "",
     version: comp.version,
-    width: comp.spec?.width ?? 100,
-    height: comp.spec?.height ?? 80,
-    pins: comp.spec?.pins ?? [],
-    defaults: comp.spec?.defaults ?? {},
-    behaviorNotes: comp.spec?.behaviorNotes ?? comp.behavior ?? "",
-    exportedAt: new Date().toISOString(),
-    formatVersion: 1,
+    width: spec.width ?? 100,
+    height: spec.height ?? 80,
+    pins: spec.pins ?? [],
+    defaults: spec.defaults ?? {},
+    behaviorNotes: spec.behaviorNotes ?? comp.behavior ?? "",
+    behavior: spec.behavior ?? null,
   };
 
   zip.file("manifest.json", JSON.stringify(manifest, null, 2));
-  zip.folder("svg")?.file("main.svg", wrapAsStandaloneSvg(comp.svg, manifest.width, manifest.height));
-  zip.file("behavior.js", `// Behavior notes for ${comp.name}\n// ${manifest.behaviorNotes}\n`);
+  zip
+    .folder("svg")
+    ?.file("main.svg", wrapAsStandaloneSvg(comp.svg, manifest.width, manifest.height));
+  zip.file(
+    "behavior.js",
+    `// Behavior notes for ${comp.name}\n// ${manifest.behaviorNotes}\n` +
+      (manifest.behavior
+        ? `\n/* structured behavior:\n${JSON.stringify(manifest.behavior, null, 2)}\n*/\n`
+        : ""),
+  );
   zip.folder("assets");
   zip.file(
     "README.md",
-    `# ${comp.name}\n\n${comp.description ?? ""}\n\n**Pins:** ${manifest.pins
+    `# ${comp.name}\n\n${comp.description ?? ""}\n\n**Kind:** ${comp.kind}\n**Version:** ${comp.version}\n\n**Pins:** ${manifest.pins
       .map((p) => `\`${p.id}\` (${p.label})`)
       .join(", ")}\n\nExported from EmbedSim Admin.\n`,
   );
@@ -106,6 +142,7 @@ export async function importComponentZip(file: File | Blob): Promise<ImportedCom
     pins: Array.isArray(manifest.pins) ? manifest.pins : [],
     defaults: manifest.defaults ?? {},
     behaviorNotes: String(manifest.behaviorNotes ?? ""),
+    behavior: manifest.behavior ?? undefined,
   };
 }
 
@@ -114,7 +151,6 @@ function wrapAsStandaloneSvg(inner: string, width: number, height: number): stri
 }
 
 function unwrapStandaloneSvg(raw: string): string {
-  // Extract content between <svg ...> and </svg>
   const match = raw.match(/<svg[^>]*>([\s\S]*)<\/svg>/i);
   return match ? match[1].trim() : raw;
 }
