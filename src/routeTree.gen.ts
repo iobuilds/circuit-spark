@@ -15,6 +15,8 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminComponentsComponentIdEditRouteImport } from './routes/admin.components.$componentId.edit'
+import { Route as AdminBoardsBoardIdEditRouteImport } from './routes/admin.boards.$boardId.edit'
 
 const ExamplesRoute = ExamplesRouteImport.update({
   id: '/examples',
@@ -46,6 +48,17 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminComponentsComponentIdEditRoute =
+  AdminComponentsComponentIdEditRouteImport.update({
+    id: '/components/$componentId/edit',
+    path: '/components/$componentId/edit',
+    getParentRoute: () => AdminRoute,
+  } as any)
+const AdminBoardsBoardIdEditRoute = AdminBoardsBoardIdEditRouteImport.update({
+  id: '/boards/$boardId/edit',
+  path: '/boards/$boardId/edit',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -54,6 +67,8 @@ export interface FileRoutesByFullPath {
   '/docs': typeof DocsRoute
   '/examples': typeof ExamplesRoute
   '/admin/': typeof AdminIndexRoute
+  '/admin/boards/$boardId/edit': typeof AdminBoardsBoardIdEditRoute
+  '/admin/components/$componentId/edit': typeof AdminComponentsComponentIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -61,6 +76,8 @@ export interface FileRoutesByTo {
   '/docs': typeof DocsRoute
   '/examples': typeof ExamplesRoute
   '/admin': typeof AdminIndexRoute
+  '/admin/boards/$boardId/edit': typeof AdminBoardsBoardIdEditRoute
+  '/admin/components/$componentId/edit': typeof AdminComponentsComponentIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -70,13 +87,39 @@ export interface FileRoutesById {
   '/docs': typeof DocsRoute
   '/examples': typeof ExamplesRoute
   '/admin/': typeof AdminIndexRoute
+  '/admin/boards/$boardId/edit': typeof AdminBoardsBoardIdEditRoute
+  '/admin/components/$componentId/edit': typeof AdminComponentsComponentIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/admin' | '/docs' | '/examples' | '/admin/'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/admin'
+    | '/docs'
+    | '/examples'
+    | '/admin/'
+    | '/admin/boards/$boardId/edit'
+    | '/admin/components/$componentId/edit'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/docs' | '/examples' | '/admin'
-  id: '__root__' | '/' | '/about' | '/admin' | '/docs' | '/examples' | '/admin/'
+  to:
+    | '/'
+    | '/about'
+    | '/docs'
+    | '/examples'
+    | '/admin'
+    | '/admin/boards/$boardId/edit'
+    | '/admin/components/$componentId/edit'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/admin'
+    | '/docs'
+    | '/examples'
+    | '/admin/'
+    | '/admin/boards/$boardId/edit'
+    | '/admin/components/$componentId/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -131,15 +174,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/components/$componentId/edit': {
+      id: '/admin/components/$componentId/edit'
+      path: '/components/$componentId/edit'
+      fullPath: '/admin/components/$componentId/edit'
+      preLoaderRoute: typeof AdminComponentsComponentIdEditRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/boards/$boardId/edit': {
+      id: '/admin/boards/$boardId/edit'
+      path: '/boards/$boardId/edit'
+      fullPath: '/admin/boards/$boardId/edit'
+      preLoaderRoute: typeof AdminBoardsBoardIdEditRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
 interface AdminRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminBoardsBoardIdEditRoute: typeof AdminBoardsBoardIdEditRoute
+  AdminComponentsComponentIdEditRoute: typeof AdminComponentsComponentIdEditRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
+  AdminBoardsBoardIdEditRoute: AdminBoardsBoardIdEditRoute,
+  AdminComponentsComponentIdEditRoute: AdminComponentsComponentIdEditRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
