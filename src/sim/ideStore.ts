@@ -104,7 +104,7 @@ interface IdeState {
   prefs: IdePreferences;
 
   hydrate: () => void;
-  installBoard: (id: string, version: string) => void;
+  installBoard: (b: InstalledBoard) => void;
   removeBoard: (id: string) => void;
   installLibrary: (lib: InstalledLibrary) => void;
   removeLibrary: (id: string) => void;
