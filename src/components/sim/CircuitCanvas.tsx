@@ -294,28 +294,17 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         }}
       >
         <g transform={`scale(${zoom}) translate(${pan.x} ${pan.y})`}>
-          {/* Legacy primary board at fixed position. Stays as the active sim target. */}
-          {boardId === "uno" ? (
-            <ArduinoUnoBoard
-              x={BOARD_X}
-              y={BOARD_Y}
-              highlightPin={drawingFrom?.componentId === "board" ? drawingFrom.pinId : undefined}
-              onPinClick={(pinId) => handleBoardPinClick("board", pinId)}
-            />
-          ) : (
-            <GenericBoard
-              boardId={boardId}
-              x={BOARD_X}
-              y={BOARD_Y}
-              highlightPin={drawingFrom?.componentId === "board" ? drawingFrom.pinId : undefined}
-              onPinClick={(pinId) => handleBoardPinClick("board", pinId)}
-            />
-          )}
-
-          {/* Additional placed boards (multi-board) */}
+          {/* Placed boards (multi-board). The default Uno is auto-seeded on first load. */}
           {placedBoards.map((b) => {
             const bid = (b.props.boardId as BoardId) ?? "uno";
             const isSel = selectedId === b.id;
+            const hoverHandler = (pin: { id: string; label: string; kind: HoveredPin["kind"]; number?: number; x: number; y: number } | null) => {
+              if (!pin) { setHovered(null); return; }
+              // Convert pin board-local coords to canvas-local pixels.
+              const sx = (b.x + pin.x + pan.x) * zoom;
+              const sy = (b.y + pin.y + pan.y) * zoom;
+              setHovered({ id: pin.id, label: pin.label, kind: pin.kind, number: pin.number, sx, sy });
+            };
             return (
               <g
                 key={b.id}
@@ -327,6 +316,8 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                   const p = clientToSvg(e);
                   setDragId(b.id);
                   setDragOffset({ x: p.x - b.x, y: p.y - b.y });
+                  // Make this board the active simulation target.
+                  setBoard(bid);
                 }}
                 style={{ cursor: locked ? "default" : "grab" }}
               >
@@ -336,6 +327,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                     y={b.y}
                     highlightPin={drawingFrom?.componentId === b.id ? drawingFrom.pinId : undefined}
                     onPinClick={(pinId) => handleBoardPinClick(b.id, pinId)}
+                    onPinHover={hoverHandler}
                   />
                 ) : (
                   <GenericBoard
@@ -344,6 +336,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                     y={b.y}
                     highlightPin={drawingFrom?.componentId === b.id ? drawingFrom.pinId : undefined}
                     onPinClick={(pinId) => handleBoardPinClick(b.id, pinId)}
+                    onPinHover={hoverHandler}
                   />
                 )}
                 {isSel && (
