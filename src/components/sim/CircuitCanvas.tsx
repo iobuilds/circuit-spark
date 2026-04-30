@@ -56,6 +56,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const removeWire = useSimStore((s) => s.removeWire);
   const updateWireWaypoint = useSimStore((s) => s.updateWireWaypoint);
   const insertWireWaypoint = useSimStore((s) => s.insertWireWaypoint);
+  const setWireStyle = useSimStore((s) => s.setWireStyle);
 
   const adminComps = useAdminStore((s) => s.components);
 
@@ -69,6 +70,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const [panning, setPanning] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [hovered, setHovered] = useState<HoveredPin | null>(null);
+  const [selectedWireId, setSelectedWireId] = useState<string | null>(null);
 
   const placedBoards = useMemo(() => components.filter((c) => c.kind === "board"), [components]);
 
