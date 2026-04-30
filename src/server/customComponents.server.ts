@@ -280,6 +280,7 @@ export async function runBuilderChat(
   history: ChatMessage[],
   userMessage: string,
   images?: string[],
+  currentSpec?: unknown,
 ): Promise<AIChatResult> {
   const apiKey = process.env.LOVABLE_API_KEY;
   if (!apiKey) {
