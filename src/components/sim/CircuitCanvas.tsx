@@ -578,22 +578,39 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         </div>
       )}
 
-      {/* Floating pin info popup on hover (id, kind/role, live value if simulating). */}
+      {/* Floating pin info popup on hover (id, kind/role, connected net, live value if simulating). */}
       {hovered && (() => {
         const pinNum = hovered.number;
         const live = pinNum !== undefined ? pinStates[pinNum] : undefined;
         const kindLabel =
-          hovered.kind === "power" ? "Power"
-          : hovered.kind === "ground" ? "Ground"
-          : hovered.kind === "digital" ? `Digital (D${pinNum ?? ""})`
-          : hovered.kind === "analog" ? `Analog (A${pinNum !== undefined ? pinNum - 14 : ""})`
+          hovered.kind === "power" ? `Power (${hovered.label})`
+          : hovered.kind === "ground" ? "Ground (GND)"
+          : hovered.kind === "digital" ? `Digital D${pinNum ?? ""}`
+          : hovered.kind === "analog" ? `Analog A${pinNum !== undefined ? pinNum - 14 : ""}`
           : "Pin";
+        // Resolve the connected net label (which board pin / rail this pin shares a net with),
+        // and find any non-board components attached to that same net.
+        const netLabel = net.netForCompPin.get(`${hovered.boardCompId}::${hovered.id}`) ?? null;
+        const connectedComps: string[] = [];
+        if (netLabel) {
+          for (const c of components) {
+            if (c.kind === "board") continue;
+            const def = COMPONENT_DEFS[c.kind];
+            if (!def) continue;
+            for (const p of def.pins) {
+              if (net.netForCompPin.get(`${c.id}::${p.id}`) === netLabel) {
+                connectedComps.push(`${def.label} ${p.label}`);
+                break;
+              }
+            }
+          }
+        }
         return (
           <div
-            className="pointer-events-none absolute z-20 rounded-md border border-border bg-card/95 backdrop-blur px-2.5 py-1.5 text-[11px] shadow-lg font-mono"
+            className="pointer-events-none absolute z-20 rounded-md border border-border bg-card/95 backdrop-blur px-2.5 py-1.5 text-[11px] shadow-lg font-mono min-w-[140px]"
             style={{
               left: Math.max(8, hovered.sx + 14),
-              top: Math.max(8, hovered.sy - 36),
+              top: Math.max(8, hovered.sy - 50),
             }}
           >
             <div className="flex items-center gap-1.5">
@@ -601,12 +618,84 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
               <span className="text-muted-foreground">·</span>
               <span className="text-foreground">{kindLabel}</span>
             </div>
-            {live && (
+            {netLabel && (
               <div className="text-muted-foreground mt-0.5">
-                {live.digital !== undefined && <>digital: <span className="text-foreground">{live.digital}</span> </>}
-                {live.analog !== undefined && <>analog: <span className="text-foreground">{live.analog}</span></>}
+                net: <span className="text-foreground">{netLabel}</span>
               </div>
             )}
+            {connectedComps.length > 0 && (
+              <div className="text-muted-foreground mt-0.5 truncate max-w-[220px]">
+                → {connectedComps.slice(0, 3).join(", ")}{connectedComps.length > 3 ? "…" : ""}
+              </div>
+            )}
+            {live && (
+              <div className="text-muted-foreground mt-0.5">
+                {live.mode && <>mode: <span className="text-foreground">{live.mode}</span> · </>}
+                <span className={live.digital ? "text-success" : "text-foreground"}>
+                  {live.digital ? "HIGH" : "LOW"}
+                </span>
+                {live.analog > 0 && live.analog !== 1 && <span className="text-warning ml-1">· {live.analog}</span>}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Wire style toolbar — appears when a wire is selected. */}
+      {selectedWireId && !locked && (() => {
+        const w = wires.find((ww) => ww.id === selectedWireId);
+        if (!w) return null;
+        const swatches = [
+          { name: "red",    val: "oklch(0.65 0.22 25)" },
+          { name: "green",  val: "oklch(0.72 0.18 145)" },
+          { name: "blue",   val: "oklch(0.65 0.18 250)" },
+          { name: "yellow", val: "oklch(0.85 0.18 90)" },
+          { name: "black",  val: "oklch(0.18 0 0)" },
+          { name: "white",  val: "oklch(0.95 0 0)" },
+          { name: "default",val: "" },
+        ];
+        const cur = w.color || "";
+        const thick = w.thickness ?? 2.2;
+        return (
+          <div className="absolute top-3 right-3 flex items-center gap-2 rounded-md bg-card/95 backdrop-blur border border-border px-3 py-1.5 text-xs shadow-lg">
+            <span className="text-muted-foreground">Wire</span>
+            <div className="flex items-center gap-1">
+              {swatches.map((s) => (
+                <button
+                  key={s.name}
+                  title={s.name}
+                  onClick={() => setWireStyle(w.id, { color: s.val || undefined })}
+                  className={`h-5 w-5 rounded-full border ${cur === s.val ? "ring-2 ring-primary" : "border-border"}`}
+                  style={{
+                    background: s.val || "var(--color-wire)",
+                    backgroundImage: !s.val
+                      ? "repeating-linear-gradient(45deg, transparent 0 3px, rgba(255,255,255,.15) 3px 6px)"
+                      : undefined,
+                  }}
+                />
+              ))}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted-foreground">thickness</span>
+              <input
+                type="range"
+                min={1}
+                max={6}
+                step={0.5}
+                value={thick}
+                onChange={(e) => setWireStyle(w.id, { thickness: Number(e.target.value) })}
+                className="w-24"
+              />
+              <span className="tabular-nums w-7 text-right">{thick.toFixed(1)}</span>
+            </div>
+            <Button size="sm" variant="ghost" className="h-6 px-2"
+              onClick={() => { removeWire(w.id); setSelectedWireId(null); }}>
+              <Trash2 className="h-3 w-3" />
+            </Button>
+            <Button size="sm" variant="ghost" className="h-6 px-2"
+              onClick={() => setSelectedWireId(null)}>
+              <X className="h-3 w-3" />
+            </Button>
           </div>
         );
       })()}
