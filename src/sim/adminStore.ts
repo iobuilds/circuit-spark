@@ -7,9 +7,9 @@ import { COMPONENT_DEFS } from "./components";
 import { defaultUnoPins } from "./boardSvgs/unoPins";
 import { UNO_SVG } from "./boardSvgs/unoSvg";
 
-// v6: switched Uno SVG to embedded user-supplied PNG illustration (960x704
-// viewBox) and recalibrated all pin coordinates to match the image.
-const STORAGE_VERSION = 6;
+// v7: VisualPin gained `properties: string[]` (multi-select catalog keys).
+// Old persisted entries are forward-compatible (missing field treated as empty).
+const STORAGE_VERSION = 7;
 const KEY_BOARDS = "embedsim_boards";
 const KEY_COMPONENTS = "embedsim_components";
 
