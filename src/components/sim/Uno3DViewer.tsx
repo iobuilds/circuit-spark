@@ -263,15 +263,18 @@ function loadUno() {
  *  audit panel can show "0 textures / 0 images" without re-parsing the file. */
 const MODEL_STATS = { materials: 24, textures: 0, images: 0 };
 
-export function Uno3DViewer({
-  topView = false,
-  topViewWidth = 1000,
-  topViewHeight = 700,
-  onTopViewClick,
-  markers,
-  tablePieces,
-  className,
-}: Props) {
+export const Uno3DViewer = forwardRef<Uno3DViewerHandle, Props>(function Uno3DViewer(
+  {
+    topView = false,
+    topViewWidth = 1000,
+    topViewHeight = 700,
+    onTopViewClick,
+    markers,
+    tablePieces,
+    className,
+  },
+  ref,
+) {
   const containerRef = useRef<HTMLDivElement>(null);
   // Latest props reachable from event handlers without re-creating the scene.
   const propsRef = useRef({ topView, topViewWidth, topViewHeight, onTopViewClick, markers, tablePieces });
@@ -284,8 +287,41 @@ export function Uno3DViewer({
       markersGroup: null as THREE.Group | null,
       piecesGroup: null as THREE.Group | null,
       bbox: null as THREE.Box3 | null,
+      /** The cloned, live Uno scene currently in the renderer (for audit/reload). */
+      unoClone: null as THREE.Group | null,
     }),
     [],
+  );
+
+  // Imperative API for the audit panel. Methods read from/mutate the LIVE clone
+  // so changes appear in the running renderer immediately.
+  useImperativeHandle(
+    ref,
+    () => ({
+      isReady: () => !!runtime.unoClone,
+      modelStats: () => MODEL_STATS,
+      audit: () => (runtime.unoClone ? auditScene(runtime.unoClone) : []),
+      reloadMaterials: () => {
+        if (!runtime.unoClone) return [];
+        applyMaterialFixups(runtime.unoClone);
+        return auditScene(runtime.unoClone);
+      },
+      setMaterialColor: (index, color) => {
+        if (!runtime.unoClone) return [];
+        const mats = indexedMaterials(runtime.unoClone);
+        const m = mats[index] as THREE.MeshStandardMaterial | undefined;
+        if (m && "color" in m) {
+          try {
+            m.color.set(color);
+            m.needsUpdate = true;
+          } catch {
+            /* ignore invalid CSS color */
+          }
+        }
+        return auditScene(runtime.unoClone);
+      },
+    }),
+    [runtime],
   );
 
   useEffect(() => {
