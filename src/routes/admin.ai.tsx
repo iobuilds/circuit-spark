@@ -39,6 +39,51 @@ export const Route = createFileRoute("/admin/ai")({
 });
 
 interface ChatMsg { role: "user" | "assistant"; content: string; images?: string[] }
+interface Conversation { id: string; title: string; messages: ChatMsg[]; updatedAt: number }
+
+const CONVO_STORAGE_KEY = "admin-ai-conversations-v1";
+const ACTIVE_CONVO_KEY = "admin-ai-active-conversation-v1";
+
+const INITIAL_GREETING: ChatMsg = {
+  role: "assistant",
+  content: "Hi! Describe a component or board you want to build — for example: *'a small DC motor with speed and direction inputs that burns over 12V'*. You don't need to provide an SVG; I'll draw one for you. Once we agree, say **build it** and I'll emit a final spec with a live behavior simulator.",
+};
+
+function newConversation(): Conversation {
+  return {
+    id: `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+    title: "New conversation",
+    messages: [INITIAL_GREETING],
+    updatedAt: Date.now(),
+  };
+}
+
+function loadConversations(): { list: Conversation[]; activeId: string } {
+  if (typeof window === "undefined") {
+    const c = newConversation();
+    return { list: [c], activeId: c.id };
+  }
+  try {
+    const raw = localStorage.getItem(CONVO_STORAGE_KEY);
+    const list: Conversation[] = raw ? JSON.parse(raw) : [];
+    const activeId = localStorage.getItem(ACTIVE_CONVO_KEY) ?? "";
+    if (list.length === 0) {
+      const c = newConversation();
+      return { list: [c], activeId: c.id };
+    }
+    return { list, activeId: list.find((c) => c.id === activeId)?.id ?? list[0].id };
+  } catch {
+    const c = newConversation();
+    return { list: [c], activeId: c.id };
+  }
+}
+
+function deriveTitle(messages: ChatMsg[]): string {
+  const firstUser = messages.find((m) => m.role === "user");
+  if (!firstUser) return "New conversation";
+  const t = firstUser.content.trim().replace(/\s+/g, " ");
+  return t.length > 40 ? t.slice(0, 40) + "…" : t || "New conversation";
+}
 
 interface ArduinoLibMatch {
   name: string;
