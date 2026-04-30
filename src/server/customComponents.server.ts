@@ -336,15 +336,14 @@ export async function runBuilderChat(
     },
     body: JSON.stringify({
       // GPT-5: top-tier reasoning + reliable tool calling for structured
-      // SVG/JSON output. Faster wall-clock than gemini-2.5-pro for our workload
-      // and far better at preserving spec memory across iterative tweaks.
+      // SVG/JSON output. NOTE: GPT-5 on the Lovable AI Gateway rejects the
+      // legacy `max_tokens` and `temperature` params (returns 400) — it
+      // requires `max_completion_tokens` and a default temperature.
       model: "openai/gpt-5",
       messages,
       tools: [COMPONENT_SPEC_TOOL],
       tool_choice: "auto",
-      // Allow large tool-call outputs (SVG markup + behavior JSON can be ~4-6k tokens).
-      max_tokens: 8192,
-      temperature: 0.4,
+      max_completion_tokens: 8192,
     }),
   });
 
