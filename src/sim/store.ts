@@ -182,7 +182,7 @@ export const useSimStore = create<SimState>((set, get) => ({
     return { theme: next };
   }),
 
-  resetWorkspace: () => set({ components: [], wires: [], selectedId: null, serial: [], pinStates: {}, simTimeMs: 0 }),
+  resetWorkspace: () => set({ components: [], wires: [], selectedId: null, serial: [], pinStates: {}, simTimeMs: 0, drawingFrom: null, drawingWaypoints: [] }),
   loadProject: (p) => set({
     code: p.code,
     components: p.components,
