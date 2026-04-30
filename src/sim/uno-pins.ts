@@ -1,5 +1,6 @@
-// Arduino Uno SVG pin layout. Coordinates are in board-local units (matches the SVG viewBox).
-// Board SVG is 360 wide x 240 tall.
+// Arduino Uno pin layout calibrated to the embedded PNG (960x704 viewBox).
+// Coordinates are pixel positions within that viewBox so wires snap to the
+// actual header sockets in the illustration.
 
 export interface BoardPin {
   id: string;        // e.g. "D0", "D13", "A0", "5V", "GND", "RESET"
@@ -11,56 +12,68 @@ export interface BoardPin {
   number?: number;
 }
 
-export const UNO_WIDTH = 360;
-export const UNO_HEIGHT = 240;
+export const UNO_WIDTH = 960;
+export const UNO_HEIGHT = 704;
 
-// Top header: D0..D13 + GND + AREF (right to left in real board, but we lay out left to right)
-// Bottom header: power pins + A0..A5
-const topY = 18;
-const bottomY = 222;
+// Top digital header: pins read 13..8 (left block) then 7..0 (right block).
+// Pitch ≈ 35px. Left block starts at x≈287 (D13). Right block at x≈542 (D7).
+const TOP_Y = 92;
+const PITCH = 35;
+const LEFT_BLOCK_X = 287;   // D13
+const RIGHT_BLOCK_X = 542;  // D7
+
+function topDigitalX(num: number): number {
+  // num: 0..13. Right block: 0..7 → D7..D0 left→right. Left block: 8..13 → D13..D8 left→right.
+  if (num <= 7) {
+    // D7 at RIGHT_BLOCK_X, D0 at RIGHT_BLOCK_X + 7*PITCH
+    return RIGHT_BLOCK_X + (7 - num) * PITCH;
+  }
+  // D13 at LEFT_BLOCK_X, D8 at LEFT_BLOCK_X + 5*PITCH
+  return LEFT_BLOCK_X + (13 - num) * PITCH;
+}
 
 const digitalPins: BoardPin[] = [];
-// Right block on top: D8..D13 + GND + AREF + SDA(SCL share with A4/A5)
-// We'll just lay D0..D13 evenly across the top, two groups separated by a gap.
-const dStartX = 95;
 for (let i = 0; i <= 13; i++) {
-  const groupGap = i >= 8 ? 14 : 0;
   digitalPins.push({
     id: `D${i}`,
     label: `D${i}`,
     kind: "digital",
     number: i,
-    x: dStartX + i * 14 + groupGap,
-    y: topY,
+    x: topDigitalX(i),
+    y: TOP_Y,
   });
 }
-// GND + AREF after D13
-digitalPins.push({ id: "GND_TOP", label: "GND", kind: "ground", x: dStartX + 14 * 14 + 14, y: topY });
-digitalPins.push({ id: "AREF", label: "AREF", kind: "other", x: dStartX + 15 * 14 + 14, y: topY });
+// GND + AREF sit to the LEFT of D13 in the same top header strip.
+digitalPins.push({ id: "GND_TOP", label: "GND",  kind: "ground", x: 253, y: TOP_Y });
+digitalPins.push({ id: "AREF",    label: "AREF", kind: "other",  x: 218, y: TOP_Y });
 
+// Bottom headers, y≈648.
+const BOTTOM_Y = 648;
+
+// Power header (left block on the bottom).
+const powerPins: BoardPin[] = [
+  { id: "IOREF", label: "IOREF", kind: "other",  x: 360, y: BOTTOM_Y },
+  { id: "RESET", label: "RST",   kind: "other",  x: 395, y: BOTTOM_Y },
+  { id: "3V3",   label: "3.3V",  kind: "power",  x: 430, y: BOTTOM_Y },
+  { id: "5V",    label: "5V",    kind: "power",  x: 465, y: BOTTOM_Y },
+  { id: "GND1",  label: "GND",   kind: "ground", x: 500, y: BOTTOM_Y },
+  { id: "GND2",  label: "GND",   kind: "ground", x: 535, y: BOTTOM_Y },
+  { id: "VIN",   label: "VIN",   kind: "power",  x: 570, y: BOTTOM_Y },
+];
+
+// Analog header (right block on the bottom). A0..A5 left→right.
 const analogPins: BoardPin[] = [];
+const A0_X = 645;
 for (let i = 0; i <= 5; i++) {
   analogPins.push({
     id: `A${i}`,
     label: `A${i}`,
     kind: "analog",
     number: 14 + i,
-    x: 240 + i * 14,
-    y: bottomY,
+    x: A0_X + i * PITCH,
+    y: BOTTOM_Y,
   });
 }
-
-// Real Arduino Uno power-header order (left to right when board oriented with
-// USB on the left): IOREF, RESET, 3.3V, 5V, GND, GND, VIN.
-const powerPins: BoardPin[] = [
-  { id: "IOREF", label: "IOREF", kind: "other", x: 100, y: bottomY },
-  { id: "RESET", label: "RST",   kind: "other", x: 114, y: bottomY },
-  { id: "3V3",   label: "3.3V",  kind: "power", x: 128, y: bottomY },
-  { id: "5V",    label: "5V",    kind: "power", x: 142, y: bottomY },
-  { id: "GND1",  label: "GND",   kind: "ground", x: 156, y: bottomY },
-  { id: "GND2",  label: "GND",   kind: "ground", x: 170, y: bottomY },
-  { id: "VIN",   label: "VIN",   kind: "power", x: 184, y: bottomY },
-];
 
 export const UNO_PINS: BoardPin[] = [...digitalPins, ...powerPins, ...analogPins];
 

@@ -43,11 +43,12 @@ export function ArduinoUnoBoard({ x, y, highlightPin, onPinClick, onPinHover }: 
           fill="oklch(0.42 0.10 165)" stroke="oklch(0.30 0.08 165)" strokeWidth={1.5} />
       )}
 
-      {/* On-board "L" LED glow overlay (D13) */}
+      {/* On-board "L" LED glow overlay (D13). Position matches the yellow
+          "L" LED in the embedded illustration (≈435,178 in 960x704 space). */}
       {ledOn && (
         <g pointerEvents="none">
-          <circle cx={122} cy={81} r={6} fill="oklch(0.85 0.22 75 / 0.35)" />
-          <circle cx={122} cy={81} r={3} fill="oklch(0.92 0.22 80)" />
+          <circle cx={435} cy={178} r={16} fill="oklch(0.85 0.22 75 / 0.35)" />
+          <circle cx={435} cy={178} r={8}  fill="oklch(0.92 0.22 80)" />
         </g>
       )}
 
@@ -58,11 +59,11 @@ export function ArduinoUnoBoard({ x, y, highlightPin, onPinClick, onPinHover }: 
         return (
           <g key={pin.id} transform={`translate(${pin.x} ${pin.y})`}>
             <circle
-              r={4.5}
+              r={11}
               fill={isOutput ? "var(--color-pin-active)" : "var(--color-pin)"}
               fillOpacity={0.9}
               stroke={isHi ? "var(--color-primary)" : "oklch(0.15 0 0)"}
-              strokeWidth={isHi ? 2 : 0.8}
+              strokeWidth={isHi ? 4 : 1.5}
               className={cn("cursor-crosshair transition-all", isOutput && "led-glow-yellow")}
               onMouseDown={(e) => { e.stopPropagation(); onPinClick?.(pin.id, e); }}
               onMouseEnter={(e) => onPinHover?.(pin, e)}
