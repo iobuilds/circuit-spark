@@ -37,7 +37,7 @@ function evictIfNeeded() {
   }
 }
 
-export const Route = createFileRoute("/api/libraries/download")({
+export const Route = (createFileRoute("/api/libraries/download") as any)({
   server: {
     handlers: {
       GET: async ({ request }: { request: Request }) => {
