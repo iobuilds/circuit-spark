@@ -108,7 +108,7 @@ export function compileSketch(
   const backendBoard = mapBoardIdToBackend(req.board);
   const pinErrors = validatePins(req.files, backendBoard);
   if (pinErrors.length > 0) {
-    onProgress?.({ step: "validate", percent: 100, message: `Invalid pin reference (${pinErrors.length}) ✗` } as CompileProgress);
+    onProgress?.({ step: "validate", percent: 100, message: `Invalid pin reference (${pinErrors.length}) ✗` });
     return Promise.resolve({
       success: false,
       stdout: "",
