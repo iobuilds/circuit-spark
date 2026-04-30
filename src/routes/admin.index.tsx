@@ -230,6 +230,36 @@ function ComponentsTab() {
   function onImportFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
+    const isZip = f.name.toLowerCase().endsWith(".zip") || f.type === "application/zip";
+    if (isZip) {
+      // Single AI-generated component ZIP pack
+      importComponentZip(f)
+        .then((imp) => {
+          const entry: ComponentEntry = {
+            id: `custom-${imp.slug}-${Date.now().toString(36)}`,
+            label: imp.name,
+            category: imp.kind === "board" ? "board" : "custom",
+            enabled: true,
+            builtIn: false,
+            behavior: "passive",
+            svg: imp.svg,
+            width: imp.width,
+            height: imp.height,
+            pins: imp.pins?.map((p) => ({
+              id: p.id,
+              label: p.label,
+              type: "other",
+              x: p.x,
+              y: p.y,
+            })),
+          };
+          createCustom(entry);
+          toast.success(`Imported ${imp.name} from ZIP`);
+        })
+        .catch((err) => toast.error("Failed to import ZIP: " + (err as Error).message));
+      e.target.value = "";
+      return;
+    }
     f.text().then((t) => {
       try {
         const j = JSON.parse(t);
