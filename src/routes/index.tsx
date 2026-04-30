@@ -11,6 +11,8 @@ import { IdeMenubar } from "@/components/sim/IdeMenubar";
 import { FileTabs } from "@/components/sim/FileTabs";
 import { CompileOutputPanel } from "@/components/sim/CompileOutputPanel";
 import { PinStateTable } from "@/components/sim/PinStateTable";
+import { Button } from "@/components/ui/button";
+import { Code2, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { useSimController } from "@/sim/useSimController";
 import { useSimStore } from "@/sim/store";
 import { useIdeStore } from "@/sim/ideStore";
