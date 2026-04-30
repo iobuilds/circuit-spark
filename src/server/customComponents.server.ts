@@ -335,11 +335,11 @@ export async function runBuilderChat(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      // GPT-5: top-tier reasoning + reliable tool calling for structured
-      // SVG/JSON output. NOTE: GPT-5 on the Lovable AI Gateway rejects the
-      // legacy `max_tokens` and `temperature` params (returns 400) — it
-      // requires `max_completion_tokens` and a default temperature.
-      model: "openai/gpt-5",
+      // gpt-5-mini: strong reasoning + tool calling, much lower latency than
+      // full gpt-5. GPT-5 family on the Lovable AI Gateway requires
+      // `max_completion_tokens` (not max_tokens) and rejects custom
+      // temperature — keep this minimal.
+      model: "openai/gpt-5-mini",
       messages,
       tools: [COMPONENT_SPEC_TOOL],
       tool_choice: "auto",
