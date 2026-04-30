@@ -89,6 +89,9 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [spaceDown, setSpaceDown] = useState(false);
   const [panning, setPanning] = useState(false);
+  /** Pin currently being dragged (set on mousedown over a pin marker). */
+  const [dragPinId, setDragPinId] = useState<string | null>(null);
+  const dragStateRef = useRef<{ startX: number; startY: number; moved: boolean } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -205,11 +208,39 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
         x: panStartRef.current.px + (e.clientX - panStartRef.current.x),
         y: panStartRef.current.py + (e.clientY - panStartRef.current.y),
       });
+      return;
+    }
+    if (dragPinId && dragStateRef.current && svgInfo) {
+      const dx = e.clientX - dragStateRef.current.startX;
+      const dy = e.clientY - dragStateRef.current.startY;
+      if (!dragStateRef.current.moved && Math.hypot(dx, dy) < 3) return; // click threshold
+      dragStateRef.current.moved = true;
+      const p = screenToSvg(e.clientX, e.clientY);
+      if (!p) return;
+      const snapped = snap ? snapPoint(p, gridSize, svgInfo) : p;
+      // Clamp to viewBox so pins can't escape the artwork
+      const x = Math.max(svgInfo.vbX, Math.min(svgInfo.vbX + svgInfo.vbWidth, snapped.x));
+      const y = Math.max(svgInfo.vbY, Math.min(svgInfo.vbY + svgInfo.vbHeight, snapped.y));
+      onChange({
+        svg,
+        pins: pins.map((p2) => (p2.id === dragPinId ? { ...p2, x: round1(x), y: round1(y) } : p2)),
+      });
+      // Suppress popover while dragging
+      if (popoverOpen) setPopoverOpen(false);
     }
   }
   function handleCanvasMouseUp() {
     panStartRef.current = null;
     setPanning(false);
+    if (dragPinId) {
+      // If the user barely moved, treat it as a click → open popover.
+      if (dragStateRef.current && !dragStateRef.current.moved) {
+        setSelectedPin(dragPinId);
+        setPopoverOpen(true);
+      }
+      setDragPinId(null);
+      dragStateRef.current = null;
+    }
   }
   function handleWheel(e: React.WheelEvent) {
     e.preventDefault();
