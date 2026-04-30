@@ -4,7 +4,6 @@
 import { create } from "zustand";
 import { BOARDS, type BoardDef, type BoardId, type ComponentKind } from "./types";
 import { COMPONENT_DEFS } from "./components";
-import { UNO_SVG } from "./boardSvgs/unoSvg";
 import { defaultUnoPins } from "./boardSvgs/unoPins";
 
 // v4: library wiped to a single fully-functional Arduino Uno (3D GLB-based).
