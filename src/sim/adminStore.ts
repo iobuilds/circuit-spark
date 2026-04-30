@@ -26,6 +26,9 @@ export interface VisualPin {
   y: number;             // SVG user-space Y
   color?: string;        // hex e.g. "#22c55e"
   notes?: string;
+  /** Catalog property keys assigned to this pin (multi-select), e.g.
+   *  ["gpio", "pwm", "spi-mosi"] or ["3v3"], ["led-power"]. */
+  properties?: string[];
 }
 
 export interface BoardEntry {
