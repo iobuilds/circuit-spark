@@ -522,13 +522,15 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
 /* ---------------- Sub-components ---------------- */
 
 function UploadZone({
-  onFiles, fileRef, onStartBlank,
+  onFiles, fileRef, onStartBlank, onConvertedSvg,
 }: {
   onFiles: (f: FileList | null) => void;
   fileRef: React.RefObject<HTMLInputElement | null>;
   onStartBlank?: () => void;
+  onConvertedSvg?: (svg: string) => void;
 }) {
   const [over, setOver] = useState(false);
+  const [showConvert, setShowConvert] = useState(false);
   return (
     <div
       onDragOver={(e) => { e.preventDefault(); setOver(true); }}
@@ -542,11 +544,29 @@ function UploadZone({
     >
       <Upload className="h-10 w-10 text-muted-foreground" />
       <div className="text-sm font-medium">Drop your SVG file here</div>
-      <div className="text-xs text-muted-foreground">.svg only</div>
-      <div className="flex items-center gap-2 mt-2">
+      <div className="text-xs text-muted-foreground">.svg — or convert a PNG/JPG below</div>
+      <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
         <Button size="sm" onClick={() => fileRef.current?.click()}>
           <Upload className="h-4 w-4 mr-1.5" /> Browse for SVG
         </Button>
+        {onConvertedSvg && (
+          <Dialog open={showConvert} onOpenChange={setShowConvert}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline">
+                <ImageIcon className="h-4 w-4 mr-1.5" /> Convert PNG → SVG
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl">
+              <DialogHeader>
+                <DialogTitle>Convert PNG → SVG</DialogTitle>
+              </DialogHeader>
+              <PngToSvgConverter
+                onSvg={(s) => { onConvertedSvg(s); setShowConvert(false); }}
+                onCancel={() => setShowConvert(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
         {onStartBlank && (
           <Button size="sm" variant="outline" onClick={onStartBlank}>
             Start with blank canvas
