@@ -60,3 +60,31 @@ export const deleteCustomComponent = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     return dbDeleteComponent(data.id);
   });
+
+export const findArduinoLibraries = createServerFn({ method: "POST" })
+  .inputValidator(
+    (input: {
+      name?: string;
+      slug?: string;
+      description?: string;
+      keywords?: string[];
+      limit?: number;
+    }) => ({
+      name: typeof input?.name === "string" ? input.name.slice(0, 200) : undefined,
+      slug: typeof input?.slug === "string" ? input.slug.slice(0, 200) : undefined,
+      description:
+        typeof input?.description === "string" ? input.description.slice(0, 1000) : undefined,
+      keywords: Array.isArray(input?.keywords)
+        ? input.keywords.filter((k) => typeof k === "string").slice(0, 10)
+        : undefined,
+      limit: typeof input?.limit === "number" ? Math.min(20, Math.max(1, input.limit)) : 8,
+    }),
+  )
+  .handler(async ({ data }) => {
+    try {
+      const matches = await searchArduinoLibraries(data);
+      return { matches, error: null };
+    } catch (e) {
+      return { matches: [], error: (e as Error).message };
+    }
+  });
