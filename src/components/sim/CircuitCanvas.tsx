@@ -69,6 +69,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const wireFutureLen = useSimStore((s) => s.wireFuture.length);
 
   const adminComps = useAdminStore((s) => s.components);
+  const adminBoards = useAdminStore((s) => s.boards);
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
