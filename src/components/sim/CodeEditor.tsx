@@ -266,10 +266,12 @@ export function CodeEditor() {
         monaco.editor.setModelMarkers(model, owner, []);
       }
       for (const [fileName, diags] of byFile) {
-        const model = monaco.editor.getModels().find((m) => {
-          const mm = m as unknown as { uri: { path: string; toString: () => string } };
-          return mm.uri.path.endsWith("/" + fileName) || mm.uri.path === fileName || mm.uri.toString().endsWith(fileName);
-        });
+        const model = (monaco.editor.getModels() as unknown as Array<{
+          uri: { path: string; toString: () => string };
+          getLineMaxColumn: (line: number) => number;
+        }>).find((m) =>
+          m.uri.path.endsWith("/" + fileName) || m.uri.path === fileName || m.uri.toString().endsWith(fileName),
+        );
         if (!model) continue;
         const markers = diags.map((d) => {
           const lineLen = (() => {
