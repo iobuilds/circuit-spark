@@ -178,22 +178,25 @@ export function CircuitComponentNode({ comp, isPowered, onPinClick, onSelect, on
   );
 }
 
-function LedSvg({ color, on }: { color: string; on: boolean }) {
+function LedSvg({ color, on, size = 1 }: { color: string; on: boolean; size?: number }) {
   const c = LED_COLORS[color] ?? LED_COLORS.red;
+  const s = Math.max(0.5, Math.min(2.5, size));
+  // Scale around the bulb center (30, 28).
   return (
     <g>
-      {/* leads */}
+      {/* leads (always anchored to pin positions) */}
       <line x1={20} y1={50} x2={20} y2={78} stroke="oklch(0.78 0.02 240)" strokeWidth={1.5} />
       <line x1={40} y1={50} x2={40} y2={78} stroke="oklch(0.78 0.02 240)" strokeWidth={1.5} />
-      {/* bulb */}
-      <ellipse
-        cx={30} cy={28} rx={20} ry={26}
-        fill={on ? c.on : c.off}
-        stroke="oklch(0.2 0.01 240)"
-        strokeWidth={1}
-        className={on ? c.glow : ""}
-      />
-      <ellipse cx={24} cy={20} rx={5} ry={8} fill="oklch(1 0 0 / 0.35)" />
+      <g transform={`translate(${30 * (1 - s)} ${28 * (1 - s)}) scale(${s})`}>
+        <ellipse
+          cx={30} cy={28} rx={20} ry={26}
+          fill={on ? c.on : c.off}
+          stroke="oklch(0.2 0.01 240)"
+          strokeWidth={1}
+          className={on ? c.glow : ""}
+        />
+        <ellipse cx={24} cy={20} rx={5} ry={8} fill="oklch(1 0 0 / 0.35)" />
+      </g>
     </g>
   );
 }
