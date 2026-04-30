@@ -239,6 +239,7 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
       <UploadZone
         onFiles={handleFiles}
         fileRef={fileRef}
+        onStartBlank={() => onChange({ svg: BLANK_SVG, pins })}
       />
     );
   }
