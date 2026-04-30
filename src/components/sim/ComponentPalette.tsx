@@ -1,13 +1,28 @@
 import { COMPONENT_DEFS } from "@/sim/components";
 import type { ComponentKind } from "@/sim/types";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
+import { useAdminStore } from "@/sim/adminStore";
 
 const CATEGORIES = ["Basic", "Displays", "Sensors", "Actuators", "Power", "Comms"] as const;
 
 export function ComponentPalette() {
   const [q, setQ] = useState("");
-  const all = Object.values(COMPONENT_DEFS);
+  const adminLoaded = useAdminStore((s) => s.loaded);
+  const adminComps = useAdminStore((s) => s.components);
+  const hydrate = useAdminStore((s) => s.hydrate);
+  useEffect(() => { if (!adminLoaded) hydrate(); }, [adminLoaded, hydrate]);
+
+  // Build the palette from admin order; only enabled components appear.
+  const all = useMemo(() => {
+    if (!adminLoaded) {
+      return Object.values(COMPONENT_DEFS).filter((c) => c.available);
+    }
+    return adminComps
+      .filter((a) => a.enabled)
+      .map((a) => COMPONENT_DEFS[a.id as ComponentKind])
+      .filter(Boolean);
+  }, [adminLoaded, adminComps]);
   const filtered = all.filter((c) => c.label.toLowerCase().includes(q.toLowerCase()));
 
   return (
