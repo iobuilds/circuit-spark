@@ -146,7 +146,7 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
       window.removeEventListener("keyup", up);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPin]);
+  }, [selectedPin, selectedIds, pins]);
 
   // ---- Upload handlers (.svg only; PNG goes through PngToSvgConverter) ----
   const handleFiles = useCallback((files: FileList | null) => {
