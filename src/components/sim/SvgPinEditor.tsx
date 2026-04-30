@@ -37,6 +37,9 @@ import {
 import {
   MousePointer2, Plus, Trash2, ZoomIn, ZoomOut, Maximize2,
   Grid3x3, Code2, Upload, X, Image as ImageIcon,
+  AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
+  AlignStartVertical, AlignCenterVertical, AlignEndVertical,
+  AlignHorizontalSpaceBetween, AlignVerticalSpaceBetween,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { VisualPin } from "@/sim/adminStore";
@@ -84,6 +87,7 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
   const [snap, setSnap] = useState(false);
   const [gridSize, setGridSize] = useState(10);
   const [selectedPin, setSelectedPin] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [drawerSvg, setDrawerSvg] = useState(svg ?? "");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -91,7 +95,13 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
   const [panning, setPanning] = useState(false);
   /** Pin currently being dragged (set on mousedown over a pin marker). */
   const [dragPinId, setDragPinId] = useState<string | null>(null);
-  const dragStateRef = useRef<{ startX: number; startY: number; moved: boolean } | null>(null);
+  const dragStateRef = useRef<{
+    startX: number; startY: number; moved: boolean;
+    origin?: Map<string, { x: number; y: number }>;
+  } | null>(null);
+  // Marquee rubber-band selection (in screen px relative to canvas container)
+  const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
+  const marqueeRef = useRef<{ additive: boolean; baseline: Set<string> } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -108,9 +118,22 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
         e.preventDefault();
         setSpaceDown(true);
       }
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedPin && !isTypingTarget(e.target)) {
+      if ((e.key === "Delete" || e.key === "Backspace") && !isTypingTarget(e.target)) {
+        if (selectedIds.size > 0) {
+          e.preventDefault();
+          deleteSelected();
+        } else if (selectedPin) {
+          e.preventDefault();
+          deletePin(selectedPin);
+        }
+      }
+      if ((e.key === "a" || e.key === "A") && (e.ctrlKey || e.metaKey) && !isTypingTarget(e.target)) {
         e.preventDefault();
-        deletePin(selectedPin);
+        setSelectedIds(new Set(pins.map((p) => p.id)));
+      }
+      if (e.key === "Escape") {
+        setSelectedIds(new Set());
+        setSelectedPin(null);
       }
     };
     const up = (e: KeyboardEvent) => {
@@ -123,7 +146,7 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
       window.removeEventListener("keyup", up);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPin]);
+  }, [selectedPin, selectedIds, pins]);
 
   // ---- Upload handlers (.svg only; PNG goes through PngToSvgConverter) ----
   const handleFiles = useCallback((files: FileList | null) => {
@@ -199,7 +222,24 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
       onChange({ svg, pins: [...pins, newPin] });
       setSelectedPin(id);
       setPopoverOpen(true);
-      // Stay in add mode for rapid placement; user can switch back via toolbar
+      return;
+    }
+    // Select mode: start marquee on empty canvas
+    if (mode === "select") {
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      marqueeRef.current = {
+        additive: e.shiftKey || e.metaKey || e.ctrlKey,
+        baseline: new Set(selectedIds),
+      };
+      setMarquee({ x0: x, y0: y, x1: x, y1: y });
+      if (!(e.shiftKey || e.metaKey || e.ctrlKey)) {
+        setSelectedIds(new Set());
+        setSelectedPin(null);
+      }
     }
   }
   function handleCanvasMouseMove(e: React.MouseEvent) {
@@ -213,33 +253,89 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
     if (dragPinId && dragStateRef.current && svgInfo) {
       const dx = e.clientX - dragStateRef.current.startX;
       const dy = e.clientY - dragStateRef.current.startY;
-      if (!dragStateRef.current.moved && Math.hypot(dx, dy) < 3) return; // click threshold
+      if (!dragStateRef.current.moved && Math.hypot(dx, dy) < 3) return;
       dragStateRef.current.moved = true;
       const p = screenToSvg(e.clientX, e.clientY);
       if (!p) return;
-      const snapped = snap ? snapPoint(p, gridSize, svgInfo) : p;
-      // Clamp to viewBox so pins can't escape the artwork
-      const x = Math.max(svgInfo.vbX, Math.min(svgInfo.vbX + svgInfo.vbWidth, snapped.x));
-      const y = Math.max(svgInfo.vbY, Math.min(svgInfo.vbY + svgInfo.vbHeight, snapped.y));
+      const origin = dragStateRef.current.origin;
+      // If multi-selected and the dragged pin is part of selection, move all together
+      const movingIds = selectedIds.has(dragPinId) && selectedIds.size > 1
+        ? selectedIds
+        : new Set([dragPinId]);
+      // Compute delta in SVG space relative to origin of dragged pin
+      const originPin = origin?.get(dragPinId);
+      if (!originPin) return;
+      const startSvg = screenToSvg(dragStateRef.current.startX, dragStateRef.current.startY);
+      if (!startSvg) return;
+      let dxS = p.x - startSvg.x;
+      let dyS = p.y - startSvg.y;
+      if (snap) {
+        dxS = Math.round(dxS / gridSize) * gridSize;
+        dyS = Math.round(dyS / gridSize) * gridSize;
+      }
+      const minX = svgInfo.vbX;
+      const maxX = svgInfo.vbX + svgInfo.vbWidth;
+      const minY = svgInfo.vbY;
+      const maxY = svgInfo.vbY + svgInfo.vbHeight;
       onChange({
         svg,
-        pins: pins.map((p2) => (p2.id === dragPinId ? { ...p2, x: round1(x), y: round1(y) } : p2)),
+        pins: pins.map((p2) => {
+          if (!movingIds.has(p2.id)) return p2;
+          const o = origin?.get(p2.id);
+          if (!o) return p2;
+          const nx = Math.max(minX, Math.min(maxX, o.x + dxS));
+          const ny = Math.max(minY, Math.min(maxY, o.y + dyS));
+          return { ...p2, x: round1(nx), y: round1(ny) };
+        }),
       });
-      // Suppress popover while dragging
       if (popoverOpen) setPopoverOpen(false);
+      return;
+    }
+    if (marquee && marqueeRef.current) {
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setMarquee({ ...marquee, x1: e.clientX - rect.left, y1: e.clientY - rect.top });
     }
   }
   function handleCanvasMouseUp() {
     panStartRef.current = null;
     setPanning(false);
     if (dragPinId) {
-      // If the user barely moved, treat it as a click → open popover.
       if (dragStateRef.current && !dragStateRef.current.moved) {
         setSelectedPin(dragPinId);
         setPopoverOpen(true);
       }
       setDragPinId(null);
       dragStateRef.current = null;
+    }
+    if (marquee && marqueeRef.current && svgInfo) {
+      // Compute selection from marquee rect (canvas px → svg space → match pins)
+      const fit = computeFit(svgInfo.vbWidth, svgInfo.vbHeight);
+      const toSvg = (cx: number, cy: number) => {
+        const localX = (cx - pan.x - CANVAS_W / 2) / zoom + CANVAS_W / 2;
+        const localY = (cy - pan.y - CANVAS_H / 2) / zoom + CANVAS_H / 2;
+        return {
+          x: (localX - fit.offsetX) / fit.scale + svgInfo.vbX,
+          y: (localY - fit.offsetY) / fit.scale + svgInfo.vbY,
+        };
+      };
+      const a = toSvg(marquee.x0, marquee.y0);
+      const b = toSvg(marquee.x1, marquee.y1);
+      const xMin = Math.min(a.x, b.x), xMax = Math.max(a.x, b.x);
+      const yMin = Math.min(a.y, b.y), yMax = Math.max(a.y, b.y);
+      const tiny = Math.abs(marquee.x0 - marquee.x1) < 3 && Math.abs(marquee.y0 - marquee.y1) < 3;
+      if (!tiny) {
+        const hits = pins.filter((p) => p.x >= xMin && p.x <= xMax && p.y >= yMin && p.y <= yMax).map((p) => p.id);
+        const baseline = marqueeRef.current.baseline;
+        const next = marqueeRef.current.additive
+          ? new Set([...baseline, ...hits])
+          : new Set(hits);
+        setSelectedIds(next);
+        if (hits.length > 0) setSelectedPin(hits[hits.length - 1]);
+      }
+      setMarquee(null);
+      marqueeRef.current = null;
     }
   }
   function handleWheel(e: React.WheelEvent) {
@@ -262,6 +358,62 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
     onChange({
       svg,
       pins: pins.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+    });
+  }
+
+  function deleteSelected() {
+    if (selectedIds.size === 0) return;
+    onChange({ svg, pins: pins.filter((p) => !selectedIds.has(p.id)) });
+    setSelectedIds(new Set());
+    setSelectedPin(null);
+    setPopoverOpen(false);
+  }
+
+  type AlignOp = "left" | "right" | "top" | "bottom" | "centerH" | "centerV"
+    | "distH" | "distV";
+  function alignSelection(op: AlignOp) {
+    if (selectedIds.size < 2) {
+      toast.error("Select 2+ pins to align");
+      return;
+    }
+    const sel = pins.filter((p) => selectedIds.has(p.id));
+    if ((op === "distH" || op === "distV") && sel.length < 3) {
+      toast.error("Select 3+ pins to distribute");
+      return;
+    }
+    const xs = sel.map((p) => p.x);
+    const ys = sel.map((p) => p.y);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    let updates = new Map<string, { x?: number; y?: number }>();
+    if (op === "left") sel.forEach((p) => updates.set(p.id, { x: minX }));
+    else if (op === "right") sel.forEach((p) => updates.set(p.id, { x: maxX }));
+    else if (op === "top") sel.forEach((p) => updates.set(p.id, { y: minY }));
+    else if (op === "bottom") sel.forEach((p) => updates.set(p.id, { y: maxY }));
+    else if (op === "centerV") sel.forEach((p) => updates.set(p.id, { x: cx }));
+    else if (op === "centerH") sel.forEach((p) => updates.set(p.id, { y: cy }));
+    else if (op === "distH") {
+      const sorted = [...sel].sort((a, b) => a.x - b.x);
+      const step = (sorted[sorted.length - 1].x - sorted[0].x) / (sorted.length - 1);
+      sorted.forEach((p, i) => updates.set(p.id, { x: sorted[0].x + step * i }));
+    } else if (op === "distV") {
+      const sorted = [...sel].sort((a, b) => a.y - b.y);
+      const step = (sorted[sorted.length - 1].y - sorted[0].y) / (sorted.length - 1);
+      sorted.forEach((p, i) => updates.set(p.id, { y: sorted[0].y + step * i }));
+    }
+    onChange({
+      svg,
+      pins: pins.map((p) => {
+        const u = updates.get(p.id);
+        if (!u) return p;
+        return {
+          ...p,
+          x: u.x !== undefined ? round1(u.x) : p.x,
+          y: u.y !== undefined ? round1(u.y) : p.y,
+        };
+      }),
     });
   }
 
@@ -309,13 +461,49 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
           size="sm"
           variant="outline"
           className="h-8"
-          disabled={!selectedPin}
-          onClick={() => selectedPin && deletePin(selectedPin)}
+          disabled={!selectedPin && selectedIds.size === 0}
+          onClick={() => {
+            if (selectedIds.size > 0) deleteSelected();
+            else if (selectedPin) deletePin(selectedPin);
+          }}
         >
-          <Trash2 className="h-4 w-4 mr-1.5" /> Delete
+          <Trash2 className="h-4 w-4 mr-1.5" />
+          Delete{selectedIds.size > 1 ? ` (${selectedIds.size})` : ""}
         </Button>
 
         <div className="h-6 w-px bg-border mx-1" />
+
+        <div className="flex items-center gap-0.5">
+          <AlignBtn title="Align left" disabled={selectedIds.size < 2} onClick={() => alignSelection("left")}>
+            <AlignStartVertical className="h-4 w-4" />
+          </AlignBtn>
+          <AlignBtn title="Align center (vertical axis)" disabled={selectedIds.size < 2} onClick={() => alignSelection("centerV")}>
+            <AlignCenterVertical className="h-4 w-4" />
+          </AlignBtn>
+          <AlignBtn title="Align right" disabled={selectedIds.size < 2} onClick={() => alignSelection("right")}>
+            <AlignEndVertical className="h-4 w-4" />
+          </AlignBtn>
+          <div className="w-1" />
+          <AlignBtn title="Align top" disabled={selectedIds.size < 2} onClick={() => alignSelection("top")}>
+            <AlignStartHorizontal className="h-4 w-4" />
+          </AlignBtn>
+          <AlignBtn title="Align middle (horizontal axis)" disabled={selectedIds.size < 2} onClick={() => alignSelection("centerH")}>
+            <AlignCenterHorizontal className="h-4 w-4" />
+          </AlignBtn>
+          <AlignBtn title="Align bottom" disabled={selectedIds.size < 2} onClick={() => alignSelection("bottom")}>
+            <AlignEndHorizontal className="h-4 w-4" />
+          </AlignBtn>
+          <div className="w-1" />
+          <AlignBtn title="Distribute horizontally" disabled={selectedIds.size < 3} onClick={() => alignSelection("distH")}>
+            <AlignHorizontalSpaceBetween className="h-4 w-4" />
+          </AlignBtn>
+          <AlignBtn title="Distribute vertically" disabled={selectedIds.size < 3} onClick={() => alignSelection("distV")}>
+            <AlignVerticalSpaceBetween className="h-4 w-4" />
+          </AlignBtn>
+        </div>
+
+        <div className="h-6 w-px bg-border mx-1" />
+
 
         <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => setZoom((z) => Math.min(8, z * 1.2))}>
           <ZoomIn className="h-4 w-4" />
@@ -485,13 +673,20 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
                 const cx = (p.x - svgInfo.vbX) * fit.scale + fit.offsetX;
                 const cy = (p.y - svgInfo.vbY) * fit.scale + fit.offsetY;
                 const isSel = p.id === selectedPin;
+                const isMulti = selectedIds.has(p.id);
                 return (
                   <g key={p.id} style={{ pointerEvents: "auto" }}>
-                    {isSel && (
-                      <circle cx={cx} cy={cy} r={9} fill="none" stroke="hsl(var(--primary))" strokeWidth={2} />
+                    {(isSel || isMulti) && (
+                      <circle
+                        cx={cx} cy={cy} r={9}
+                        fill="none"
+                        stroke={isMulti ? "hsl(var(--primary))" : "hsl(var(--primary))"}
+                        strokeWidth={2}
+                        strokeDasharray={isMulti && !isSel ? "3 2" : undefined}
+                      />
                     )}
                     <Popover
-                      open={popoverOpen && isSel}
+                      open={popoverOpen && isSel && selectedIds.size <= 1}
                       onOpenChange={(o) => { if (isSel) setPopoverOpen(o); }}
                     >
                       <PopoverTrigger asChild>
@@ -504,12 +699,34 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
                           onMouseDown={(e) => {
                             e.stopPropagation();
                             e.preventDefault();
+                            const additive = e.shiftKey || e.metaKey || e.ctrlKey;
+                            setSelectedIds((prev) => {
+                              const next = new Set(prev);
+                              if (additive) {
+                                if (next.has(p.id)) next.delete(p.id);
+                                else next.add(p.id);
+                              } else if (!next.has(p.id)) {
+                                next.clear();
+                                next.add(p.id);
+                              }
+                              return next;
+                            });
                             setSelectedPin(p.id);
                             setDragPinId(p.id);
+                            // Snapshot positions of all selected pins for group-drag
+                            const origin = new Map<string, { x: number; y: number }>();
+                            const movingNow = (selectedIds.has(p.id) && selectedIds.size > 1)
+                              ? selectedIds
+                              : new Set([p.id]);
+                            pins.forEach((pp) => {
+                              if (movingNow.has(pp.id)) origin.set(pp.id, { x: pp.x, y: pp.y });
+                            });
+                            if (!origin.has(p.id)) origin.set(p.id, { x: p.x, y: p.y });
                             dragStateRef.current = {
                               startX: e.clientX,
                               startY: e.clientY,
                               moved: false,
+                              origin,
                             };
                           }}
                         />
@@ -536,11 +753,24 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
               })}
             </svg>
           )}
+
+          {/* Marquee rubber-band overlay */}
+          {marquee && (
+            <div
+              className="absolute pointer-events-none border border-primary bg-primary/10"
+              style={{
+                left: Math.min(marquee.x0, marquee.x1),
+                top: Math.min(marquee.y0, marquee.y1),
+                width: Math.abs(marquee.x1 - marquee.x0),
+                height: Math.abs(marquee.y1 - marquee.y0),
+              }}
+            />
+          )}
         </div>
 
         {/* HUD */}
         <div className="absolute bottom-2 left-2 text-[10px] text-muted-foreground bg-background/80 backdrop-blur px-2 py-1 rounded">
-          {pins.length} pin{pins.length === 1 ? "" : "s"} · drag a pin to move · click to edit · <kbd className="px-1 border rounded bg-muted">Space</kbd>+drag to pan · scroll to zoom
+          {pins.length} pin{pins.length === 1 ? "" : "s"}{selectedIds.size > 0 ? ` · ${selectedIds.size} selected` : ""} · drag canvas to marquee-select · <kbd className="px-1 border rounded bg-muted">Shift</kbd>+click to multi-select · <kbd className="px-1 border rounded bg-muted">Ctrl/⌘+A</kbd> all · <kbd className="px-1 border rounded bg-muted">Space</kbd>+drag to pan
         </div>
       </div>
 
@@ -618,6 +848,28 @@ function UploadZone({
         onChange={(e) => onFiles(e.target.files)}
       />
     </div>
+  );
+}
+
+function AlignBtn({
+  title, disabled, onClick, children,
+}: {
+  title: string;
+  disabled?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Button
+      size="icon"
+      variant="outline"
+      className="h-8 w-8"
+      title={title}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {children}
+    </Button>
   );
 }
 
