@@ -118,7 +118,15 @@ function mergeBoards(persisted: BoardEntry[]): BoardEntry[] {
   persisted.forEach((p) => {
     const def = map.get(p.id);
     if (def) {
-      ordered.push({ ...def, ...p, builtIn: true });
+      // Backfill svg/pins from defaults when persisted entry doesn't have them yet.
+      const merged: BoardEntry = {
+        ...def,
+        ...p,
+        builtIn: true,
+        svg: p.svg ?? def.svg,
+        pins: p.pins && p.pins.length > 0 ? p.pins : def.pins,
+      };
+      ordered.push(merged);
       map.delete(p.id);
     } else if (!p.builtIn) {
       ordered.push(p);
