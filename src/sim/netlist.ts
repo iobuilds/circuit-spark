@@ -93,11 +93,12 @@ export function isLedPowered(
   const a = net.netForCompPin.get(key(comp.id, "A"));
   const k = net.netForCompPin.get(key(comp.id, "K"));
   if (!a || !k) return false;
-  // One side must be GND (or a LOW output)
+  const mode = String(comp.props?.mode ?? "auto"); // "auto" | "power" | "gpio"
   const isGround = (label: string) =>
     label === "GND" || label === "GND1" || label === "GND2" || label === "GND_TOP";
-  const labelToHigh = (label: string): boolean => {
-    if (label === "5V" || label === "3V3" || label === "VIN") return true;
+  const isRail = (label: string) =>
+    label === "5V" || label === "3V3" || label === "VIN";
+  const isGpioHigh = (label: string): boolean => {
     if (label.startsWith("D")) {
       const n = Number(label.slice(1));
       return pinStates[n]?.digital === 1;
@@ -107,6 +108,11 @@ export function isLedPowered(
       return pinStates[n]?.digital === 1;
     }
     return false;
+  };
+  const labelToHigh = (label: string): boolean => {
+    if (mode === "power") return isRail(label);
+    if (mode === "gpio") return isGpioHigh(label);
+    return isRail(label) || isGpioHigh(label);
   };
   const aHigh = labelToHigh(a), kHigh = labelToHigh(k);
   const aGnd = isGround(a), kGnd = isGround(k);
