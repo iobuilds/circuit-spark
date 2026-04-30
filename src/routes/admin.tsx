@@ -259,58 +259,134 @@ function AdminPage() {
 
         {/* Live preview */}
         <section className="flex flex-col border-r border-border bg-muted/20">
-          <div className="px-3 py-2 border-b border-border flex items-center">
+          <div className="px-3 py-2 border-b border-border flex items-center gap-2">
             <span className="text-xs font-medium uppercase tracking-wide">Live Preview</span>
+            {savedId && (
+              <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
+                <Check className="h-3 w-3" /> saved
+              </span>
+            )}
             <div className="flex-1" />
             {pending && (
-              <Button size="sm" onClick={saveCurrent}>
-                <Save className="h-3.5 w-3.5 mr-1.5" /> Save to library
-              </Button>
+              <>
+                <Button size="sm" onClick={saveCurrent}>
+                  <Save className="h-3.5 w-3.5 mr-1.5" />
+                  {savedId ? "Save new version" : "Save to library"}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={clearPending} title="Clear preview">
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </>
             )}
           </div>
-          <div className="flex-1 min-h-0 overflow-auto p-6">
+          <div className="flex-1 min-h-0 overflow-auto p-6 space-y-4">
             {pending ? (
-              <Card className="p-4 max-w-md mx-auto">
-                <ComponentBehaviorPreview
-                  spec={{
-                    name: pending.name,
-                    width: pending.width,
-                    height: pending.height,
-                    svg: pending.svg,
-                    pins: pending.pins,
-                    behavior: pending.behavior,
-                  }}
-                />
-                <div className="space-y-2 text-sm mt-4 pt-3 border-t border-border">
-                  <div className="flex items-center justify-between">
-                    <strong>{pending.name}</strong>
-                    <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                      {pending.kind}
-                    </span>
+              <>
+                <Card className="p-4 max-w-md mx-auto">
+                  <ComponentBehaviorPreview
+                    spec={{
+                      name: pending.name,
+                      width: pending.width,
+                      height: pending.height,
+                      svg: pending.svg,
+                      pins: pending.pins,
+                      behavior: pending.behavior,
+                    }}
+                  />
+                  <div className="space-y-2 text-sm mt-4 pt-3 border-t border-border">
+                    <div className="flex items-center justify-between">
+                      <strong>{pending.name}</strong>
+                      <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                        {pending.kind}
+                      </span>
+                    </div>
+                    <div className="text-muted-foreground text-xs">{pending.description}</div>
+                    <div className="grid grid-cols-2 gap-2 pt-2">
+                      <Input
+                        value={pending.name}
+                        onChange={(e) => setPending({ ...pending, name: e.target.value })}
+                        placeholder="Name"
+                      />
+                      <Input
+                        value={pending.slug}
+                        onChange={(e) => setPending({ ...pending, slug: e.target.value })}
+                        placeholder="Slug"
+                      />
+                    </div>
                   </div>
-                  <div className="text-muted-foreground text-xs">{pending.description}</div>
-                  <div className="text-xs">
-                    <strong>Pins ({pending.pins.length}):</strong>{" "}
-                    {pending.pins.map((p) => p.label).join(", ")}
+                </Card>
+
+                {/* Documentation / Usage */}
+                <Card className="p-4 max-w-md mx-auto">
+                  <div className="flex items-center gap-2 mb-2">
+                    <BookOpen className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-semibold">Documentation &amp; Usage</h3>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 pt-2">
-                    <Input
-                      value={pending.name}
-                      onChange={(e) => setPending({ ...pending, name: e.target.value })}
-                      placeholder="Name"
-                    />
-                    <Input
-                      value={pending.slug}
-                      onChange={(e) => setPending({ ...pending, slug: e.target.value })}
-                      placeholder="Slug"
-                    />
-                  </div>
-                </div>
-              </Card>
+
+                  {pending.behaviorNotes && (
+                    <p className="text-xs text-muted-foreground mb-3">{pending.behaviorNotes}</p>
+                  )}
+
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Pinout</div>
+                  <table className="w-full text-xs mb-3 border-collapse">
+                    <thead>
+                      <tr className="text-left text-muted-foreground border-b border-border">
+                        <th className="py-1 pr-2 font-medium">Pin</th>
+                        <th className="py-1 pr-2 font-medium">Role</th>
+                        <th className="py-1 pr-2 font-medium">Position</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pending.pins.map((p) => (
+                        <tr key={p.id} className="border-b border-border/50">
+                          <td className="py-1 pr-2 font-mono">{p.label}</td>
+                          <td className="py-1 pr-2 text-muted-foreground">{p.role ?? "—"}</td>
+                          <td className="py-1 pr-2 text-muted-foreground font-mono">{p.x},{p.y}</td>
+                        </tr>
+                      ))}
+                      {pending.pins.length === 0 && (
+                        <tr><td colSpan={3} className="py-2 text-muted-foreground italic">No pins.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+
+                  {pending.behavior?.params && pending.behavior.params.length > 0 && (
+                    <>
+                      <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Parameters</div>
+                      <ul className="text-xs space-y-1 mb-3">
+                        {pending.behavior.params.map((p) => (
+                          <li key={p.id} className="flex justify-between gap-2">
+                            <span><span className="font-mono">{p.id}</span> <span className="text-muted-foreground">— {p.label}</span></span>
+                            <span className="text-muted-foreground font-mono text-[10px]">
+                              {p.type}{p.type === "number" && p.min !== undefined ? ` ${p.min}..${p.max ?? "?"}${p.unit ? p.unit : ""}` : ""}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+
+                  {pending.behavior?.failures && pending.behavior.failures.length > 0 && (
+                    <>
+                      <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Failure modes</div>
+                      <ul className="text-xs space-y-1 mb-3">
+                        {pending.behavior.failures.map((f, i) => (
+                          <li key={i} className="text-destructive/90">
+                            <span className="font-mono">{f.when}</span> → {f.reason}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Wiring example</div>
+                  <pre className="text-[11px] font-mono bg-muted/50 rounded p-2 overflow-x-auto leading-relaxed">{buildWiringExample(pending)}</pre>
+                </Card>
+              </>
             ) : (
               <div className="h-full flex items-center justify-center">
                 <div className="text-sm text-muted-foreground text-center max-w-sm">
-                  Chat with the AI to design a component. The live behavior simulator (with sliders, state badges, and failure modes like "burned") appears here when a spec is ready.
+                  Chat with the AI to design a component. The live behavior simulator (with sliders, state badges, and failure modes like &quot;burned&quot;) appears here when a spec is ready. Saved components can be re-edited from the library on the right.
                 </div>
               </div>
             )}
@@ -330,7 +406,7 @@ function AdminPage() {
               </div>
             )}
             {items.map((c) => (
-              <Card key={c.id} className="p-2 space-y-2">
+              <Card key={c.id} className={`p-2 space-y-2 ${savedId === c.id ? "ring-1 ring-primary/50" : ""}`}>
                 <div className="flex items-center gap-2">
                   <div className="w-12 h-12 flex items-center justify-center bg-muted rounded shrink-0 overflow-hidden">
                     <div className="scale-50 origin-center">
@@ -345,10 +421,13 @@ function AdminPage() {
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  <Button size="sm" variant="ghost" className="flex-1 h-7 text-xs" onClick={() => handleExport(c)}>
-                    <Download className="h-3 w-3 mr-1" /> ZIP
+                  <Button size="sm" variant="secondary" className="flex-1 h-7 text-xs" onClick={() => editComponent(c)}>
+                    <Pencil className="h-3 w-3 mr-1" /> Edit
                   </Button>
-                  <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => handleDelete(c)}>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => handleExport(c)} title="Export ZIP">
+                    <Download className="h-3 w-3" />
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => handleDelete(c)} title="Delete">
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>
@@ -361,4 +440,26 @@ function AdminPage() {
       <Toaster />
     </div>
   );
+}
+
+function buildWiringExample(spec: PendingSpec): string {
+  const lines: string[] = [];
+  lines.push(`// ${spec.name}`);
+  for (const p of spec.pins) {
+    const role = (p.role ?? "").toLowerCase();
+    let target = "→ Arduino pin";
+    if (role === "power" || /vcc|vdd|5v|3v3|3\.3v/i.test(p.label)) target = "→ 5V (or 3.3V)";
+    else if (role === "ground" || /gnd|vss/i.test(p.label)) target = "→ GND";
+    else if (/sda/i.test(p.label)) target = "→ A4 (SDA)";
+    else if (/scl/i.test(p.label)) target = "→ A5 (SCL)";
+    else if (/rx/i.test(p.label)) target = "→ TX (Arduino pin 1)";
+    else if (/tx/i.test(p.label)) target = "→ RX (Arduino pin 0)";
+    else if (/mosi/i.test(p.label)) target = "→ D11 (MOSI)";
+    else if (/miso/i.test(p.label)) target = "→ D12 (MISO)";
+    else if (/sck|sclk/i.test(p.label)) target = "→ D13 (SCK)";
+    else if (role === "analog") target = "→ A0 (analog)";
+    else if (role === "digital" || role === "io" || role === "signal") target = "→ digital pin (e.g. D2)";
+    lines.push(`${p.label.padEnd(8)} ${target}`);
+  }
+  return lines.join("\n");
 }
