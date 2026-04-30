@@ -168,6 +168,23 @@ export const useSimStore = create<SimState>((set, get) => ({
   )),
   cancelWire: () => set({ drawingFrom: null, drawingWaypoints: [] }),
   removeWire: (id) => set((s) => ({ wires: s.wires.filter((w) => w.id !== id) })),
+  updateWireWaypoint: (wireId, idx, point) => set((s) => ({
+    wires: s.wires.map((w) => {
+      if (w.id !== wireId) return w;
+      const wp = [...(w.waypoints ?? [])];
+      if (idx < 0 || idx >= wp.length) return w;
+      wp[idx] = point;
+      return { ...w, waypoints: wp };
+    }),
+  })),
+  insertWireWaypoint: (wireId, idx, point) => set((s) => ({
+    wires: s.wires.map((w) => {
+      if (w.id !== wireId) return w;
+      const wp = [...(w.waypoints ?? [])];
+      wp.splice(idx, 0, point);
+      return { ...w, waypoints: wp };
+    }),
+  })),
 
   setStatus: (s) => set({ status: s }),
   setPinStates: (p) => set({ pinStates: p }),
