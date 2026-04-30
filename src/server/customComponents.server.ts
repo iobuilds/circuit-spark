@@ -223,7 +223,7 @@ export async function dbSaveComponent(spec: ComponentSpec & { svg: string }) {
     kind: spec.kind,
     description: spec.description ?? "",
     svg: spec.svg ?? "",
-    spec: spec as unknown as Record<string, unknown>,
+    spec: spec as unknown as never,
     behavior: spec.behaviorNotes ?? "",
   };
   // Upsert by slug
@@ -236,7 +236,7 @@ export async function dbSaveComponent(spec: ComponentSpec & { svg: string }) {
   if (existing) {
     const { data, error } = await supabaseAdmin
       .from("custom_components")
-      .update({ ...row, version: (existing.version ?? 1) + 1 })
+      .update({ ...row, version: (existing.version ?? 1) + 1 } as never)
       .eq("id", existing.id)
       .select()
       .single();
@@ -245,14 +245,12 @@ export async function dbSaveComponent(spec: ComponentSpec & { svg: string }) {
   }
   const { data, error } = await supabaseAdmin
     .from("custom_components")
-    .insert(row)
+    .insert(row as never)
     .select()
     .single();
   if (error) throw error;
   return data;
 }
-
-export async function dbDeleteComponent(id: string) {
   const { error } = await supabaseAdmin.from("custom_components").delete().eq("id", id);
   if (error) throw error;
   return { ok: true };
