@@ -96,6 +96,34 @@ function BoardsTab() {
   function onImportFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
+    const isZip = f.name.toLowerCase().endsWith(".zip") || f.type === "application/zip";
+    if (isZip) {
+      // AI-generated board pack ZIP
+      importComponentZip(f)
+        .then((imp) => {
+          const id = createCustom({
+            id: `custom-board-${imp.slug}-${Date.now().toString(36)}`,
+            name: imp.name,
+            mcu: "Custom",
+            digitalPins: 14,
+            analogPins: 6,
+            enabled: true,
+            svg: imp.svg,
+            pins: imp.pins?.map((p) => ({
+              id: p.id,
+              label: p.label,
+              type: "other",
+              x: p.x,
+              y: p.y,
+            })),
+          });
+          toast.success(`Imported ${imp.name} from ZIP`);
+          void id;
+        })
+        .catch((err) => toast.error("Failed to import ZIP: " + (err as Error).message));
+      e.target.value = "";
+      return;
+    }
     f.text().then((t) => {
       try {
         const j = JSON.parse(t);
@@ -127,7 +155,7 @@ function BoardsTab() {
         createLabel="New board"
         resetLabel="Reset boards to defaults"
       />
-      <input ref={fileRef} type="file" accept=".json,application/json" onChange={onImportFile} className="hidden" />
+      <input ref={fileRef} type="file" accept=".zip,.json,application/json,application/zip" onChange={onImportFile} className="hidden" />
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
