@@ -256,18 +256,29 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
 
   // Endpoint coordinates for a wire endpoint reference.
   function endpointPos(componentId: string, pinId: string): { x: number; y: number } | null {
+    // Helper: resolve a board pin from admin store first (so wiring matches the
+    // visible pin position even after admin edits), falling back to the static layout.
+    const resolveBoardPin = (boardId: string) => {
+      const b = adminBoards.find((bb) => bb.id === boardId);
+      const vp = b?.pins?.find((p) => p.id === pinId);
+      if (vp) return { x: vp.x, y: vp.y };
+      const bp = findUnoPin(pinId);
+      return bp ? { x: bp.x, y: bp.y } : null;
+    };
+
     // Legacy primary board (rendered at fixed BOARD_X/Y).
     if (componentId === "board") {
-      const bp = findUnoPin(pinId);
-      if (!bp) return null;
-      return { x: BOARD_X + bp.x, y: BOARD_Y + bp.y };
+      const p = resolveBoardPin("uno");
+      if (!p) return null;
+      return { x: BOARD_X + p.x, y: BOARD_Y + p.y };
     }
     const c = components.find((cc) => cc.id === componentId);
     if (!c) return null;
     if (c.kind === "board") {
-      const bp = findUnoPin(pinId);
-      if (!bp) return null;
-      return { x: c.x + bp.x, y: c.y + bp.y };
+      const boardId = String(c.props.boardId ?? "uno");
+      const p = resolveBoardPin(boardId);
+      if (!p) return null;
+      return { x: c.x + p.x, y: c.y + p.y };
     }
     if (c.kind === "custom") {
       const cid = String(c.props.customId ?? "");
