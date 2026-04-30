@@ -167,6 +167,27 @@ export function evaluateInputs(
         }
       }
     }
+    if (c.kind === "custom") {
+      // Sensor sliders / toggles: any prop named "pin_<pinId>_value" drives the
+      // board pin connected to that custom pin. Lets users move "axes" of an
+      // MPU6050, dial in LDR brightness, etc., without physically moving the part.
+      for (const k of Object.keys(c.props)) {
+        const m = /^pin_(.+)_value$/.exec(k);
+        if (!m) continue;
+        const pinId = m[1];
+        const netLabel = net.netForCompPin.get(key(c.id, pinId));
+        if (!netLabel) continue;
+        const pinNum = labelToPinNum(netLabel);
+        if (pinNum === null) continue;
+        const raw = c.props[k];
+        if (typeof raw === "boolean") {
+          out[pinNum] = { digital: raw ? 1 : 0, analog: raw ? 1023 : 0 };
+        } else if (typeof raw === "number") {
+          const v = Math.max(0, Math.min(1023, Math.round(raw)));
+          out[pinNum] = { analog: v, digital: v > 511 ? 1 : 0 };
+        }
+      }
+    }
   }
   return out;
 }
