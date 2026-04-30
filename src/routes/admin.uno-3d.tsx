@@ -49,6 +49,10 @@ function Uno3DAdminPage() {
   const [pins, setPins] = useState<VisualPin[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
+  // Material audit panel: toggled via the toolbar; talks to the live scene
+  // through the viewer's imperative handle.
+  const viewerRef = useRef<Uno3DViewerHandle | null>(null);
+  const [showAudit, setShowAudit] = useState(false);
 
   // Hydrate pins from the existing Uno board entry once it's loaded. Pins are
   // stored in SVG-viewBox space; we re-use that same coordinate system for the
