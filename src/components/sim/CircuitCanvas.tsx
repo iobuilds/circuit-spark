@@ -79,6 +79,8 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const [addOpen, setAddOpen] = useState(false);
   const [hovered, setHovered] = useState<HoveredPin | null>(null);
   const [selectedWireId, setSelectedWireId] = useState<string | null>(null);
+  const [pinEditMode, setPinEditMode] = useState(false);
+  const setComponentProp = useSimStore((s) => s.setComponentProp);
 
   const placedBoards = useMemo(() => components.filter((c) => c.kind === "board"), [components]);
 
