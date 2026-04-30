@@ -43,6 +43,11 @@ import type { VisualPin } from "@/sim/adminStore";
 
 const CANVAS_W = 800;
 const CANVAS_H = 600;
+const BLANK_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 240" preserveAspectRatio="xMidYMid meet">' +
+  '<rect x="0" y="0" width="360" height="240" rx="8" fill="hsl(220 14% 96%)" stroke="hsl(220 13% 80%)" stroke-width="0.6"/>' +
+  '<text x="180" y="124" text-anchor="middle" font-family="monospace" font-size="11" fill="hsl(220 9% 46%)">Blank canvas — place pins or edit SVG markup</text>' +
+  "</svg>";
 const PIN_TYPES: VisualPin["type"][] = [
   "digital", "analog", "pwm", "power", "ground",
   "i2c-sda", "i2c-scl", "spi", "uart", "other",
