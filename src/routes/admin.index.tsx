@@ -291,7 +291,7 @@ function ComponentsTab() {
         createLabel="New component"
         resetLabel="Reset components to defaults"
       />
-      <input ref={fileRef} type="file" accept=".json,application/json" onChange={onImportFile} className="hidden" />
+      <input ref={fileRef} type="file" accept=".zip,.json,application/json,application/zip" onChange={onImportFile} className="hidden" />
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
