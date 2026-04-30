@@ -32,6 +32,9 @@ const LED_COLORS: Record<string, { off: string; on: string; glow: string }> = {
   green:  { off: "oklch(0.4 0.10 145)", on: "oklch(0.78 0.22 145)", glow: "led-glow-green" },
   blue:   { off: "oklch(0.4 0.10 245)", on: "oklch(0.7 0.22 245)", glow: "led-glow-blue" },
   yellow: { off: "oklch(0.5 0.10 90)",  on: "oklch(0.85 0.18 90)",  glow: "led-glow-yellow" },
+  white:  { off: "oklch(0.55 0.01 0)",  on: "oklch(0.96 0.02 90)",  glow: "led-glow-yellow" },
+  orange: { off: "oklch(0.5 0.10 55)",  on: "oklch(0.78 0.20 55)",  glow: "led-glow-yellow" },
+  purple: { off: "oklch(0.4 0.10 305)", on: "oklch(0.7 0.22 305)",  glow: "led-glow-blue" },
 };
 
 export function CircuitComponentNode({ comp, isPowered, onPinClick, onSelect, onDragStart, selected, pinEditMode, toCanvasPoint }: Props) {
