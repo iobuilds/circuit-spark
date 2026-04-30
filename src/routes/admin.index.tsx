@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useAdminStore, type BoardEntry, type ComponentEntry, exportSnapshot } from "@/sim/adminStore";
+import { importComponentZip } from "@/sim/componentPack";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
