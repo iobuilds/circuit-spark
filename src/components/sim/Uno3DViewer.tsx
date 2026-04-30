@@ -57,6 +57,10 @@ let cachedScene: THREE.Group | null = null;
 let cachedBBox: THREE.Box3 | null = null;
 let cachedPromise: Promise<{ scene: THREE.Group; bbox: THREE.Box3 }> | null = null;
 
+// The source GLB is in METERS (~0.053 × 0.069). We rescale on import to a
+// comfortable working size so the camera/lights set up in "centimeter-ish"
+// units (real Uno is ~53×69 mm) actually frame the board.
+const TARGET_BOARD_WIDTH = 70; // scene units across the long edge of the board
 function loadUno() {
   if (cachedScene && cachedBBox) {
     return Promise.resolve({ scene: cachedScene, bbox: cachedBBox });
@@ -68,13 +72,37 @@ function loadUno() {
       "/models/uno.glb",
       (gltf) => {
         const scene = gltf.scene;
-        // Center the model at origin so camera math is predictable.
-        const bbox = new THREE.Box3().setFromObject(scene);
+        // Measure original bounds and rescale uniformly to working units.
+        const raw = new THREE.Box3().setFromObject(scene);
+        const rawSize = new THREE.Vector3();
+        raw.getSize(rawSize);
+        const longest = Math.max(rawSize.x, rawSize.y, rawSize.z) || 1;
+        const k = TARGET_BOARD_WIDTH / longest;
+        scene.scale.setScalar(k);
+        scene.updateMatrixWorld(true);
+        // Recenter so origin sits at the model center.
+        const scaled = new THREE.Box3().setFromObject(scene);
         const center = new THREE.Vector3();
-        bbox.getCenter(center);
+        scaled.getCenter(center);
         scene.position.sub(center);
-        // Recompute bbox after recentering.
+        scene.updateMatrixWorld(true);
         const bbox2 = new THREE.Box3().setFromObject(scene);
+        // Brighten materials a touch — STEP→GLB conversions often leave
+        // PBR factors flat-looking under standard lighting.
+        scene.traverse((obj) => {
+          const mesh = obj as THREE.Mesh;
+          if (!mesh.isMesh) return;
+          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          for (const m of mats) {
+            const std = m as THREE.MeshStandardMaterial;
+            if (std && "roughness" in std) {
+              // Slightly less rough so PCB green / gold pads catch light.
+              std.roughness = Math.min(std.roughness ?? 1, 0.55);
+              std.metalness = std.metalness ?? 0.1;
+              std.needsUpdate = true;
+            }
+          }
+        });
         cachedScene = scene;
         cachedBBox = bbox2;
         resolve({ scene, bbox: bbox2 });
