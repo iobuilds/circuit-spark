@@ -91,7 +91,7 @@ function AdminPage() {
   async function saveCurrent() {
     if (!pending) return;
     try {
-      const row = await saveFn({ data: { spec: pending } });
+      const row = await saveFn({ data: { spec: pending as never } });
       upsertLocal(row as unknown as CustomComponentRow);
       toast.success(`Saved ${pending.name} to library`);
       setPending(null);
@@ -108,7 +108,7 @@ function AdminPage() {
   async function handleImportFile(file: File) {
     try {
       const imp = await importComponentZip(file);
-      const row = await saveFn({ data: { spec: { ...imp } } });
+      const row = await saveFn({ data: { spec: { ...imp } as never } });
       upsertLocal(row as unknown as CustomComponentRow);
       toast.success(`Imported ${imp.name}`);
     } catch (e) {
