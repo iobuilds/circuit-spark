@@ -1,7 +1,9 @@
 import { useSimStore } from "@/sim/store";
 import { BOARDS } from "@/sim/types";
 import { Button } from "@/components/ui/button";
-import { Play, Square, Pause, RotateCcw, Save, Share2, Sparkles, Cpu, Sun, Moon, FileCode } from "lucide-react";
+import { Play, Square, Pause, RotateCcw, Save, Share2, Sparkles, Cpu, Sun, Moon, FileCode, Settings } from "lucide-react";
+import { useAdminStore } from "@/sim/adminStore";
+import { useEffect, useMemo } from "react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
