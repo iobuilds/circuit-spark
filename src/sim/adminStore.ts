@@ -7,7 +7,10 @@ import { COMPONENT_DEFS } from "./components";
 import { UNO_SVG } from "./boardSvgs/unoSvg";
 import { defaultUnoPins } from "./boardSvgs/unoPins";
 
-const STORAGE_VERSION = 3;
+// v4: library wiped to a single fully-functional Arduino Uno (3D GLB-based).
+// Bumping the version invalidates older persisted boards/components so the new
+// defaults take effect on next hydrate.
+const STORAGE_VERSION = 4;
 const KEY_BOARDS = "embedsim_boards";
 const KEY_COMPONENTS = "embedsim_components";
 
