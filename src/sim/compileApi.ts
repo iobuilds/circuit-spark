@@ -102,7 +102,7 @@ export function compileSketch(
   }
 
   return new Promise((resolve) => {
-    streamCompile(req.board, req.files, req.libraries, {
+    streamCompile(mapBoardIdToBackend(req.board), req.files, req.libraries, {
       onProgress: (p) => onProgress?.(p),
       onComplete: (r) => resolve(adaptResult(r)),
       onError: (msg, errs) => resolve({
@@ -150,4 +150,39 @@ export async function uploadZipLibrary(file: File): Promise<{ success: boolean; 
 
 export function fileSliceForCompile(files: SourceFile[]) {
   return files.map((f) => ({ name: f.name, content: f.content }));
+}
+
+/**
+ * Map the simulator's internal BoardId (e.g. "uno", "mega") to the backend's
+ * board-config key (e.g. "arduino-uno", "arduino-mega"). Backend keys come from
+ * backend/config/boards.js. If the id already matches a backend key (e.g. an
+ * AI-installed board), pass it through unchanged.
+ */
+export function mapBoardIdToBackend(boardId: string): string {
+  const direct: Record<string, string> = {
+    uno: "arduino-uno",
+    mega: "arduino-mega",
+    nano: "arduino-nano",
+    "nano-old": "arduino-nano-old",
+    mini: "arduino-mini",
+    leonardo: "arduino-leonardo",
+    micro: "arduino-micro",
+    "pro5v": "arduino-pro5v",
+    "pro3v": "arduino-pro3v",
+    zero: "arduino-zero",
+    mkr1010: "arduino-mkr1010",
+    nodemcu: "esp8266-nodemcu",
+    d1mini: "esp8266-d1mini",
+    esp32: "esp32-devkit",
+    "esp32-devkit": "esp32-devkit",
+    bluepill: "stm32-bluepill",
+    blackpill: "stm32-blackpill",
+    pico: "rp2040-pico",
+    "pico-w": "rp2040-pico-w",
+  };
+  if (direct[boardId]) return direct[boardId];
+  // Already a hyphenated FQBN-style key — pass through.
+  if (boardId.includes("-") || boardId.includes(":")) return boardId;
+  // Last-resort heuristic: prefix with "arduino-".
+  return `arduino-${boardId}`;
 }
