@@ -254,6 +254,48 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     return pts.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(" ");
   }
 
+  /**
+   * Auto-route a manhattan (orthogonal) path between two pins. Pins on top/bottom
+   * board headers leave vertically first; side pins leave horizontally. A small
+   * per-wire offset (derived from a hash of the wire id) prevents parallel wires
+   * from overlapping perfectly — each wire gets its own "lane".
+   */
+  function autoRoute(
+    a: { x: number; y: number },
+    b: { x: number; y: number },
+    seed: string,
+  ): { x: number; y: number }[] {
+    let h = 0;
+    for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
+    const lane = ((Math.abs(h) % 7) - 3) * 8; // -24..24 in 8px steps
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    // Leave the pin a short stub so we don't overlap the pad.
+    const stub = 18;
+    const ax = a.x;
+    const ay = a.y + (a.y < b.y ? stub : -stub);
+    const bx = b.x;
+    const by = b.y + (b.y < a.y ? stub : -stub);
+    // Mid Y between the two stubs, offset by lane.
+    const midY = (ay + by) / 2 + lane;
+    // If they're nearly horizontal, route as a single jog via midX instead.
+    if (Math.abs(dy) < 24 && Math.abs(dx) > 40) {
+      const midX = (ax + bx) / 2 + lane;
+      return [
+        { x: ax, y: ay },
+        { x: midX, y: ay },
+        { x: midX, y: by },
+        { x: bx, y: by },
+      ];
+    }
+    return [
+      { x: ax, y: ay },
+      { x: ax, y: midY },
+      { x: bx, y: midY },
+      { x: bx, y: by },
+    ];
+  }
+
   return (
     <div className="relative w-full h-full canvas-grid-bg overflow-hidden">
       <svg
