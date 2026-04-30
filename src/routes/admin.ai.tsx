@@ -745,7 +745,24 @@ function AdminPage() {
                     ))}
                   </ul>
                 </Card>
-              </>
+                </TabsContent>
+
+                <TabsContent value="svg" className="mt-3">
+                  <SvgEditor
+                    svg={pending.svg}
+                    width={pending.width}
+                    height={pending.height}
+                    onChange={(svg) => setPending({ ...pending, svg })}
+                  />
+                </TabsContent>
+
+                <TabsContent value="model" className="mt-3">
+                  <ModelEditor
+                    pending={pending}
+                    onChange={(patch) => setPending({ ...pending, ...patch })}
+                  />
+                </TabsContent>
+              </Tabs>
             ) : (
               <div className="h-full flex items-center justify-center">
                 <div className="text-sm text-muted-foreground text-center max-w-sm">
