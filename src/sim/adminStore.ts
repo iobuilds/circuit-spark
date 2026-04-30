@@ -5,9 +5,24 @@ import { create } from "zustand";
 import { BOARDS, type BoardDef, type BoardId, type ComponentKind } from "./types";
 import { COMPONENT_DEFS } from "./components";
 
-const STORAGE_VERSION = 1;
+const STORAGE_VERSION = 2;
 const KEY_BOARDS = "embedsim_boards";
 const KEY_COMPONENTS = "embedsim_components";
+
+/** Pin marker placed visually on top of an SVG. Coordinates are in the SVG's
+ *  natural viewBox/user-space (so they survive zoom and pan). */
+export interface VisualPin {
+  id: string;            // unique within the board/component
+  label: string;         // displayed name e.g. "D13", "VCC", "Anode"
+  /** Functional role drives how the simulator wires/treats this pin. */
+  type: "digital" | "analog" | "pwm" | "power" | "ground" | "i2c-sda" | "i2c-scl" | "spi" | "uart" | "other";
+  /** Optional hardware pin number for boards (e.g. 13 for D13). */
+  number?: number;
+  x: number;             // SVG user-space X
+  y: number;             // SVG user-space Y
+  color?: string;        // hex e.g. "#22c55e"
+  notes?: string;
+}
 
 export interface BoardEntry {
   id: string;          // BoardId or custom id
@@ -17,6 +32,10 @@ export interface BoardEntry {
   analogPins: number;
   enabled: boolean;
   builtIn: boolean;
+  /** Raw SVG markup for visual rendering in the editor and simulator. */
+  svg?: string;
+  /** Pins placed on top of the SVG. */
+  pins?: VisualPin[];
 }
 
 export interface ComponentEntry {
@@ -29,7 +48,10 @@ export interface ComponentEntry {
   behavior?: "digital-out" | "digital-in" | "analog-in" | "passive";
   width?: number;
   height?: number;
-  pins?: { id: string; label: string; x: number; y: number }[];
+  /** Raw SVG markup for visual rendering. */
+  svg?: string;
+  /** Visual pins placed on the SVG. Replaces legacy basic pin list. */
+  pins?: VisualPin[];
   bodyColor?: string;  // hex/oklch for custom rendering
 }
 
