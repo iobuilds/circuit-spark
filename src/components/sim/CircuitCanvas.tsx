@@ -531,6 +531,8 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                       if (e.button !== 0) return;
                       e.stopPropagation();
                       setSelectedWireId(w.id);
+                      // Snapshot once before a drag — the whole drag becomes one undo step.
+                      pushWireHistory();
                       setWpDrag({ wireId: w.id, idx: i });
                     }}
                     onContextMenu={(e) => { e.preventDefault(); removeWire(w.id); }}
