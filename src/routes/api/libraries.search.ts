@@ -141,7 +141,6 @@ function scoreMatch(e: ArduinoLibraryEntry, q: string): number {
 }
 
 export const Route = createFileRoute("/api/libraries/search")({
-  // @ts-expect-error - server route handlers
   server: {
     handlers: {
       GET: async ({ request }: { request: Request }) => {
