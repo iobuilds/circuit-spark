@@ -352,6 +352,20 @@ export function SvgPinEditor({ svg, pins, onChange }: SvgPinEditorProps) {
           </SheetContent>
         </Sheet>
 
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button size="sm" variant="outline" className="h-8">
+              <ImageIcon className="h-4 w-4 mr-1.5" /> PNG → SVG
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Convert PNG → SVG</DialogTitle>
+            </DialogHeader>
+            <PngToSvgConverter onSvg={(s) => acceptConvertedSvg(s)} />
+          </DialogContent>
+        </Dialog>
+
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button size="sm" variant="outline" className="h-8">
