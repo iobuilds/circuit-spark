@@ -251,6 +251,8 @@ export async function dbSaveComponent(spec: ComponentSpec & { svg: string }) {
   if (error) throw error;
   return data;
 }
+
+export async function dbDeleteComponent(id: string) {
   const { error } = await supabaseAdmin.from("custom_components").delete().eq("id", id);
   if (error) throw error;
   return { ok: true };
