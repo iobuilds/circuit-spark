@@ -71,6 +71,8 @@ export interface SimState {
   removeWire: (id: string) => void;
   updateWireWaypoint: (wireId: string, idx: number, point: { x: number; y: number }) => void;
   insertWireWaypoint: (wireId: string, idx: number, point: { x: number; y: number }) => void;
+  /** Snapshot current wires into history (used before continuous edits like waypoint drag). */
+  pushWireHistory: () => void;
   setWireStyle: (wireId: string, style: { color?: string; thickness?: number }) => void;
   /** Replace the entire wires array (used by bulk operations like apply-to-net or auto-route). */
   setWires: (next: Wire[]) => void;
@@ -99,13 +101,27 @@ export interface SimState {
 let cidCounter = 1;
 const nid = (p: string) => `${p}_${Date.now().toString(36)}_${cidCounter++}`;
 
-export const useSimStore = create<SimState>((set, get) => ({
+const HISTORY_LIMIT = 50;
+
+export const useSimStore = create<SimState>((set, get) => {
+  /** Snapshot the current wires array into history, clearing the redo stack. */
+  const snapshotWires = () => {
+    const cur = get().wires;
+    const hist = get().wireHistory;
+    const next = [...hist, cur].slice(-HISTORY_LIMIT);
+    set({ wireHistory: next, wireFuture: [] });
+  };
+
+  return ({
   boardId: "uno",
   components: [],
   wires: [],
   selectedId: null,
   drawingFrom: null,
   drawingWaypoints: [],
+
+  wireHistory: [],
+  wireFuture: [],
 
   code: DEFAULT_CODE,
   status: "idle",
