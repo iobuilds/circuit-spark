@@ -67,6 +67,20 @@ export function Toolbar({ onCompile, onStart, onPause, onResume, onStop }: Props
   const isRunning = status === "running";
   const isPaused = status === "paused";
 
+  // Admin-driven board list
+  const adminLoaded = useAdminStore((s) => s.loaded);
+  const adminBoards = useAdminStore((s) => s.boards);
+  const hydrate = useAdminStore((s) => s.hydrate);
+  useEffect(() => { if (!adminLoaded) hydrate(); }, [adminLoaded, hydrate]);
+
+  const visibleBoards = useMemo(() => {
+    if (!adminLoaded) return BOARDS;
+    const orderMap = new Map(adminBoards.map((b, i) => [b.id, { idx: i, enabled: b.enabled }]));
+    return BOARDS
+      .filter((b) => orderMap.get(b.id)?.enabled ?? b.available)
+      .sort((a, b) => (orderMap.get(a.id)?.idx ?? 0) - (orderMap.get(b.id)?.idx ?? 0));
+  }, [adminLoaded, adminBoards]);
+
   return (
     <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-card">
       <div className="flex items-center gap-2 mr-2">
@@ -79,7 +93,7 @@ export function Toolbar({ onCompile, onStart, onPause, onResume, onStop }: Props
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {BOARDS.map((b) => (
+          {visibleBoards.map((b) => (
             <SelectItem key={b.id} value={b.id} disabled={!b.available}>
               {b.name} {!b.available && "(soon)"}
             </SelectItem>
