@@ -297,8 +297,21 @@ export async function runBuilderChat(
         ]
       : userMessage;
 
+  // Build a memory-preserving message list. When prior assistant turns produced a
+  // spec via tool calling, we re-inject a compact summary so the model remembers
+  // exactly what it built (slug, pins, params, failures) instead of regenerating
+  // from scratch on every follow-up.
+  const memorySummary = summarizeHistory(history);
+  const systemMessages: ChatMessage[] = [{ role: "system", content: SYSTEM_PROMPT }];
+  if (memorySummary) {
+    systemMessages.push({
+      role: "system",
+      content: `CONTEXT — current working spec (carry this forward, do NOT discard):\n${memorySummary}\n\nWhen the user asks for tweaks ("add a pin", "rename", "lower burn voltage"), MUTATE this spec and re-emit the full tool call. Keep the same slug unless the user renames the part. Preserve all fields the user did not change.`,
+    });
+  }
+
   const messages: ChatMessage[] = [
-    { role: "system", content: SYSTEM_PROMPT },
+    ...systemMessages,
     ...history,
     { role: "user", content: userContent },
   ];
@@ -310,10 +323,16 @@ export async function runBuilderChat(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
+      // gemini-2.5-pro: stronger reasoning + larger context window — necessary
+      // because the spec we round-trip (SVG + behavior model) is large and we
+      // were losing fidelity / "memory" with the flash-preview model.
+      model: "google/gemini-2.5-pro",
       messages,
       tools: [COMPONENT_SPEC_TOOL],
       tool_choice: "auto",
+      // Allow large tool-call outputs (SVG markup + behavior JSON can be ~4-6k tokens).
+      max_tokens: 8192,
+      temperature: 0.4,
     }),
   });
 
@@ -334,6 +353,7 @@ export async function runBuilderChat(
 
   const data = (await res.json()) as {
     choices: Array<{
+      finish_reason?: string;
       message: {
         role: string;
         content: string | null;
@@ -345,8 +365,17 @@ export async function runBuilderChat(
       };
     }>;
   };
-  const msg = data.choices?.[0]?.message;
+  const choice = data.choices?.[0];
+  const msg = choice?.message;
   const toolCall = msg?.tool_calls?.find((t) => t.function?.name === "emit_component_spec");
+
+  if (choice?.finish_reason === "length" && !toolCall) {
+    return {
+      reply:
+        "I started building the spec but ran out of output room. Try saying **build it** again, or simplify the request (fewer pins / smaller SVG).",
+      spec: null,
+    };
+  }
 
   if (toolCall) {
     try {
@@ -359,6 +388,10 @@ export async function runBuilderChat(
       };
     } catch (e) {
       console.error("Failed to parse component spec args", e);
+      return {
+        reply: "I tried to emit a spec but the JSON was malformed (likely truncated). Please retry — say 'build it' again.",
+        spec: null,
+      };
     }
   }
 
@@ -366,6 +399,34 @@ export async function runBuilderChat(
     reply: msg?.content?.toString() ?? "(no response)",
     spec: null,
   };
+}
+
+/**
+ * Walk previous assistant turns and surface the most recent emitted spec as a
+ * compact summary. The chat client only stores plain `{role, content}` so the
+ * tool_calls themselves never round-trip; we recover continuity by parsing
+ * assistant content lines like "Designed **X** with N pins" plus any embedded
+ * spec markers we add. As a fallback we expose the last 6 user instructions so
+ * the model sees the chain of refinements ("then add an extra pin", etc).
+ */
+function summarizeHistory(history: ChatMessage[]): string {
+  if (!history || history.length === 0) return "";
+  const userTurns = history
+    .filter((m) => m.role === "user")
+    .map((m) => (typeof m.content === "string" ? m.content : ""))
+    .filter(Boolean)
+    .slice(-6);
+  const lastAssistant = [...history].reverse().find(
+    (m) => m.role === "assistant" && typeof m.content === "string" && /Designed \*\*/i.test(m.content as string),
+  );
+  const parts: string[] = [];
+  if (lastAssistant && typeof lastAssistant.content === "string") {
+    parts.push(`Last build: ${lastAssistant.content.slice(0, 400)}`);
+  }
+  if (userTurns.length > 0) {
+    parts.push(`Recent user instructions:\n${userTurns.map((u, i) => `  ${i + 1}. ${u.slice(0, 200)}`).join("\n")}`);
+  }
+  return parts.join("\n\n");
 }
 
 // ----- DB helpers -----
