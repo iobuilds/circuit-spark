@@ -418,25 +418,41 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
             const b = endpointPos(w.to.componentId, w.to.pinId);
             if (!a || !b) return null;
             const userMids = w.waypoints && w.waypoints.length ? w.waypoints : [];
-            const mids = userMids.length
-              ? userMids
-              : [{ x: a.x, y: (a.y + b.y) / 2 }, { x: b.x, y: (a.y + b.y) / 2 }];
+            // Auto-route when the user hasn't customised the path.
+            const mids = userMids.length ? userMids : autoRoute(a, b, w.id);
             const d = wirePath(a, b, mids);
             const segPts = [a, ...userMids, b];
+            const isWireSel = selectedWireId === w.id;
+            const stroke = w.color || "var(--color-wire)";
+            const sw = w.thickness ?? 2.2;
             return (
               <g key={w.id}>
-                {/* Visible wire — right-click deletes. */}
-                <path d={d} stroke="oklch(0 0 0 / 0.4)" strokeWidth={4} fill="none" pointerEvents="none" />
+                {/* Shadow */}
+                <path d={d} stroke="oklch(0 0 0 / 0.4)" strokeWidth={sw + 1.8} fill="none" pointerEvents="none" />
+                {/* Visible wire */}
                 <path
                   d={d}
-                  stroke="var(--color-wire)"
-                  strokeWidth={2.2}
+                  stroke={stroke}
+                  strokeWidth={sw}
                   fill="none"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   pointerEvents="none"
                 />
-                {/* Per-segment hit zones: click inserts a new waypoint at that index. */}
+                {/* Selection halo */}
+                {isWireSel && (
+                  <path
+                    d={d}
+                    stroke="var(--color-primary)"
+                    strokeWidth={sw + 4}
+                    strokeOpacity={0.25}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    pointerEvents="none"
+                  />
+                )}
+                {/* Per-segment hit zones: left-click selects the wire; shift-click inserts waypoint; right-click deletes. */}
                 {segPts.slice(0, -1).map((pt, i) => {
                   const next = segPts[i + 1];
                   const sd = `M ${pt.x} ${pt.y} L ${next.x} ${next.y}`;
@@ -445,18 +461,25 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                       key={`seg-${i}`}
                       d={sd}
                       stroke="transparent"
-                      strokeWidth={10}
+                      strokeWidth={12}
                       fill="none"
-                      className="cursor-copy"
+                      className="cursor-pointer"
                       onMouseDown={(e) => {
                         if (e.button === 2) { e.preventDefault(); removeWire(w.id); return; }
                         if (e.button !== 0) return;
                         e.stopPropagation();
-                        const p = clientToSvg(e);
-                        const snap = (n: number) => Math.round(n / 5) * 5;
-                        const newPoint = { x: snap(p.x), y: snap(p.y) };
-                        insertWireWaypoint(w.id, i, newPoint);
-                        setWpDrag({ wireId: w.id, idx: i });
+                        // Shift/Alt-click on a segment inserts a waypoint and starts dragging it.
+                        if (e.shiftKey || e.altKey) {
+                          const p = clientToSvg(e);
+                          const snap = (n: number) => Math.round(n / 5) * 5;
+                          const newPoint = { x: snap(p.x), y: snap(p.y) };
+                          insertWireWaypoint(w.id, i, newPoint);
+                          setWpDrag({ wireId: w.id, idx: i });
+                          return;
+                        }
+                        // Plain click selects the wire (so the style toolbar shows up).
+                        setSelectedWireId(w.id);
+                        setSelected(null);
                       }}
                       onContextMenu={(e) => { e.preventDefault(); removeWire(w.id); }}
                     />
@@ -469,13 +492,14 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                     cx={pt.x}
                     cy={pt.y}
                     r={4}
-                    fill="var(--color-wire)"
+                    fill={stroke}
                     stroke="var(--color-background)"
                     strokeWidth={1}
                     className="cursor-move hover:fill-[var(--color-primary)]"
                     onMouseDown={(e) => {
                       if (e.button !== 0) return;
                       e.stopPropagation();
+                      setSelectedWireId(w.id);
                       setWpDrag({ wireId: w.id, idx: i });
                     }}
                     onContextMenu={(e) => { e.preventDefault(); removeWire(w.id); }}
