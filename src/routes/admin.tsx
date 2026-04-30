@@ -321,6 +321,13 @@ function AdminPage() {
                 <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">
                   {m.role === "user" ? "You" : "AI"}
                 </div>
+                {m.images && m.images.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-1">
+                    {m.images.map((src, j) => (
+                      <img key={j} src={src} alt="" className="h-20 w-20 object-cover rounded border border-border" />
+                    ))}
+                  </div>
+                )}
                 <div className="whitespace-pre-wrap break-words leading-relaxed">{m.content}</div>
               </div>
             ))}
@@ -330,22 +337,68 @@ function AdminPage() {
               </div>
             )}
           </div>
-          <div className="border-t border-border p-2 flex gap-2">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  send();
-                }
-              }}
-              placeholder="Describe the component, paste SVG, or say 'build it'..."
-              className="min-h-[60px] max-h-32 resize-none text-sm"
-            />
-            <Button onClick={send} disabled={busy || !input.trim()}>
-              <Send className="h-4 w-4" />
-            </Button>
+          <div className="border-t border-border p-2 space-y-2">
+            {pendingImages.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {pendingImages.map((src, i) => (
+                  <div key={i} className="relative">
+                    <img src={src} alt="" className="h-14 w-14 object-cover rounded border border-border" />
+                    <button
+                      type="button"
+                      onClick={() => setPendingImages((p) => p.filter((_, j) => j !== i))}
+                      className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                      aria-label="Remove"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input
+                ref={chatImageInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files) addChatImages(e.target.files);
+                  e.currentTarget.value = "";
+                }}
+              />
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={() => chatImageInputRef.current?.click()}
+                disabled={busy || pendingImages.length >= 4}
+                title="Attach reference image"
+              >
+                <ImagePlus className="h-4 w-4" />
+              </Button>
+              <Textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onPaste={(e) => {
+                  const files = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith("image/"));
+                  if (files.length) {
+                    e.preventDefault();
+                    addChatImages(files);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    send();
+                  }
+                }}
+                placeholder="Describe the component, paste an image, or say 'build it'..."
+                className="min-h-[60px] max-h-32 resize-none text-sm flex-1"
+              />
+              <Button onClick={send} disabled={busy || (!input.trim() && pendingImages.length === 0)}>
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </section>
 
