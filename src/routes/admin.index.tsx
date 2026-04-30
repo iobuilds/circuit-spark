@@ -101,23 +101,28 @@ function BoardsTab() {
       // AI-generated board pack ZIP
       importComponentZip(f)
         .then((imp) => {
+          const safeName =
+            (imp.name && imp.name.trim()) ||
+            (imp.slug && imp.slug.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())) ||
+            f.name.replace(/\.zip$/i, "");
+          const safeSlug = imp.slug || safeName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "imported";
           const id = createCustom({
-            id: `custom-board-${imp.slug}-${Date.now().toString(36)}`,
-            name: imp.name,
+            id: `custom-board-${safeSlug}-${Date.now().toString(36)}`,
+            name: safeName,
             mcu: "Custom",
             digitalPins: 14,
             analogPins: 6,
             enabled: true,
             svg: imp.svg,
-            pins: imp.pins?.map((p) => ({
+            pins: (imp.pins ?? []).map((p) => ({
               id: p.id,
-              label: p.label,
+              label: p.label || p.id,
               type: "other",
               x: p.x,
               y: p.y,
             })),
           });
-          toast.success(`Imported ${imp.name} from ZIP`);
+          toast.success(`Imported ${safeName} from ZIP`);
           void id;
         })
         .catch((err) => toast.error("Failed to import ZIP: " + (err as Error).message));
@@ -263,26 +268,40 @@ function ComponentsTab() {
       // Single AI-generated component ZIP pack
       importComponentZip(f)
         .then((imp) => {
+          const safeName =
+            (imp.name && imp.name.trim()) ||
+            (imp.slug && imp.slug.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())) ||
+            f.name.replace(/\.zip$/i, "");
+          const safeSlug = imp.slug || safeName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "imported";
+          // Infer a reasonable simulator behavior from pin roles / labels.
+          const blob = ((imp.description ?? "") + " " + (imp.pins ?? []).map((p) => `${p.role ?? ""} ${p.label ?? ""}`).join(" ")).toLowerCase();
+          const behavior: ComponentEntry["behavior"] = /sensor|analog|ldr|ntc|pot/.test(blob)
+            ? "analog-in"
+            : /button|switch|input|sw_|sw-/.test(blob)
+            ? "digital-in"
+            : /led|lamp|motor|relay|buzz|out/.test(blob)
+            ? "digital-out"
+            : "passive";
           const entry: ComponentEntry = {
-            id: `custom-${imp.slug}-${Date.now().toString(36)}`,
-            label: imp.name,
+            id: `custom-${safeSlug}-${Date.now().toString(36)}`,
+            label: safeName,
             category: imp.kind === "board" ? "board" : "custom",
             enabled: true,
             builtIn: false,
-            behavior: "passive",
+            behavior,
             svg: imp.svg,
-            width: imp.width,
-            height: imp.height,
-            pins: imp.pins?.map((p) => ({
+            width: imp.width || 100,
+            height: imp.height || 80,
+            pins: (imp.pins ?? []).map((p) => ({
               id: p.id,
-              label: p.label,
+              label: p.label || p.id,
               type: "other",
               x: p.x,
               y: p.y,
             })),
           };
           createCustom(entry);
-          toast.success(`Imported ${imp.name} from ZIP`);
+          toast.success(`Imported ${safeName} from ZIP`);
         })
         .catch((err) => toast.error("Failed to import ZIP: " + (err as Error).message));
       e.target.value = "";
