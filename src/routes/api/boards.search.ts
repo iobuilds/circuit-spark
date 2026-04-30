@@ -142,6 +142,12 @@ function score(e: ArduinoBoardEntry, q: string): number {
 }
 
 export const Route = createFileRoute("/api/boards/search")({
+  server: ({
+    handlers: undefined as never,
+  } as never) && undefined as never,
+} as never);
+
+(createFileRoute("/api/boards/search") as any)({
   server: {
     handlers: {
       GET: async ({ request }: { request: Request }) => {
