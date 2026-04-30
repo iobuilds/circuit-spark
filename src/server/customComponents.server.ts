@@ -335,10 +335,10 @@ export async function runBuilderChat(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      // gemini-2.5-pro: stronger reasoning + larger context window — necessary
-      // because the spec we round-trip (SVG + behavior model) is large and we
-      // were losing fidelity / "memory" with the flash-preview model.
-      model: "google/gemini-2.5-pro",
+      // GPT-5: top-tier reasoning + reliable tool calling for structured
+      // SVG/JSON output. Faster wall-clock than gemini-2.5-pro for our workload
+      // and far better at preserving spec memory across iterative tweaks.
+      model: "openai/gpt-5",
       messages,
       tools: [COMPONENT_SPEC_TOOL],
       tool_choice: "auto",
