@@ -130,6 +130,7 @@ function BoardsTab() {
               <th className="px-3 py-2">Pins</th>
               <th className="px-3 py-2">Source</th>
               <th className="px-3 py-2 text-right">Enabled</th>
+              <th className="px-3 py-2 w-10"></th>
             </tr>
           </thead>
           <tbody>
@@ -154,11 +155,21 @@ function BoardsTab() {
                   <td className="px-3 py-2 text-right">
                     <Switch checked={b.enabled} onCheckedChange={(v) => setEnabled(b.id, v)} />
                   </td>
+                  <td className="px-3 py-2 text-right">
+                    <Link
+                      to="/admin/boards/$boardId/edit"
+                      params={{ boardId: b.id }}
+                      className="inline-flex items-center justify-center h-7 w-7 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
+                      title="Edit board"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Link>
+                  </td>
                 </tr>
               );
             })}
             {filtered.length === 0 && (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">No boards match.</td></tr>
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">No boards match.</td></tr>
             )}
           </tbody>
         </table>
