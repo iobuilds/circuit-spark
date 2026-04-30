@@ -1,14 +1,17 @@
-// PNG → SVG converter. Two strategies, user picks per upload:
-//   1) "Embed PNG inside SVG" — instant, exact pixels (default).
-//   2) "Vector trace (potrace)" — true SVG paths, monochrome silkscreen-friendly.
+// PNG → SVG converter + direct SVG paste. Three input modes:
+//   1) "Embed PNG inside SVG" — instant pixel-exact wrapper.
+//   2) "Vector trace (potrace)" — true SVG paths from a bitmap.
+//   3) "Paste SVG" — admin pastes existing SVG markup directly.
 // Output: an SVG string ready to feed into the existing SvgPinEditor.
 
 import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Upload, Loader2, Check } from "lucide-react";
+import { Upload, Loader2, Check, ClipboardPaste } from "lucide-react";
 import { toast } from "sonner";
 // esm-potrace-wasm: client-side bitmap → vector path tracing.
 // The default export is an async function: potrace(blobOrUrl, options) -> svg string.
