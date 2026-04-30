@@ -22,7 +22,7 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
       { id: "GND", label: "GND", x: 32, y: 88 },
       { id: "G", label: "Green", x: 48, y: 88 },
       { id: "B", label: "Blue", x: 64, y: 88 },
-    ], available: false,
+    ], available: true,
   },
   resistor: {
     kind: "resistor", label: "Resistor", category: "Basic", width: 100, height: 30,
@@ -51,7 +51,7 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
     pins: [
       { id: "+", label: "+", x: 22, y: 68 },
       { id: "-", label: "GND", x: 48, y: 68 },
-    ], available: false,
+    ], available: true,
   },
   "switch": {
     kind: "switch", label: "Slide Switch", category: "Basic", width: 80, height: 50,
@@ -59,7 +59,7 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
       { id: "1", label: "1", x: 12, y: 48 },
       { id: "C", label: "Common", x: 40, y: 48 },
       { id: "2", label: "2", x: 68, y: 48 },
-    ], available: false,
+    ], available: true,
   },
   lcd1602: {
     kind: "lcd1602", label: "LCD 16x2", category: "Displays", width: 220, height: 90,
@@ -68,7 +68,7 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
       { id: "VCC", label: "VCC", x: 50, y: 88 },
       { id: "SDA", label: "SDA", x: 80, y: 88 },
       { id: "SCL", label: "SCL", x: 110, y: 88 },
-    ], available: false,
+    ], available: true,
   },
   oled: {
     kind: "oled", label: "OLED 128x64", category: "Displays", width: 140, height: 100,
@@ -77,11 +77,11 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
       { id: "VCC", label: "VCC", x: 55, y: 98 },
       { id: "SCL", label: "SCL", x: 80, y: 98 },
       { id: "SDA", label: "SDA", x: 105, y: 98 },
-    ], available: false,
+    ], available: true,
   },
   "7seg": {
     kind: "7seg", label: "7-Segment", category: "Displays", width: 90, height: 120,
-    pins: [], available: false,
+    pins: [], available: true,
   },
   servo: {
     kind: "servo", label: "Servo", category: "Actuators", width: 90, height: 80,
@@ -89,31 +89,31 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
       { id: "GND", label: "GND", x: 22, y: 78 },
       { id: "VCC", label: "VCC", x: 45, y: 78 },
       { id: "SIG", label: "Signal", x: 68, y: 78 },
-    ], available: false,
+    ], available: true,
   },
   relay: {
     kind: "relay", label: "Relay Module", category: "Actuators", width: 100, height: 80,
-    pins: [], available: false,
+    pins: [], available: true,
   },
   dht11: {
     kind: "dht11", label: "DHT11", category: "Sensors", width: 80, height: 100,
-    pins: [], available: false,
+    pins: [], available: true,
   },
   ultrasonic: {
     kind: "ultrasonic", label: "HC-SR04", category: "Sensors", width: 140, height: 70,
-    pins: [], available: false,
+    pins: [], available: true,
   },
   pir: {
     kind: "pir", label: "PIR Sensor", category: "Sensors", width: 90, height: 90,
-    pins: [], available: false,
+    pins: [], available: true,
   },
   ldr: {
     kind: "ldr", label: "Photoresistor", category: "Sensors", width: 60, height: 80,
-    pins: [], available: false,
+    pins: [], available: true,
   },
   battery: {
     kind: "battery", label: "9V Battery", category: "Power", width: 80, height: 100,
-    pins: [], available: false,
+    pins: [], available: true,
   },
   // Generic placeholder for admin-defined custom components. Real visuals come
   // from the admin entry's SVG and pins (resolved at render time).
