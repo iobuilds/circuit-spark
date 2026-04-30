@@ -65,7 +65,7 @@ export function CodeEditor() {
       symbols: /[=><!~?:&|+\-*/^%]+/,
       tokenizer: {
         root: [
-          /^\s*#\s*\w+/, "keyword.directive",
+          [/^\s*#\s*\w+/, "keyword.directive"],
           [/\/\/.*$/, "comment"],
           [/\/\*/, "comment", "@comment"],
           [/"([^"\\]|\\.)*$/, "string.invalid"],
