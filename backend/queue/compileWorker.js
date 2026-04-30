@@ -6,6 +6,7 @@ const fileManager = require('../services/fileManager');
 const hashCode = require('../utils/hashCode');
 const logger = require('../utils/logger');
 const config = require('../config');
+const { validatePins } = require('../utils/pinValidator');
 
 fileManager.ensureTempDir();
 
@@ -37,6 +38,28 @@ compileQueue.process(config.MAX_CONCURRENT_JOBS, async (job) => {
     try {
       await emit('write', 25, 'Writing source files...');
       await fileManager.writeFiles(workDir, files);
+
+      // Static pin-range validation: catches things like digitalWrite(60, ...)
+      // that arduino-cli accepts because uint8_t allows it, but the board
+      // physically does not have that pin.
+      const pinErrors = validatePins(files, board);
+      if (pinErrors.length > 0) {
+        await emit('finish', 100, `Invalid pin reference (${pinErrors.length}) ✗`);
+        return {
+          success: false,
+          stdout: '',
+          stderr: pinErrors.map(e => `${e.file}:${e.line}:${e.col}: error: ${e.message}`).join('\n'),
+          errors: pinErrors,
+          warnings: [],
+          binary: null,
+          binaryType: null,
+          binarySize: 0,
+          flashUsed: 0, flashTotal: 0, flashPercent: 0,
+          ramUsed: 0,   ramTotal: 0,   ramPercent: 0,
+          duration: Date.now() - startTime,
+          fromCache: false,
+        };
+      }
 
       await emit('libraries', 40, 'Checking libraries...');
       const missing = await compiler.checkLibraries(libraries || []);
