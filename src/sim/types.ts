@@ -48,6 +48,7 @@ export type ComponentKind =
   | "switch"
   | "7seg"
   | "relay"
+  | "board"
   | "custom";
 
 export interface ComponentDef {

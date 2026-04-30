@@ -51,10 +51,17 @@ export function buildNetGraph(components: CircuitComponent[], wires: Wire[]): Ne
 
   // Build map: for each comp pin, find its net root, and check which board node label is in that net.
   const rootToBoardLabel = new Map<string, string>();
+  // Set of component IDs that are themselves boards.
+  const boardComps = new Set<string>();
+  for (const c of components) {
+    if (c.kind === "board") boardComps.add(c.id);
+  }
   for (const w of wires) {
     for (const ep of [w.from, w.to]) {
-      if (ep.componentId === "board") {
-        const r = find(key("board", ep.pinId));
+      // Legacy primary board pseudo-id "board" stays valid.
+      const isBoardEndpoint = ep.componentId === "board" || boardComps.has(ep.componentId);
+      if (isBoardEndpoint) {
+        const r = find(key(ep.componentId, ep.pinId));
         // Resolve board pin into a canonical label
         const bp = findUnoPin(ep.pinId);
         const label = bp ? bp.id : ep.pinId;
@@ -65,6 +72,7 @@ export function buildNetGraph(components: CircuitComponent[], wires: Wire[]): Ne
 
   const out = new Map<string, string | null>();
   for (const c of components) {
+    if (c.kind === "board") continue; // boards aren't components in the COMPONENT_DEFS sense
     const def = COMPONENT_DEFS[c.kind];
     for (const p of def.pins) {
       const k = key(c.id, p.id);

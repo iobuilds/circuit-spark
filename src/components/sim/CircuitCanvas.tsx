@@ -6,10 +6,11 @@ import { GenericBoard } from "./GenericBoard";
 import { CircuitComponentNode } from "./CircuitComponentNode";
 import { findUnoPin, UNO_HEIGHT, UNO_WIDTH } from "@/sim/uno-pins";
 import { buildNetGraph, evaluateInputs, isLedPowered } from "@/sim/netlist";
-import type { ComponentKind } from "@/sim/types";
+import type { BoardId, ComponentKind } from "@/sim/types";
 import { useAdminStore } from "@/sim/adminStore";
-import { CornerDownLeft, Trash2, X } from "lucide-react";
+import { CornerDownLeft, Lock, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AddItemDialog } from "./AddItemDialog";
 
 interface Props {
   onPinInputChange: (pin: number, value: { digital?: 0 | 1; analog?: number }) => void;
@@ -26,6 +27,11 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const selectedId = useSimStore((s) => s.selectedId);
   const pinStates = useSimStore((s) => s.pinStates);
   const boardId = useSimStore((s) => s.boardId);
+  const status = useSimStore((s) => s.status);
+  const setBoard = useSimStore((s) => s.setBoard);
+
+  /** Workspace is read-only while the simulator is running or paused. */
+  const locked = status === "running" || status === "paused";
 
   const addComponent = useSimStore((s) => s.addComponent);
   const moveComponent = useSimStore((s) => s.moveComponent);
@@ -45,14 +51,19 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
   const [dragId, setDragId] = useState<string | null>(null);
-  /** Active wire-waypoint drag: which wire and which waypoint index. */
   const [wpDrag, setWpDrag] = useState<{ wireId: string; idx: number } | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [panning, setPanning] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+
+  const placedBoards = useMemo(() => components.filter((c) => c.kind === "board"), [components]);
 
   const net = useMemo(() => buildNetGraph(components, wires), [components, wires]);
+
+  // Cancel any in-progress wire when the workspace becomes locked.
+  useEffect(() => { if (locked && drawingFrom) cancelWire(); }, [locked, drawingFrom, cancelWire]);
 
   // Push input states (pot, button) to worker
   useEffect(() => {
@@ -89,13 +100,18 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   }
 
   // Drag-drop from sidebar
-  function onSvgDragOver(e: React.DragEvent) { e.preventDefault(); }
+  function onSvgDragOver(e: React.DragEvent) { if (!locked) e.preventDefault(); }
   function onSvgDrop(e: React.DragEvent) {
     e.preventDefault();
-    // Board drop: switch active board on the canvas.
+    if (locked) return;
+    // Board drop: place a board instance on the canvas at the drop point.
     const boardPayload = e.dataTransfer.getData("application/x-embedsim-board");
     if (boardPayload) {
-      useSimStore.getState().setBoard(boardPayload as never);
+      const { x, y } = clientToSvg(e);
+      const snap = (n: number) => Math.round(n / 10) * 10;
+      addComponent("board", snap(x - 180), snap(y - 120), boardPayload);
+      // Make the dropped board the active simulation target.
+      setBoard(boardPayload as BoardId);
       return;
     }
     const payload = e.dataTransfer.getData("application/x-embedsim-component");
@@ -119,15 +135,36 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     addComponent(kind, snap(x - def.width / 2), snap(y - def.height / 2));
   }
 
+  /** Add an item at the canvas center (used by the "+" popup). */
+  function addAtCenter(payload: { kind: "component"; value: ComponentKind }
+    | { kind: "custom"; customId: string; w: number; h: number }
+    | { kind: "board"; boardId: BoardId }) {
+    if (locked) return;
+    const svg = svgRef.current;
+    const r = svg?.getBoundingClientRect();
+    const cx = r ? (r.width / 2) / zoom - pan.x : 400;
+    const cy = r ? (r.height / 2) / zoom - pan.y : 250;
+    const snap = (n: number) => Math.round(n / 10) * 10;
+    if (payload.kind === "board") {
+      addComponent("board", snap(cx - 180), snap(cy - 120), payload.boardId);
+      setBoard(payload.boardId);
+    } else if (payload.kind === "custom") {
+      addComponent("custom", snap(cx - payload.w / 2), snap(cy - payload.h / 2), payload.customId);
+    } else {
+      const def = COMPONENT_DEFS[payload.value];
+      addComponent(payload.value, snap(cx - def.width / 2), snap(cy - def.height / 2));
+    }
+  }
+
   // Wire/drag mouse handling
   function onMouseMove(e: React.MouseEvent) {
     const p = clientToSvg(e);
     setMouse(p);
-    if (dragId) {
+    if (dragId && !locked) {
       const snap = (n: number) => Math.round(n / 10) * 10;
       moveComponent(dragId, snap(p.x - dragOffset.x), snap(p.y - dragOffset.y));
     }
-    if (wpDrag) {
+    if (wpDrag && !locked) {
       const snap = (n: number) => Math.round(n / 5) * 5;
       updateWireWaypoint(wpDrag.wireId, wpDrag.idx, { x: snap(p.x), y: snap(p.y) });
     }
@@ -144,16 +181,21 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
 
   function onPinClickFactory(componentId: string) {
     return (pinId: string, _e: React.MouseEvent) => {
-      if (drawingFrom) {
-        finishWire(componentId, pinId);
-      } else {
-        startWire(componentId, pinId);
-      }
+      if (locked) return;
+      if (drawingFrom) finishWire(componentId, pinId);
+      else startWire(componentId, pinId);
     };
+  }
+
+  function handleBoardPinClick(boardComponentId: string, pinId: string) {
+    if (locked) return;
+    if (drawingFrom) finishWire(boardComponentId, pinId);
+    else startWire(boardComponentId, pinId);
   }
 
   // Endpoint coordinates for a wire endpoint reference.
   function endpointPos(componentId: string, pinId: string): { x: number; y: number } | null {
+    // Legacy primary board (rendered at fixed BOARD_X/Y).
     if (componentId === "board") {
       const bp = findUnoPin(pinId);
       if (!bp) return null;
@@ -161,6 +203,11 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     }
     const c = components.find((cc) => cc.id === componentId);
     if (!c) return null;
+    if (c.kind === "board") {
+      const bp = findUnoPin(pinId);
+      if (!bp) return null;
+      return { x: c.x + bp.x, y: c.y + bp.y };
+    }
     if (c.kind === "custom") {
       const cid = String(c.props.customId ?? "");
       const entry = adminComps.find((a) => a.id === cid);
@@ -224,17 +271,13 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         }}
       >
         <g transform={`scale(${zoom}) translate(${pan.x} ${pan.y})`}>
-          {/* Board — Uno gets the realistic art, other boards use a generic
-              renderer driven by their pin counts. */}
+          {/* Legacy primary board at fixed position. Stays as the active sim target. */}
           {boardId === "uno" ? (
             <ArduinoUnoBoard
               x={BOARD_X}
               y={BOARD_Y}
               highlightPin={drawingFrom?.componentId === "board" ? drawingFrom.pinId : undefined}
-              onPinClick={(pinId) => {
-                if (drawingFrom) finishWire("board", pinId);
-                else startWire("board", pinId);
-              }}
+              onPinClick={(pinId) => handleBoardPinClick("board", pinId)}
             />
           ) : (
             <GenericBoard
@@ -242,15 +285,57 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
               x={BOARD_X}
               y={BOARD_Y}
               highlightPin={drawingFrom?.componentId === "board" ? drawingFrom.pinId : undefined}
-              onPinClick={(pinId) => {
-                if (drawingFrom) finishWire("board", pinId);
-                else startWire("board", pinId);
-              }}
+              onPinClick={(pinId) => handleBoardPinClick("board", pinId)}
             />
           )}
 
-          {/* Components */}
-          {components.map((c) => (
+          {/* Additional placed boards (multi-board) */}
+          {placedBoards.map((b) => {
+            const bid = (b.props.boardId as BoardId) ?? "uno";
+            const isSel = selectedId === b.id;
+            return (
+              <g
+                key={b.id}
+                onMouseDown={(e) => {
+                  if (locked) return;
+                  if (e.button !== 0) return;
+                  e.stopPropagation();
+                  setSelected(b.id);
+                  const p = clientToSvg(e);
+                  setDragId(b.id);
+                  setDragOffset({ x: p.x - b.x, y: p.y - b.y });
+                }}
+                style={{ cursor: locked ? "default" : "grab" }}
+              >
+                {bid === "uno" ? (
+                  <ArduinoUnoBoard
+                    x={b.x}
+                    y={b.y}
+                    highlightPin={drawingFrom?.componentId === b.id ? drawingFrom.pinId : undefined}
+                    onPinClick={(pinId) => handleBoardPinClick(b.id, pinId)}
+                  />
+                ) : (
+                  <GenericBoard
+                    boardId={bid}
+                    x={b.x}
+                    y={b.y}
+                    highlightPin={drawingFrom?.componentId === b.id ? drawingFrom.pinId : undefined}
+                    onPinClick={(pinId) => handleBoardPinClick(b.id, pinId)}
+                  />
+                )}
+                {isSel && (
+                  <rect
+                    x={b.x - 2} y={b.y - 2} width={364} height={244}
+                    fill="none" stroke="var(--color-primary)" strokeWidth={2}
+                    strokeDasharray="6 4" pointerEvents="none"
+                  />
+                )}
+              </g>
+            );
+          })}
+
+          {/* Components (skip placed boards — rendered above) */}
+          {components.filter((c) => c.kind !== "board").map((c) => (
             <CircuitComponentNode
               key={c.id}
               comp={c}
@@ -258,6 +343,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
               selected={selectedId === c.id}
               onSelect={() => setSelected(c.id)}
               onDragStart={(e) => {
+                if (locked) return;
                 const p = clientToSvg(e);
                 setDragId(c.id);
                 setDragOffset({ x: p.x - c.x, y: p.y - c.y });
@@ -370,7 +456,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         >reset</button>
       </div>
 
-      {selectedId && (
+      {selectedId && !locked && (
         <div className="absolute top-3 right-3">
           <Button
             size="sm"
@@ -382,6 +468,41 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
           </Button>
         </div>
       )}
+
+      {/* Floating "+" Add button — opens the search popup. */}
+      {!locked && (
+        <div className="absolute bottom-3 left-3">
+          <Button
+            size="lg"
+            onClick={() => setAddOpen(true)}
+            className="h-12 w-12 rounded-full p-0 shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
+            title="Add component or board"
+          >
+            <Plus className="h-6 w-6" />
+          </Button>
+        </div>
+      )}
+
+      {/* Locked banner during simulation. */}
+      {locked && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-md bg-warning/15 border border-warning/40 backdrop-blur px-3 py-1.5 text-xs">
+          <Lock className="h-3.5 w-3.5 text-warning" />
+          <span>Workspace locked while simulation is {status}. Stop the sim to edit.</span>
+        </div>
+      )}
+
+      <AddItemDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        onPickComponent={(kind) => addAtCenter({ kind: "component", value: kind })}
+        onPickCustom={(entry) => addAtCenter({
+          kind: "custom",
+          customId: entry.id,
+          w: entry.width ?? 80,
+          h: entry.height ?? 60,
+        })}
+        onPickBoard={(bid) => addAtCenter({ kind: "board", boardId: bid })}
+      />
 
       {/* Wire-drawing toolbar: shows source pin, point count, and shortcut buttons. */}
       {drawingFrom && (
