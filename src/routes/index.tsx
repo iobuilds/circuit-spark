@@ -142,10 +142,7 @@ function SimulatorPage() {
       <IdeMenubar onCompile={handleBackendCompile} onUpload={handleUpload} />
 
       <div className="flex-1 min-h-0 flex w-full overflow-hidden">
-        {/* Left: Component palette */}
-        <aside className="w-56 shrink-0 border-r border-border overflow-hidden">
-          <ComponentPalette />
-        </aside>
+        {/* Components palette removed — use the floating "+" button on the canvas to add boards/components. */}
 
         {/* Middle: Builder workspace (canvas + pin states + serial) */}
         <section className="flex-1 min-w-0 flex flex-col border-r border-border relative">
