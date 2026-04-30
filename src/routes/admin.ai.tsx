@@ -431,6 +431,53 @@ function AdminPage() {
       <div className="flex-1 min-h-0 grid grid-cols-[1fr_1fr_320px]">
         {/* Chat panel */}
         <section className="flex flex-col border-r border-border min-h-0 min-w-0">
+          <div className="flex items-center gap-1 px-3 py-1.5 border-b border-border bg-muted/30">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="ghost" className="h-7 text-xs gap-1.5 max-w-[60%] justify-start">
+                  <MessagesSquare className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{activeConvo?.title ?? "Conversation"}</span>
+                  <span className="text-muted-foreground text-[10px] shrink-0">({conversations.length})</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-72 max-h-80 overflow-auto">
+                <DropdownMenuLabel className="text-xs">Conversations</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {[...conversations].sort((a, b) => b.updatedAt - a.updatedAt).map((c) => (
+                  <DropdownMenuItem
+                    key={c.id}
+                    onSelect={(e) => { e.preventDefault(); switchConversation(c.id); }}
+                    className="flex items-center gap-2 group"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs truncate">{c.title}</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {c.messages.length} msg{c.id === activeId ? " · active" : ""}
+                      </div>
+                    </div>
+                    {conversations.length > 1 && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteConversation(c.id); }}
+                        className="opacity-0 group-hover:opacity-100 text-destructive p-1"
+                        aria-label="Delete conversation"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <div className="flex-1" />
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={startNewConversation} title="New conversation">
+              <MessageSquarePlus className="h-3.5 w-3.5 mr-1" />
+              New
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={clearActiveConversation} title="Clear messages in this conversation">
+              <Eraser className="h-3.5 w-3.5 mr-1" />
+              Clear
+            </Button>
+          </div>
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 space-y-3">
             {messages.map((m, i) => (
               <div key={i} className={`text-sm min-w-0 ${m.role === "user" ? "text-foreground" : "text-foreground/90"}`}>
