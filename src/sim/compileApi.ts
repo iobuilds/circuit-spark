@@ -102,7 +102,7 @@ export function compileSketch(
   }
 
   return new Promise((resolve) => {
-    streamCompile(req.board, req.files, req.libraries, {
+    streamCompile(mapBoardIdToBackend(req.board), req.files, req.libraries, {
       onProgress: (p) => onProgress?.(p),
       onComplete: (r) => resolve(adaptResult(r)),
       onError: (msg, errs) => resolve({
