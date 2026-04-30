@@ -76,6 +76,7 @@ export function ComponentPalette() {
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-thin py-2">
+        <BoardsSection query={q} />
         {[...CATEGORIES, "Custom"].map((cat) => {
           const items = filtered.filter((c) =>
             cat === "Custom" ? !!c.custom : c.category === cat && !c.custom
