@@ -150,10 +150,79 @@ function AdminPage() {
   const deleteFn = useServerFn(deleteCustomComponent);
   const libsFn = useServerFn(findArduinoLibraries);
 
-  const [messages, setMessages] = useState<ChatMsg[]>([
-    { role: "assistant", content: "Hi! Describe a component or board you want to build — for example: *'a small DC motor with speed and direction inputs that burns over 12V'*. You don't need to provide an SVG; I'll draw one for you. Once we agree, say **build it** and I'll emit a final spec with a live behavior simulator." },
-  ]);
-  const [input, setInput] = useState("");
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeId, setActiveId] = useState<string>("");
+
+  // Hydrate conversations on mount (client-only).
+  useEffect(() => {
+    const { list, activeId } = loadConversations();
+    setConversations(list);
+    setActiveId(activeId);
+  }, []);
+
+  const activeConvo = conversations.find((c) => c.id === activeId);
+  const messages = activeConvo?.messages ?? [INITIAL_GREETING];
+
+  // Persist whenever conversations change.
+  useEffect(() => {
+    if (conversations.length === 0) return;
+    try {
+      localStorage.setItem(CONVO_STORAGE_KEY, JSON.stringify(conversations));
+      if (activeId) localStorage.setItem(ACTIVE_CONVO_KEY, activeId);
+    } catch { /* ignore quota */ }
+  }, [conversations, activeId]);
+
+  function setMessages(updater: ChatMsg[] | ((prev: ChatMsg[]) => ChatMsg[])) {
+    setConversations((prev) =>
+      prev.map((c) => {
+        if (c.id !== activeId) return c;
+        const next = typeof updater === "function" ? (updater as (p: ChatMsg[]) => ChatMsg[])(c.messages) : updater;
+        return { ...c, messages: next, title: deriveTitle(next), updatedAt: Date.now() };
+      }),
+    );
+  }
+
+  function startNewConversation() {
+    const c = newConversation();
+    setConversations((prev) => [c, ...prev]);
+    setActiveId(c.id);
+    setPending(null);
+    setSavedId(null);
+    setInput("");
+    setPendingImages([]);
+  }
+
+  function clearActiveConversation() {
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === activeId ? { ...c, messages: [INITIAL_GREETING], title: "New conversation", updatedAt: Date.now() } : c,
+      ),
+    );
+    setPending(null);
+    setSavedId(null);
+  }
+
+  function deleteConversation(id: string) {
+    setConversations((prev) => {
+      const next = prev.filter((c) => c.id !== id);
+      if (next.length === 0) {
+        const c = newConversation();
+        setActiveId(c.id);
+        return [c];
+      }
+      if (id === activeId) setActiveId(next[0].id);
+      return next;
+    });
+  }
+
+  function switchConversation(id: string) {
+    setActiveId(id);
+    setPending(null);
+    setSavedId(null);
+    setInput("");
+    setPendingImages([]);
+  }
+
   const [pendingImages, setPendingImages] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<PendingSpec | null>(null);
