@@ -270,7 +270,19 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
       const entry = adminComps.find((a) => a.id === cid);
       const pin = entry?.pins?.find((p) => p.id === pinId);
       if (!pin) return null;
-      return { x: c.x + pin.x, y: c.y + pin.y };
+      // Honor per-instance pin overrides set via the "Move pins" tool.
+      let px = pin.x, py = pin.y;
+      const rawOv = c.props.pinOverrides;
+      if (typeof rawOv === "string" && rawOv) {
+        try {
+          const ov = JSON.parse(rawOv);
+          if (ov && typeof ov === "object" && ov[pinId]) {
+            px = Number(ov[pinId].x ?? pin.x);
+            py = Number(ov[pinId].y ?? pin.y);
+          }
+        } catch { /* ignore malformed overrides */ }
+      }
+      return { x: c.x + px, y: c.y + py };
     }
     const def = COMPONENT_DEFS[c.kind];
     const pin = def.pins.find((p) => p.id === pinId);
