@@ -115,4 +115,10 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
     kind: "battery", label: "9V Battery", category: "Power", width: 80, height: 100,
     pins: [], available: false,
   },
+  // Generic placeholder for admin-defined custom components. Real visuals come
+  // from the admin entry's SVG and pins (resolved at render time).
+  custom: {
+    kind: "custom", label: "Custom", category: "Basic", width: 80, height: 60,
+    pins: [], available: true,
+  },
 };

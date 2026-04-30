@@ -47,7 +47,8 @@ export type ComponentKind =
   | "rgb-led"
   | "switch"
   | "7seg"
-  | "relay";
+  | "relay"
+  | "custom";
 
 export interface ComponentDef {
   kind: ComponentKind;
@@ -81,6 +82,8 @@ export interface Wire {
   id: string;
   from: { componentId: string; pinId: string };
   to: { componentId: string; pinId: string };
+  /** Optional intermediate waypoints in canvas (SVG) coordinates. */
+  waypoints?: { x: number; y: number }[];
   color?: string;
 }
 

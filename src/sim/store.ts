@@ -35,6 +35,8 @@ export interface SimState {
   wires: Wire[];
   selectedId: string | null;
   drawingFrom: { componentId: string; pinId: string } | null;
+  /** Intermediate click points while drawing a wire, in canvas coordinates. */
+  drawingWaypoints: { x: number; y: number }[];
 
   // editor / runtime
   code: string;
@@ -51,13 +53,15 @@ export interface SimState {
   // actions
   setBoard: (b: BoardId) => void;
   setCode: (c: string) => void;
-  addComponent: (kind: ComponentKind, x: number, y: number) => string;
+  addComponent: (kind: ComponentKind, x: number, y: number, customId?: string) => string;
   moveComponent: (id: string, x: number, y: number) => void;
   removeComponent: (id: string) => void;
   setSelected: (id: string | null) => void;
   setComponentProp: (id: string, key: string, value: number | string | boolean) => void;
   startWire: (componentId: string, pinId: string) => void;
   finishWire: (componentId: string, pinId: string) => void;
+  addWireWaypoint: (point: { x: number; y: number }) => void;
+  undoWireWaypoint: () => void;
   cancelWire: () => void;
   removeWire: (id: string) => void;
 
@@ -83,6 +87,7 @@ export const useSimStore = create<SimState>((set, get) => ({
   wires: [],
   selectedId: null,
   drawingFrom: null,
+  drawingWaypoints: [],
 
   code: DEFAULT_CODE,
   status: "idle",
@@ -97,12 +102,13 @@ export const useSimStore = create<SimState>((set, get) => ({
   setBoard: (b) => set({ boardId: b }),
   setCode: (c) => set({ code: c }),
 
-  addComponent: (kind, x, y) => {
+  addComponent: (kind, x, y, customId) => {
     const id = nid("c");
     const props: Record<string, number | string | boolean> = {};
     if (kind === "led") { props.color = "red"; }
     if (kind === "resistor") { props.ohms = 220; }
     if (kind === "potentiometer") { props.value = 512; }
+    if (kind === "custom" && customId) { props.customId = customId; }
     set((s) => ({
       components: [...s.components, { id, kind, x, y, rotation: 0, props }],
       selectedId: id,
@@ -124,23 +130,41 @@ export const useSimStore = create<SimState>((set, get) => ({
     ),
   })),
 
-  startWire: (componentId, pinId) => set({ drawingFrom: { componentId, pinId } }),
+  startWire: (componentId, pinId) => set({
+    drawingFrom: { componentId, pinId },
+    drawingWaypoints: [],
+  }),
   finishWire: (componentId, pinId) => {
-    const { drawingFrom, wires } = get();
+    const { drawingFrom, wires, drawingWaypoints } = get();
     if (!drawingFrom) return;
+    // Clicking the same pin you started from cancels (incomplete → vanish).
     if (drawingFrom.componentId === componentId && drawingFrom.pinId === pinId) {
-      set({ drawingFrom: null });
+      set({ drawingFrom: null, drawingWaypoints: [] });
       return;
     }
     set({
       wires: [
         ...wires,
-        { id: nid("w"), from: drawingFrom, to: { componentId, pinId } },
+        {
+          id: nid("w"),
+          from: drawingFrom,
+          to: { componentId, pinId },
+          waypoints: drawingWaypoints.length ? [...drawingWaypoints] : undefined,
+        },
       ],
       drawingFrom: null,
+      drawingWaypoints: [],
     });
   },
-  cancelWire: () => set({ drawingFrom: null }),
+  addWireWaypoint: (point) => set((s) => (
+    s.drawingFrom ? { drawingWaypoints: [...s.drawingWaypoints, point] } : {}
+  )),
+  undoWireWaypoint: () => set((s) => (
+    s.drawingWaypoints.length
+      ? { drawingWaypoints: s.drawingWaypoints.slice(0, -1) }
+      : {}
+  )),
+  cancelWire: () => set({ drawingFrom: null, drawingWaypoints: [] }),
   removeWire: (id) => set((s) => ({ wires: s.wires.filter((w) => w.id !== id) })),
 
   setStatus: (s) => set({ status: s }),
@@ -159,7 +183,7 @@ export const useSimStore = create<SimState>((set, get) => ({
     return { theme: next };
   }),
 
-  resetWorkspace: () => set({ components: [], wires: [], selectedId: null, serial: [], pinStates: {}, simTimeMs: 0 }),
+  resetWorkspace: () => set({ components: [], wires: [], selectedId: null, serial: [], pinStates: {}, simTimeMs: 0, drawingFrom: null, drawingWaypoints: [] }),
   loadProject: (p) => set({
     code: p.code,
     components: p.components,

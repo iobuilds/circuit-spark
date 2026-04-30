@@ -2,9 +2,19 @@ import { COMPONENT_DEFS } from "@/sim/components";
 import type { ComponentKind } from "@/sim/types";
 import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
-import { useAdminStore } from "@/sim/adminStore";
+import { useAdminStore, type ComponentEntry } from "@/sim/adminStore";
 
 const CATEGORIES = ["Basic", "Displays", "Sensors", "Actuators", "Power", "Comms"] as const;
+
+interface PaletteEntry {
+  /** Drag payload — built-in ComponentKind, or `custom:<id>` for admin customs. */
+  payload: string;
+  label: string;
+  category: string;
+  kind?: ComponentKind;          // built-in only
+  custom?: ComponentEntry;       // present for admin-created customs
+  disabled?: boolean;
+}
 
 export function ComponentPalette() {
   const [q, setQ] = useState("");
@@ -13,16 +23,39 @@ export function ComponentPalette() {
   const hydrate = useAdminStore((s) => s.hydrate);
   useEffect(() => { if (!adminLoaded) hydrate(); }, [adminLoaded, hydrate]);
 
-  // Build the palette from admin order; only enabled components appear.
-  const all = useMemo(() => {
+  // Built-ins map to COMPONENT_DEFS; custom entries (non-built-in admin items)
+  // are also added so users see what they created in the admin panel.
+  const all: PaletteEntry[] = useMemo(() => {
     if (!adminLoaded) {
-      return Object.values(COMPONENT_DEFS).filter((c) => c.available);
+      return Object.values(COMPONENT_DEFS)
+        .filter((c) => c.available)
+        .map((c) => ({ payload: c.kind, label: c.label, category: c.category, kind: c.kind }));
     }
-    return adminComps
-      .filter((a) => a.enabled)
-      .map((a) => COMPONENT_DEFS[a.id as ComponentKind])
-      .filter(Boolean);
+    const out: PaletteEntry[] = [];
+    for (const a of adminComps) {
+      if (!a.enabled) continue;
+      if (a.builtIn) {
+        const def = COMPONENT_DEFS[a.id as ComponentKind];
+        if (!def) continue;
+        out.push({
+          payload: def.kind,
+          label: def.label,
+          category: def.category,
+          kind: def.kind,
+          disabled: !def.available,
+        });
+      } else {
+        out.push({
+          payload: `custom:${a.id}`,
+          label: a.label,
+          category: a.category || "Basic",
+          custom: a,
+        });
+      }
+    }
+    return out;
   }, [adminLoaded, adminComps]);
+
   const filtered = all.filter((c) => c.label.toLowerCase().includes(q.toLowerCase()));
 
   return (
@@ -41,8 +74,10 @@ export function ComponentPalette() {
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-thin py-2">
-        {CATEGORIES.map((cat) => {
-          const items = filtered.filter((c) => c.category === cat);
+        {[...CATEGORIES, "Custom"].map((cat) => {
+          const items = filtered.filter((c) =>
+            cat === "Custom" ? !!c.custom : c.category === cat && !c.custom
+          );
           if (!items.length) return null;
           return (
             <div key={cat} className="mb-3">
@@ -51,7 +86,7 @@ export function ComponentPalette() {
               </div>
               <div className="grid grid-cols-2 gap-1.5 px-2">
                 {items.map((c) => (
-                  <PaletteItem key={c.kind} kind={c.kind} label={c.label} disabled={!c.available} />
+                  <PaletteItem key={c.payload} entry={c} />
                 ))}
               </div>
             </div>
@@ -65,13 +100,14 @@ export function ComponentPalette() {
   );
 }
 
-function PaletteItem({ kind, label, disabled }: { kind: ComponentKind; label: string; disabled: boolean }) {
+function PaletteItem({ entry }: { entry: PaletteEntry }) {
+  const disabled = !!entry.disabled;
   return (
     <div
       draggable={!disabled}
       onDragStart={(e) => {
         if (disabled) { e.preventDefault(); return; }
-        e.dataTransfer.setData("application/x-embedsim-component", kind);
+        e.dataTransfer.setData("application/x-embedsim-component", entry.payload);
         e.dataTransfer.effectAllowed = "copy";
       }}
       className={[
@@ -80,13 +116,30 @@ function PaletteItem({ kind, label, disabled }: { kind: ComponentKind; label: st
           ? "border-sidebar-border opacity-40 cursor-not-allowed"
           : "border-sidebar-border bg-sidebar-accent hover:border-primary hover:glow-neon cursor-grab active:cursor-grabbing",
       ].join(" ")}
-      title={disabled ? `${label} (coming soon)` : label}
+      title={disabled ? `${entry.label} (coming soon)` : entry.label}
     >
-      <div className="w-full h-8 flex items-center justify-center">
-        <PaletteIcon kind={kind} />
+      <div className="w-full h-8 flex items-center justify-center overflow-hidden">
+        {entry.custom ? <CustomThumb entry={entry.custom} /> : <PaletteIcon kind={entry.kind!} />}
       </div>
-      <div className="truncate w-full text-center">{label}</div>
+      <div className="truncate w-full text-center">{entry.label}</div>
     </div>
+  );
+}
+
+function CustomThumb({ entry }: { entry: ComponentEntry }) {
+  if (entry.svg) {
+    return (
+      <div
+        className="w-full h-full flex items-center justify-center [&>svg]:max-w-full [&>svg]:max-h-full"
+        dangerouslySetInnerHTML={{ __html: entry.svg }}
+      />
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" className="w-6 h-6">
+      <rect x={3} y={6} width={18} height={12} rx={2}
+        fill={entry.bodyColor ?? "oklch(0.32 0.02 250)"} stroke="currentColor" strokeWidth={0.6} />
+    </svg>
   );
 }
 

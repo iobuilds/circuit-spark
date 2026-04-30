@@ -6,7 +6,8 @@ import { CircuitComponentNode } from "./CircuitComponentNode";
 import { findUnoPin, UNO_HEIGHT, UNO_WIDTH } from "@/sim/uno-pins";
 import { buildNetGraph, evaluateInputs, isLedPowered } from "@/sim/netlist";
 import type { ComponentKind } from "@/sim/types";
-import { Trash2 } from "lucide-react";
+import { useAdminStore } from "@/sim/adminStore";
+import { CornerDownLeft, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Props {
@@ -20,6 +21,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const components = useSimStore((s) => s.components);
   const wires = useSimStore((s) => s.wires);
   const drawingFrom = useSimStore((s) => s.drawingFrom);
+  const drawingWaypoints = useSimStore((s) => s.drawingWaypoints);
   const selectedId = useSimStore((s) => s.selectedId);
   const pinStates = useSimStore((s) => s.pinStates);
 
@@ -29,8 +31,12 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const setSelected = useSimStore((s) => s.setSelected);
   const startWire = useSimStore((s) => s.startWire);
   const finishWire = useSimStore((s) => s.finishWire);
+  const addWireWaypoint = useSimStore((s) => s.addWireWaypoint);
+  const undoWireWaypoint = useSimStore((s) => s.undoWireWaypoint);
   const cancelWire = useSimStore((s) => s.cancelWire);
   const removeWire = useSimStore((s) => s.removeWire);
+
+  const adminComps = useAdminStore((s) => s.components);
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
@@ -50,6 +56,22 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     }
   }, [components, net, pinStates, onPinInputChange]);
 
+  // Esc / Backspace / Enter shortcuts while drawing a wire.
+  useEffect(() => {
+    if (!drawingFrom) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        cancelWire();
+      } else if (e.key === "Backspace" && drawingWaypoints.length > 0) {
+        e.preventDefault();
+        undoWireWaypoint();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drawingFrom, drawingWaypoints.length, cancelWire, undoWireWaypoint]);
+
   function clientToSvg(e: { clientX: number; clientY: number }): { x: number; y: number } {
     const svg = svgRef.current;
     if (!svg) return { x: 0, y: 0 };
@@ -64,12 +86,24 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   function onSvgDragOver(e: React.DragEvent) { e.preventDefault(); }
   function onSvgDrop(e: React.DragEvent) {
     e.preventDefault();
-    const kind = e.dataTransfer.getData("application/x-embedsim-component") as ComponentKind | "";
-    if (!kind) return;
+    const payload = e.dataTransfer.getData("application/x-embedsim-component");
+    if (!payload) return;
     const { x, y } = clientToSvg(e);
+    const snap = (n: number) => Math.round(n / 10) * 10;
+
+    if (payload.startsWith("custom:")) {
+      const customId = payload.slice("custom:".length);
+      const entry = adminComps.find((c) => c.id === customId);
+      if (!entry) return;
+      const w = entry.width ?? 80;
+      const h = entry.height ?? 60;
+      addComponent("custom", snap(x - w / 2), snap(y - h / 2), customId);
+      return;
+    }
+
+    const kind = payload as ComponentKind;
     const def = COMPONENT_DEFS[kind];
     if (!def?.available) return;
-    const snap = (n: number) => Math.round(n / 10) * 10;
     addComponent(kind, snap(x - def.width / 2), snap(y - def.height / 2));
   }
 
@@ -102,15 +136,22 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     };
   }
 
-  // Determine endpoint coordinates for a wire
+  // Endpoint coordinates for a wire endpoint reference.
   function endpointPos(componentId: string, pinId: string): { x: number; y: number } | null {
     if (componentId === "board") {
       const bp = findUnoPin(pinId);
       if (!bp) return null;
       return { x: BOARD_X + bp.x, y: BOARD_Y + bp.y };
     }
-    const c = components.find((c) => c.id === componentId);
+    const c = components.find((cc) => cc.id === componentId);
     if (!c) return null;
+    if (c.kind === "custom") {
+      const cid = String(c.props.customId ?? "");
+      const entry = adminComps.find((a) => a.id === cid);
+      const pin = entry?.pins?.find((p) => p.id === pinId);
+      if (!pin) return null;
+      return { x: c.x + pin.x, y: c.y + pin.y };
+    }
     const def = COMPONENT_DEFS[c.kind];
     const pin = def.pins.find((p) => p.id === pinId);
     if (!pin) return null;
@@ -118,6 +159,12 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   }
 
   const drawingFromPos = drawingFrom ? endpointPos(drawingFrom.componentId, drawingFrom.pinId) : null;
+
+  // Build a poly-line path for an existing wire, including its waypoints.
+  function wirePath(a: { x: number; y: number }, b: { x: number; y: number }, mids: { x: number; y: number }[]) {
+    const pts = [a, ...mids, b];
+    return pts.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(" ");
+  }
 
   return (
     <div className="relative w-full h-full canvas-grid-bg overflow-hidden">
@@ -130,12 +177,34 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         onMouseUp={() => { setDragId(null); setPanning(false); }}
         onWheel={onWheel}
         onMouseDown={(e) => {
-          if (e.target === e.currentTarget) {
-            setSelected(null);
-            if (drawingFrom) cancelWire();
-            if (e.button === 0 && (e.altKey || e.metaKey)) setPanning(true);
-            else if (e.button === 1) setPanning(true);
+          // Only react to clicks on the empty SVG background.
+          if (e.target !== e.currentTarget) return;
+
+          // While drawing a wire: empty-canvas click drops a waypoint (multi-point routing).
+          // Right-click finishes/cancels via cancelWire.
+          if (drawingFrom) {
+            if (e.button === 2) {
+              cancelWire();
+            } else if (e.button === 0 && !(e.altKey || e.metaKey)) {
+              const p = clientToSvg(e);
+              const snap = (n: number) => Math.round(n / 5) * 5;
+              addWireWaypoint({ x: snap(p.x), y: snap(p.y) });
+            } else if (e.button === 0 && (e.altKey || e.metaKey)) {
+              setPanning(true);
+            } else if (e.button === 1) {
+              setPanning(true);
+            }
+            return;
           }
+
+          // Not drawing: clear selection / start panning.
+          setSelected(null);
+          if (e.button === 0 && (e.altKey || e.metaKey)) setPanning(true);
+          else if (e.button === 1) setPanning(true);
+        }}
+        onContextMenu={(e) => {
+          // Disable context menu so right-click can finish/cancel wires.
+          if (drawingFrom) e.preventDefault();
         }}
       >
         <g transform={`scale(${zoom}) translate(${pan.x} ${pan.y})`}>
@@ -167,37 +236,45 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
             />
           ))}
 
-          {/* Wires */}
+          {/* Wires (poly-line through waypoints, fall back to manhattan if none) */}
           {wires.map((w) => {
             const a = endpointPos(w.from.componentId, w.from.pinId);
             const b = endpointPos(w.to.componentId, w.to.pinId);
             if (!a || !b) return null;
-            const mid1 = { x: a.x, y: (a.y + b.y) / 2 };
-            const mid2 = { x: b.x, y: (a.y + b.y) / 2 };
-            const d = `M ${a.x} ${a.y} L ${mid1.x} ${mid1.y} L ${mid2.x} ${mid2.y} L ${b.x} ${b.y}`;
+            const mids = w.waypoints && w.waypoints.length
+              ? w.waypoints
+              : [{ x: a.x, y: (a.y + b.y) / 2 }, { x: b.x, y: (a.y + b.y) / 2 }];
+            const d = wirePath(a, b, mids);
             return (
               <g key={w.id} className="cursor-pointer" onClick={() => removeWire(w.id)}>
                 <path d={d} stroke="oklch(0 0 0 / 0.4)" strokeWidth={4} fill="none" />
-                <path d={d} stroke="var(--color-wire)" strokeWidth={2.2} fill="none" strokeLinecap="round" />
+                <path d={d} stroke="var(--color-wire)" strokeWidth={2.2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
               </g>
             );
           })}
 
-          {/* Drawing wire preview */}
+          {/* In-progress wire preview: from start through committed waypoints to mouse. */}
           {drawingFromPos && (
-            <line
-              x1={drawingFromPos.x} y1={drawingFromPos.y}
-              x2={mouse.x} y2={mouse.y}
-              stroke="var(--color-primary)"
-              strokeWidth={2}
-              strokeDasharray="6 4"
-              pointerEvents="none"
-            />
+            <g pointerEvents="none">
+              <path
+                d={wirePath(drawingFromPos, mouse, drawingWaypoints)}
+                stroke="var(--color-primary)"
+                strokeWidth={2}
+                strokeDasharray="6 4"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {drawingWaypoints.map((p, i) => (
+                <circle key={i} cx={p.x} cy={p.y} r={3.5}
+                  fill="var(--color-primary)" stroke="var(--color-background)" strokeWidth={1} />
+              ))}
+            </g>
           )}
         </g>
       </svg>
 
-      {/* Toolbar overlay */}
+      {/* Zoom toolbar overlay */}
       <div className="absolute bottom-3 right-3 flex items-center gap-2 rounded-md bg-card/90 backdrop-blur border border-border px-2 py-1 text-xs font-mono">
         <span className="text-muted-foreground">zoom</span>
         <span className="tabular-nums">{(zoom * 100).toFixed(0)}%</span>
@@ -220,9 +297,34 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         </div>
       )}
 
+      {/* Wire-drawing toolbar: shows source pin, point count, and shortcut buttons. */}
       {drawingFrom && (
-        <div className="absolute top-3 left-3 rounded-md bg-card/90 backdrop-blur border border-primary px-3 py-1.5 text-xs">
-          Drawing wire from <span className="text-primary font-mono">{drawingFrom.pinId}</span> — click another pin, or click empty canvas to cancel
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-md bg-card/95 backdrop-blur border border-primary px-3 py-1.5 text-xs shadow-lg">
+          <span className="text-muted-foreground">Wiring from</span>
+          <span className="text-primary font-mono">{drawingFrom.pinId}</span>
+          <span className="text-muted-foreground">·</span>
+          <span className="tabular-nums">
+            {drawingWaypoints.length} {drawingWaypoints.length === 1 ? "point" : "points"}
+          </span>
+          <span className="text-muted-foreground hidden md:inline">— click pins to connect, click canvas to add a bend</span>
+          <Button
+            size="sm" variant="ghost"
+            className="h-6 px-2"
+            disabled={drawingWaypoints.length === 0}
+            onClick={undoWireWaypoint}
+            title="Undo last point (Backspace)"
+          >
+            <CornerDownLeft className="h-3 w-3 mr-1" /> Undo
+          </Button>
+          <Button
+            size="sm" variant="ghost"
+            className="h-6 px-2"
+            onClick={cancelWire}
+            title="Cancel (Esc)"
+          >
+            <X className="h-3 w-3 mr-1" /> Cancel
+          </Button>
+          <kbd className="hidden md:inline-flex text-[10px] px-1 py-0.5 rounded border border-border text-muted-foreground">Esc</kbd>
         </div>
       )}
 

@@ -1,7 +1,8 @@
 import { useSimStore } from "@/sim/store";
 import { COMPONENT_DEFS } from "@/sim/components";
 import type { CircuitComponent } from "@/sim/types";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useAdminStore } from "@/sim/adminStore";
 
 interface Props {
   comp: CircuitComponent;
@@ -22,6 +23,32 @@ const LED_COLORS: Record<string, { off: string; on: string; glow: string }> = {
 export function CircuitComponentNode({ comp, isPowered, onPinClick, onSelect, onDragStart, selected }: Props) {
   const def = COMPONENT_DEFS[comp.kind];
   const setProp = useSimStore((s) => s.setComponentProp);
+  const adminComps = useAdminStore((s) => s.components);
+
+  // Resolve the admin entry for custom components so we can render their SVG/pins.
+  const customEntry = useMemo(() => {
+    if (comp.kind !== "custom") return null;
+    const cid = String(comp.props.customId ?? "");
+    return adminComps.find((c) => c.id === cid) ?? null;
+  }, [adminComps, comp.kind, comp.props.customId]);
+
+  // Inner SVG markup (strip outer <svg> wrapper) for inline embedding.
+  const customInner = useMemo(() => {
+    if (!customEntry?.svg) return null;
+    const m = customEntry.svg.match(/<svg[^>]*>([\s\S]*)<\/svg>/i);
+    return m ? m[1] : customEntry.svg;
+  }, [customEntry?.svg]);
+
+  // Pin list to render: built-ins use COMPONENT_DEFS.pins, customs use admin pins.
+  const pins = useMemo(() => {
+    if (comp.kind === "custom" && customEntry?.pins) {
+      return customEntry.pins.map((p) => ({ id: p.id, label: p.label, x: p.x, y: p.y }));
+    }
+    return def.pins;
+  }, [comp.kind, customEntry?.pins, def.pins]);
+
+  const width = comp.kind === "custom" ? (customEntry?.width ?? def.width) : def.width;
+  const height = comp.kind === "custom" ? (customEntry?.height ?? def.height) : def.height;
 
   return (
     <g
@@ -32,7 +59,7 @@ export function CircuitComponentNode({ comp, isPowered, onPinClick, onSelect, on
       {/* Selection ring */}
       {selected && (
         <rect
-          x={-4} y={-4} width={def.width + 8} height={def.height + 8}
+          x={-4} y={-4} width={width + 8} height={height + 8}
           rx={6}
           fill="none"
           stroke="var(--color-primary)"
@@ -51,8 +78,25 @@ export function CircuitComponentNode({ comp, isPowered, onPinClick, onSelect, on
         />
       )}
 
+      {/* Custom component visual: inline the admin SVG markup. */}
+      {comp.kind === "custom" && (
+        customInner ? (
+          <g dangerouslySetInnerHTML={{ __html: customInner }} />
+        ) : (
+          <rect x={0} y={0} width={width} height={height} rx={6}
+            fill={customEntry?.bodyColor ?? "oklch(0.32 0.02 250)"}
+            stroke="oklch(0.18 0.01 250)" />
+        )
+      )}
+      {comp.kind === "custom" && !customInner && customEntry && (
+        <text x={width / 2} y={height / 2} textAnchor="middle" dominantBaseline="middle"
+          fontSize={11} fontFamily="monospace" fill="var(--color-foreground)">
+          {customEntry.label}
+        </text>
+      )}
+
       {/* Pins */}
-      {def.pins.map((pin) => (
+      {pins.map((pin) => (
         <g key={pin.id} transform={`translate(${pin.x} ${pin.y})`}>
           <circle
             r={4}
