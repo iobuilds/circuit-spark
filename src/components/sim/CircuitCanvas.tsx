@@ -507,6 +507,39 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         </div>
       )}
 
+      {/* Floating pin info popup on hover (id, kind/role, live value if simulating). */}
+      {hovered && (() => {
+        const pinNum = hovered.number;
+        const live = pinNum !== undefined ? pinStates[pinNum] : undefined;
+        const kindLabel =
+          hovered.kind === "power" ? "Power"
+          : hovered.kind === "ground" ? "Ground"
+          : hovered.kind === "digital" ? `Digital (D${pinNum ?? ""})`
+          : hovered.kind === "analog" ? `Analog (A${pinNum !== undefined ? pinNum - 14 : ""})`
+          : "Pin";
+        return (
+          <div
+            className="pointer-events-none absolute z-20 rounded-md border border-border bg-card/95 backdrop-blur px-2.5 py-1.5 text-[11px] shadow-lg font-mono"
+            style={{
+              left: Math.max(8, hovered.sx + 14),
+              top: Math.max(8, hovered.sy - 36),
+            }}
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="text-primary font-bold">{hovered.label}</span>
+              <span className="text-muted-foreground">·</span>
+              <span className="text-foreground">{kindLabel}</span>
+            </div>
+            {live && (
+              <div className="text-muted-foreground mt-0.5">
+                {live.digital !== undefined && <>digital: <span className="text-foreground">{live.digital}</span> </>}
+                {live.analog !== undefined && <>analog: <span className="text-foreground">{live.analog}</span></>}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       <AddItemDialog
         open={addOpen}
         onOpenChange={setAddOpen}
