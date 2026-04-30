@@ -1,8 +1,10 @@
 import { COMPONENT_DEFS } from "@/sim/components";
-import type { ComponentKind } from "@/sim/types";
+import type { BoardId, ComponentKind } from "@/sim/types";
+import { BOARDS } from "@/sim/types";
 import { useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Search, Cpu } from "lucide-react";
 import { useAdminStore, type ComponentEntry } from "@/sim/adminStore";
+import { useSimStore } from "@/sim/store";
 
 const CATEGORIES = ["Basic", "Displays", "Sensors", "Actuators", "Power", "Comms"] as const;
 
