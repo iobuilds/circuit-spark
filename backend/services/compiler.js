@@ -84,6 +84,24 @@ class CompilerService {
     });
   }
 
+  // Drift check: confirm a library actually shows up in `arduino-cli lib list`
+  // after a reportedly successful install. Matches by name (case-insensitive).
+  async _verifyLibraryInstalled(libName) {
+    const target = String(libName).split('@')[0].trim().toLowerCase();
+    const res = await this._run(['lib', 'list', '--format', 'json'], { timeoutMs: 30000 });
+    if (res.code !== 0) {
+      logger.warn(`verify lib list failed (${res.code}): ${res.stderr.trim()}`);
+      return false;
+    }
+    try {
+      const arr = JSON.parse(res.stdout || '[]');
+      return arr.some(l => (l.library?.name || '').toLowerCase() === target);
+    } catch (e) {
+      logger.warn(`verify lib list parse error: ${e.message}`);
+      return false;
+    }
+  }
+
   // Self-healing index refresh. arduino-cli sometimes returns non-zero when an
   // optional 3rd-party index (e.g. rp2040) is unreachable. We log it but never
   // treat it as fatal — the official lib index is what matters for `lib install`.
@@ -128,8 +146,19 @@ class CompilerService {
         logger.error(`Failed to install ${lib}: ${msg}`);
         failed.push({ lib, error: msg });
       } else {
-        logger.info(`Installed library: ${lib}`);
-        await libraryCache.markInstalled(lib);
+        // Drift detection: arduino-cli sometimes reports success but the lib
+        // isn't actually resolvable (corrupted index, partial download, perms).
+        // Verify by asking `lib list` and confirming it shows up. If not,
+        // invalidate the cache so we don't poison future compiles, and fail loud.
+        const verified = await this._verifyLibraryInstalled(lib);
+        if (!verified) {
+          logger.error(`Drift detected: ${lib} reported installed but not visible to arduino-cli`);
+          await libraryCache.invalidate();
+          failed.push({ lib, error: `install reported success but library not found by arduino-cli (drift); cache invalidated` });
+        } else {
+          logger.info(`Installed library: ${lib} (verified)`);
+          await libraryCache.markInstalled(lib);
+        }
       }
     }
 
