@@ -432,6 +432,15 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
           // Only react to clicks on the empty SVG background.
           if (e.target !== e.currentTarget) return;
 
+          // Pending placement: left-click commits at the cursor; right-click cancels.
+          if (pending) {
+            if (e.button === 2) { setPending(null); return; }
+            if (e.button === 0) {
+              commitPlacement(clientToSvg(e));
+              return;
+            }
+          }
+
           // While drawing a wire: empty-canvas click drops a waypoint (multi-point routing).
           // Right-click finishes/cancels via cancelWire.
           if (drawingFrom) {
