@@ -86,6 +86,12 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const [pinEditMode, setPinEditMode] = useState(false);
   const setComponentProp = useSimStore((s) => s.setComponentProp);
   const [show3D, setShow3D] = useState(false);
+  const [pending, setPending] = useState<
+    | { kind: "component"; value: ComponentKind; w: number; h: number }
+    | { kind: "custom"; customId: string; w: number; h: number }
+    | { kind: "board"; boardId: BoardId; w: number; h: number }
+    | null
+  >(null);
 
   const placedBoards = useMemo(() => components.filter((c) => c.kind === "board"), [components]);
 
@@ -104,6 +110,14 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
 
   // Cancel any in-progress wire when the workspace becomes locked.
   useEffect(() => { if (locked && drawingFrom) cancelWire(); }, [locked, drawingFrom, cancelWire]);
+
+  // ESC cancels any pending placement.
+  useEffect(() => {
+    if (!pending) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setPending(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pending]);
 
   // Push input states (pot, button) to worker
   useEffect(() => {
@@ -211,25 +225,39 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     addComponent(kind, snap(x - def.width / 2), snap(y - def.height / 2));
   }
 
-  /** Add an item at the canvas center (used by the "+" popup). */
-  function addAtCenter(payload: { kind: "component"; value: ComponentKind }
+  /** Pending placement: after picking from the "+" dialog, the item follows
+   * the cursor as a ghost until the user clicks an empty spot to place. */
+  type Pending =
+    | { kind: "component"; value: ComponentKind; w: number; h: number }
+    | { kind: "custom"; customId: string; w: number; h: number }
+    | { kind: "board"; boardId: BoardId; w: number; h: number };
+
+  function startPlacement(payload: { kind: "component"; value: ComponentKind }
     | { kind: "custom"; customId: string; w: number; h: number }
     | { kind: "board"; boardId: BoardId }) {
     if (locked) return;
-    const svg = svgRef.current;
-    const r = svg?.getBoundingClientRect();
-    const cx = r ? (r.width / 2) / zoom - pan.x : 400;
-    const cy = r ? (r.height / 2) / zoom - pan.y : 250;
-    const snap = (n: number) => Math.round(n / 10) * 10;
     if (payload.kind === "board") {
-      addComponent("board", snap(cx - 180), snap(cy - 120), payload.boardId);
-      setBoard(payload.boardId);
+      setPending({ kind: "board", boardId: payload.boardId, w: 360, h: 240 });
     } else if (payload.kind === "custom") {
-      addComponent("custom", snap(cx - payload.w / 2), snap(cy - payload.h / 2), payload.customId);
+      setPending({ kind: "custom", customId: payload.customId, w: payload.w, h: payload.h });
     } else {
       const def = COMPONENT_DEFS[payload.value];
-      addComponent(payload.value, snap(cx - def.width / 2), snap(cy - def.height / 2));
+      setPending({ kind: "component", value: payload.value, w: def.width, h: def.height });
     }
+  }
+
+  function commitPlacement(p: { x: number; y: number }) {
+    if (!pending) return;
+    const snap = (n: number) => Math.round(n / 10) * 10;
+    if (pending.kind === "board") {
+      addComponent("board", snap(p.x - pending.w / 2), snap(p.y - pending.h / 2), pending.boardId);
+      setBoard(pending.boardId);
+    } else if (pending.kind === "custom") {
+      addComponent("custom", snap(p.x - pending.w / 2), snap(p.y - pending.h / 2), pending.customId);
+    } else {
+      addComponent(pending.value, snap(p.x - pending.w / 2), snap(p.y - pending.h / 2));
+    }
+    setPending(null);
   }
 
   // Wire/drag mouse handling
@@ -402,7 +430,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     <div className="relative w-full h-full canvas-grid-bg overflow-hidden">
       <svg
         ref={svgRef}
-        className="w-full h-full select-none"
+        className={`w-full h-full select-none ${pending ? "cursor-copy" : ""}`}
         onDragOver={onSvgDragOver}
         onDrop={onSvgDrop}
         onMouseMove={onMouseMove}
@@ -411,6 +439,15 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         onMouseDown={(e) => {
           // Only react to clicks on the empty SVG background.
           if (e.target !== e.currentTarget) return;
+
+          // Pending placement: left-click commits at the cursor; right-click cancels.
+          if (pending) {
+            if (e.button === 2) { setPending(null); return; }
+            if (e.button === 0) {
+              commitPlacement(clientToSvg(e));
+              return;
+            }
+          }
 
           // While drawing a wire: empty-canvas click drops a waypoint (multi-point routing).
           // Right-click finishes/cancels via cancelWire.
@@ -529,7 +566,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
             const segPts = [a, ...userMids, b];
             const isWireSel = selectedWireId === w.id;
             const stroke = w.color || "var(--color-wire)";
-            const sw = w.thickness ?? 2.2;
+            const sw = w.thickness ?? 4;
             return (
               <g key={w.id}>
                 {/* Shadow */}
@@ -622,7 +659,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
               <path
                 d={wirePath(drawingFromPos, mouse, drawingWaypoints)}
                 stroke="var(--color-primary)"
-                strokeWidth={2}
+                strokeWidth={4}
                 strokeDasharray="6 4"
                 fill="none"
                 strokeLinecap="round"
@@ -632,6 +669,28 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                 <circle key={i} cx={p.x} cy={p.y} r={3.5}
                   fill="var(--color-primary)" stroke="var(--color-background)" strokeWidth={1} />
               ))}
+            </g>
+          )}
+
+          {/* Ghost placement preview: follows the cursor until clicked or Escaped. */}
+          {pending && (
+            <g
+              transform={`translate(${mouse.x - pending.w / 2} ${mouse.y - pending.h / 2})`}
+              opacity={0.6}
+              pointerEvents="none"
+            >
+              <rect
+                x={-4} y={-4} width={pending.w + 8} height={pending.h + 8}
+                rx={6} fill="var(--color-primary)" fillOpacity={0.08}
+                stroke="var(--color-primary)" strokeWidth={1.5} strokeDasharray="6 4"
+              />
+              <text x={pending.w / 2} y={pending.h / 2} textAnchor="middle"
+                dominantBaseline="middle" fontSize={11} fontFamily="monospace"
+                fill="var(--color-primary)">
+                {pending.kind === "board" ? `Place ${pending.boardId} board`
+                  : pending.kind === "custom" ? "Place component"
+                  : `Place ${pending.value}`}
+              </text>
             </g>
           )}
         </g>
@@ -902,7 +961,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
           { name: "default",val: "" },
         ];
         const cur = w.color || "";
-        const thick = w.thickness ?? 2.2;
+        const thick = w.thickness ?? 4;
 
         // All wire ids that belong to the same electrical net as the selected wire.
         const wiresOnSameNet = (): string[] => {
@@ -1025,14 +1084,14 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
       <AddItemDialog
         open={addOpen}
         onOpenChange={setAddOpen}
-        onPickComponent={(kind) => addAtCenter({ kind: "component", value: kind })}
-        onPickCustom={(entry) => addAtCenter({
+        onPickComponent={(kind) => startPlacement({ kind: "component", value: kind })}
+        onPickCustom={(entry) => startPlacement({
           kind: "custom",
           customId: entry.id,
           w: entry.width ?? 80,
           h: entry.height ?? 60,
         })}
-        onPickBoard={(bid) => addAtCenter({ kind: "board", boardId: bid })}
+        onPickBoard={(bid) => startPlacement({ kind: "board", boardId: bid })}
       />
 
       {/* Wire-drawing toolbar: shows source pin, point count, and shortcut buttons. */}
