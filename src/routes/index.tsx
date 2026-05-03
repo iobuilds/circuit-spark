@@ -219,9 +219,17 @@ function SimulatorPage() {
   useEffect(() => {
     (window as unknown as Record<string, unknown>).__embedsimCompileBoards = (ids: string[]) => handleBackendCompile(ids);
     (window as unknown as Record<string, unknown>).__embedsimRunBoards = (ids: string[]) => compileThenStart(ids);
+    // Cross-board GPIO propagation: another board's OUTPUT pin drives this
+    // board's INPUT via a shared net. Routed per-board so reads are isolated.
+    (window as unknown as Record<string, unknown>).__embedsimPropagateBoardGPIO = (target: {
+      boardCompId: string; pin: number; digital?: 0 | 1; analog?: number;
+    }) => {
+      ctrl.setInput(target.pin, { digital: target.digital, analog: target.analog }, target.boardCompId);
+    };
     return () => {
       delete (window as unknown as Record<string, unknown>).__embedsimCompileBoards;
       delete (window as unknown as Record<string, unknown>).__embedsimRunBoards;
+      delete (window as unknown as Record<string, unknown>).__embedsimPropagateBoardGPIO;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
