@@ -52,7 +52,7 @@ export function SerialMonitor({ onSerialIn }: Props) {
           <input type="checkbox" checked={autoscroll} onChange={(e) => setAutoscroll(e.target.checked)} />
           auto
         </label>
-        <Button size="sm" variant="ghost" className="h-6 px-2" onClick={clear}>
+        <Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => clear()}>
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
