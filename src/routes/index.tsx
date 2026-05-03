@@ -10,11 +10,11 @@ import { FileTabs } from "@/components/sim/FileTabs";
 import { CompileOutputPanel } from "@/components/sim/CompileOutputPanel";
 import { PinStateTable } from "@/components/sim/PinStateTable";
 import { Button } from "@/components/ui/button";
-import { Code2, FolderTree, PanelRightClose, PanelRightOpen, LogOut, PanelBottomClose, PanelBottomOpen } from "lucide-react";
+import { Code2, FileText, FolderTree, PanelRightClose, PanelRightOpen, LogOut, PanelBottomClose, PanelBottomOpen, Trash2 } from "lucide-react";
 import { useSimController } from "@/sim/useSimController";
 import { useSimStore } from "@/sim/store";
-import { useIdeStore } from "@/sim/ideStore";
-import { compileSketch, fileSliceForCompile, type CompileResult, type CompileProgress } from "@/sim/compileApi";
+import { useIdeStore, type SourceFile } from "@/sim/ideStore";
+import { compileSketch, type CompileResult, type CompileProgress } from "@/sim/compileApi";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -102,15 +102,16 @@ function SimulatorPage() {
   }, [compileOutput]);
 
   async function handleBackendCompile(): Promise<boolean> {
-    const { files } = useIdeStore.getState();
+    const { files, activeFileId } = useIdeStore.getState();
     const installedLibraries = useIdeStore.getState().installedLibraries.map((l) => l.id);
+    const compileFiles = fileSliceForActiveSketch(files, activeFileId);
     setCompiling(true);
     setCompileProgress({ step: "Queued", percent: 0, message: "Submitting job..." });
     setCompileOutput(null);
     const result = await compileSketch(
       {
         board: boardId,
-        files: fileSliceForCompile(files),
+        files: compileFiles,
         libraries: installedLibraries,
       },
       (p) => setCompileProgress(p),
