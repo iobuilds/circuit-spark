@@ -96,12 +96,14 @@ export interface SimState {
   canRedoWires: () => boolean;
 
   setStatus: (s: SimStatus) => void;
-  setPinStates: (s: Record<number, PinState>) => void;
-  appendSerial: (line: SerialLine) => void;
-  clearSerial: () => void;
+  setPinStates: (s: Record<number, PinState>, boardId?: string) => void;
+  appendSerial: (line: SerialLine, boardId?: string) => void;
+  clearSerial: (boardId?: string) => void;
   setSimTime: (ms: number) => void;
   setSpeed: (n: number) => void;
   setCompileLog: (l: SimState["compileLog"]) => void;
+  setActiveSimBoard: (id: string | null) => void;
+  setBoardStatus: (id: string, s: SimStatus) => void;
 
   toggleTheme: () => void;
   resetWorkspace: () => void;
@@ -137,6 +139,10 @@ export const useSimStore = create<SimState>((set, get) => {
   status: "idle",
   serial: [],
   pinStates: {},
+  serialByBoard: {},
+  pinStatesByBoard: {},
+  statusByBoard: {},
+  activeSimBoardId: null,
   simTimeMs: 0,
   speed: 1,
   compileLog: [],
