@@ -9,6 +9,10 @@ import { findUnoPin } from "./uno-pins";
 export interface NetGraph {
   /** for a given (componentId,pinId), which board pin number (or "GND"/"5V"/"3V3"/null) it connects to */
   netForCompPin: Map<string, string | null>;
+  /** Reverse lookup: net root → list of (boardCompId, pin, label) endpoints
+   *  so we can detect when multiple boards share a net and drive one board's
+   *  input from another's output (e.g. master.D5 wired to slave.D7). */
+  netToBoardPins?: Map<string, { boardCompId: string; pin: number; label: string }[]>;
 }
 
 const key = (cid: string, pid: string) => `${cid}::${pid}`;
