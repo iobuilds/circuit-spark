@@ -567,6 +567,15 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                 }}
                 style={{ cursor: locked ? "default" : "grab" }}
               >
+                {/* Invisible hit target rendered BEFORE the board art so clicks anywhere on
+                    the board reliably select/drag it. Pins (rendered after) stay on top. */}
+                <rect
+                  x={b.x} y={b.y}
+                  width={bid === "uno" ? UNO_WIDTH : 360}
+                  height={bid === "uno" ? UNO_HEIGHT : 240}
+                  fill="transparent"
+                  pointerEvents="all"
+                />
                 {bid === "uno" ? (
                   <ArduinoUnoBoard
                     x={b.x}
@@ -585,14 +594,6 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                     onPinHover={hoverHandler}
                   />
                 )}
-                {/* Invisible hit target so clicks anywhere on the board reliably select/drag it. */}
-                <rect
-                  x={b.x} y={b.y}
-                  width={bid === "uno" ? UNO_WIDTH : 360}
-                  height={bid === "uno" ? UNO_HEIGHT : 240}
-                  fill="transparent"
-                  pointerEvents="all"
-                />
                 {isSel && (
                   <rect
                     x={b.x - 4} y={b.y - 4}
