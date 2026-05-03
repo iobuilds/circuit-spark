@@ -5,7 +5,7 @@ import { ArduinoUnoBoard } from "./ArduinoUnoBoard";
 import { GenericBoard } from "./GenericBoard";
 import { CircuitComponentNode } from "./CircuitComponentNode";
 import { findUnoPin, UNO_HEIGHT, UNO_WIDTH } from "@/sim/uno-pins";
-import { buildNetGraph, evaluateInputs, isLedPowered, isLedBurning } from "@/sim/netlist";
+import { buildNetGraph, evaluateInputs, isLedPowered, isLedBurning, computeLoadVoltage } from "@/sim/netlist";
 import { toast } from "sonner";
 import type { BoardId, ComponentKind } from "@/sim/types";
 import { useAdminStore } from "@/sim/adminStore";
