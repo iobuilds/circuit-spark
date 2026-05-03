@@ -1045,14 +1045,14 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
       <AddItemDialog
         open={addOpen}
         onOpenChange={setAddOpen}
-        onPickComponent={(kind) => addAtCenter({ kind: "component", value: kind })}
-        onPickCustom={(entry) => addAtCenter({
+        onPickComponent={(kind) => startPlacement({ kind: "component", value: kind })}
+        onPickCustom={(entry) => startPlacement({
           kind: "custom",
           customId: entry.id,
           w: entry.width ?? 80,
           h: entry.height ?? 60,
         })}
-        onPickBoard={(bid) => addAtCenter({ kind: "board", boardId: bid })}
+        onPickBoard={(bid) => startPlacement({ kind: "board", boardId: bid })}
       />
 
       {/* Wire-drawing toolbar: shows source pin, point count, and shortcut buttons. */}
