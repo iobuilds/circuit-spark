@@ -142,6 +142,8 @@ export const useSimStore = create<SimState>((set, get) => {
     if (kind === "led") { props.color = "red"; props.size = 1; props.mode = "auto"; }
     if (kind === "resistor") { props.ohms = 330; }
     if (kind === "potentiometer") { props.value = 512; }
+    if (kind === "battery") { props.cells = 1; }
+    if (kind === "motor") { props.propColor = "blue"; }
     if (kind === "custom" && customId) { props.customId = customId; }
     if (kind === "board") {
       // customId is reused as the BoardId for boards (e.g. "uno", "mega").
