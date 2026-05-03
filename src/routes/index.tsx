@@ -10,7 +10,7 @@ import { FileTabs } from "@/components/sim/FileTabs";
 import { CompileOutputPanel } from "@/components/sim/CompileOutputPanel";
 import { PinStateTable } from "@/components/sim/PinStateTable";
 import { Button } from "@/components/ui/button";
-import { Code2, PanelRightClose, PanelRightOpen, LogOut } from "lucide-react";
+import { Code2, PanelRightClose, PanelRightOpen, LogOut, PanelBottomClose, PanelBottomOpen } from "lucide-react";
 import { useSimController } from "@/sim/useSimController";
 import { useSimStore } from "@/sim/store";
 import { useIdeStore } from "@/sim/ideStore";
