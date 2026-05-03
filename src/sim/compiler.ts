@@ -99,26 +99,33 @@ function translateBody(body: string): string {
        .replace(/\bINPUT_PULLUP\b/g, '"INPUT_PULLUP"')
        .replace(/\bOUTPUT\b/g, '"OUTPUT"')
        .replace(/\bINPUT\b/g, '"INPUT"')
+       .replace(/\bRISING\b/g, '"RISING"')
+       .replace(/\bFALLING\b/g, '"FALLING"')
+       .replace(/\bCHANGE\b/g, '"CHANGE"')
+       .replace(/\bMSBFIRST\b/g, '"MSBFIRST"')
+       .replace(/\bLSBFIRST\b/g, '"LSBFIRST"')
        .replace(/\btrue\b/g, "true")
        .replace(/\bfalse\b/g, "false");
 
-  // Serial.* methods - pass through (runtime supplies Serial object)
-  // Convert 'Serial.print(x, DEC)' second-arg forms by stripping unsupported second args
-  s = s.replace(/Serial\.(print|println)\s*\(([^()]*)\)/g, (_m, m: string, args: string) => {
+  // Serial / Serial1..3 print/println — strip formatting second args.
+  s = s.replace(/(Serial[123]?)\.(print|println)\s*\(([^()]*)\)/g, (_m, port: string, m: string, args: string) => {
     const parts = splitTopLevel(args, ",");
-    return `Serial.${m}(${parts[0] ?? '""'})`;
+    return `${port}.${m}(${parts[0] ?? '""'})`;
   });
 
-  // String concatenation with + works in JS — leave alone.
-
-  // Convert `delay(N)` to `await __rt.delay(N)`
+  // Convert delay/pulseIn to awaited runtime calls.
   s = s.replace(/\bdelay\s*\(/g, "await __rt.delay(");
   s = s.replace(/\bdelayMicroseconds\s*\(/g, "await __rt.delayMicroseconds(");
+  s = s.replace(/\bpulseIn\s*\(/g, "await __rt.pulseIn(");
 
-  // Convert other Arduino calls to runtime calls
+  // Convert Arduino calls to runtime calls.
   const rtFns = [
-    "pinMode", "digitalWrite", "digitalRead", "analogWrite", "analogRead",
+    "pinMode", "digitalWrite", "digitalRead", "analogWrite", "analogRead", "analogReference",
     "millis", "micros", "tone", "noTone", "map", "constrain",
+    "abs", "sq", "sqrt", "pow", "sin", "cos", "tan",
+    "bitRead", "bitWrite", "bitSet", "bitClear", "bit", "lowByte", "highByte",
+    "attachInterrupt", "detachInterrupt", "digitalPinToInterrupt", "interrupts", "noInterrupts",
+    "shiftOut", "shiftIn", "randomSeed",
   ];
   for (const fn of rtFns) {
     const re = new RegExp(`\\b${fn}\\s*\\(`, "g");
