@@ -10,7 +10,7 @@ import { FileTabs } from "@/components/sim/FileTabs";
 import { CompileOutputPanel } from "@/components/sim/CompileOutputPanel";
 import { PinStateTable } from "@/components/sim/PinStateTable";
 import { Button } from "@/components/ui/button";
-import { Code2, PanelRightClose, PanelRightOpen, LogOut, PanelBottomClose, PanelBottomOpen } from "lucide-react";
+import { Code2, FolderTree, PanelRightClose, PanelRightOpen, LogOut, PanelBottomClose, PanelBottomOpen } from "lucide-react";
 import { useSimController } from "@/sim/useSimController";
 import { useSimStore } from "@/sim/store";
 import { useIdeStore } from "@/sim/ideStore";
@@ -67,6 +67,7 @@ function SimulatorPage() {
   const [compiling, setCompiling] = useState(false);
   const [compileProgress, setCompileProgress] = useState<CompileProgress | null>(null);
   const [showEditor, setShowEditor] = useState(true);
+  const [showExplorer, setShowExplorer] = useState(true);
   const [showBottomPanels, setShowBottomPanels] = useState(true);
   const inputCacheRef = useRef<Record<number, { d?: 0 | 1; a?: number }>>({});
 
@@ -270,6 +271,15 @@ function SimulatorPage() {
         {showEditor && (
           <section className="w-[42%] min-w-[360px] max-w-[720px] flex flex-col bg-card">
             <div className="flex items-center justify-between border-b border-border bg-muted/30">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0 shrink-0"
+                onClick={() => setShowExplorer((v) => !v)}
+                title={showExplorer ? "Hide project file explorer" : "Show project file explorer"}
+              >
+                <FolderTree className="h-4 w-4" />
+              </Button>
               <div className="flex-1 min-w-0">
                 <FileTabs />
               </div>
@@ -283,8 +293,11 @@ function SimulatorPage() {
                 <PanelRightClose className="h-4 w-4" />
               </Button>
             </div>
-            <div className="flex-1 min-h-0">
-              <CodeEditor />
+            <div className="flex-1 min-h-0 flex">
+              {showExplorer && <ProjectFileExplorer />}
+              <div className="flex-1 min-w-0">
+                <CodeEditor />
+              </div>
             </div>
             {(compileOutput || compiling) && (
               <CompileOutputPanel
