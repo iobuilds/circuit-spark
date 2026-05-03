@@ -642,20 +642,26 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         <span className="text-muted-foreground mr-1">zoom</span>
         <button
           className="px-1.5 py-0.5 rounded hover:bg-accent disabled:opacity-40"
-          onClick={() => setZoom((z) => Math.max(0.4, +(z - 0.1).toFixed(2)))}
-          disabled={zoom <= 0.4}
+          onClick={() => setZoom((z) => Math.max(0.05, +(z * 0.85).toFixed(3)))}
+          disabled={zoom <= 0.05}
           title="Zoom out"
         >−</button>
-        <span className="tabular-nums w-10 text-center">{(zoom * 100).toFixed(0)}%</span>
+        <span className="tabular-nums w-12 text-center">{(zoom * 100).toFixed(0)}%</span>
         <button
           className="px-1.5 py-0.5 rounded hover:bg-accent disabled:opacity-40"
-          onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.1).toFixed(2)))}
-          disabled={zoom >= 2.5}
+          onClick={() => setZoom((z) => Math.min(4, +(z * 1.18).toFixed(3)))}
+          disabled={zoom >= 4}
           title="Zoom in"
         >+</button>
         <button
           className="px-1.5 py-0.5 rounded hover:bg-accent ml-1"
+          onClick={fitToScreen}
+          title="Auto-fit all components to screen"
+        >fit</button>
+        <button
+          className="px-1.5 py-0.5 rounded hover:bg-accent"
           onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+          title="Reset zoom to 100%"
         >reset</button>
       </div>
 
