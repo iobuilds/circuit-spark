@@ -334,3 +334,46 @@ function SimulatorPage() {
     </div>
   );
 }
+
+function ProjectFileExplorer() {
+  const files = useIdeStore((s) => s.files);
+  const activeFileId = useIdeStore((s) => s.activeFileId);
+  const setActiveFile = useIdeStore((s) => s.setActiveFile);
+  const deleteFile = useIdeStore((s) => s.deleteFile);
+
+  return (
+    <aside className="w-44 shrink-0 border-r border-border bg-muted/20 overflow-y-auto">
+      <div className="px-2 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border">
+        Project files
+      </div>
+      <div className="py-1">
+        {files.map((f) => (
+          <button
+            key={f.id}
+            onClick={() => setActiveFile(f.id)}
+            className={`group w-full flex items-center gap-1.5 px-2 py-1.5 text-left text-xs transition-colors ${
+              f.id === activeFileId ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+            }`}
+            title={f.name}
+          >
+            <FileText className="h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 flex-1 truncate font-mono">{f.name}</span>
+            <Trash2
+              className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-70 hover:text-destructive"
+              onClick={(e) => { e.stopPropagation(); deleteFile(f.id); }}
+            />
+          </button>
+        ))}
+        {files.length === 0 && (
+          <div className="px-2 py-4 text-xs text-muted-foreground">Add a board to create a sketch file.</div>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+function fileSliceForActiveSketch(files: SourceFile[], activeFileId: string | null) {
+  const active = files.find((f) => f.id === activeFileId && f.kind === "ino") ?? files.find((f) => f.kind === "ino");
+  const support = files.filter((f) => f.kind !== "ino");
+  return active ? [{ name: active.name, content: active.content }, ...support.map((f) => ({ name: f.name, content: f.content }))] : [];
+}
