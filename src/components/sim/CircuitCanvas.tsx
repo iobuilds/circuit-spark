@@ -9,7 +9,7 @@ import { buildNetGraph, evaluateInputs, isLedPowered, isLedBurning } from "@/sim
 import { toast } from "sonner";
 import type { BoardId, ComponentKind } from "@/sim/types";
 import { useAdminStore } from "@/sim/adminStore";
-import { CornerDownLeft, Lock, Plus, Trash2, X, Undo2, Redo2, Wand2, Share2, Move, RotateCcw, Box } from "lucide-react";
+import { CornerDownLeft, Lock, Plus, Trash2, X, Undo2, Redo2, Wand2, Share2, Move, RotateCcw, Box, Hand, MousePointer2, Cable } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddItemDialog } from "./AddItemDialog";
 import { SensorControlsPanel } from "./SensorControlsPanel";
