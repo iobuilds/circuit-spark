@@ -233,15 +233,36 @@ function SimulatorPage() {
               </Button>
             )}
           </div>
-          {showSimPanels && (
+          {showSimPanels && showBottomPanels && (
             <>
-              <div className="h-44 shrink-0 border-t border-border">
+              <div className="h-44 shrink-0 border-t border-border relative">
                 <PinStateTable />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="absolute top-1 right-1 h-6 w-6 p-0"
+                  onClick={() => setShowBottomPanels(false)}
+                  title="Hide pin & serial panels"
+                >
+                  <PanelBottomClose className="h-3.5 w-3.5" />
+                </Button>
               </div>
               <div className="h-56 shrink-0 border-t border-border">
                 <SerialPanel onSerialIn={(t) => ctrl.serialIn(t)} />
               </div>
             </>
+          )}
+          {showSimPanels && !showBottomPanels && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="absolute bottom-3 left-3 h-8 shadow-md"
+              onClick={() => setShowBottomPanels(true)}
+              title="Show pin & serial panels"
+            >
+              <PanelBottomOpen className="h-3.5 w-3.5 mr-1.5" />
+              Panels
+            </Button>
           )}
         </section>
 
