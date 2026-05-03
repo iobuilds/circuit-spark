@@ -284,12 +284,51 @@ export const useSimStore = create<SimState>((set, get) => {
   canRedoWires: () => get().wireFuture.length > 0,
 
   setStatus: (s) => set({ status: s }),
-  setPinStates: (p) => set({ pinStates: p }),
-  appendSerial: (line) => set((s) => ({ serial: [...s.serial, line].slice(-500) })),
-  clearSerial: () => set({ serial: [] }),
+  setPinStates: (p, boardId) => set((st) => {
+    if (!boardId) return { pinStates: p };
+    const next = { ...st.pinStatesByBoard, [boardId]: p };
+    const isActive = st.activeSimBoardId === boardId || st.activeSimBoardId == null;
+    return isActive
+      ? { pinStatesByBoard: next, pinStates: p }
+      : { pinStatesByBoard: next };
+  }),
+  appendSerial: (line, boardId) => set((st) => {
+    if (!boardId) return { serial: [...st.serial, line].slice(-500) };
+    const prev = st.serialByBoard[boardId] ?? [];
+    const updated = [...prev, line].slice(-500);
+    const byBoard = { ...st.serialByBoard, [boardId]: updated };
+    const isActive = st.activeSimBoardId === boardId || st.activeSimBoardId == null;
+    return isActive
+      ? { serialByBoard: byBoard, serial: updated }
+      : { serialByBoard: byBoard };
+  }),
+  clearSerial: (boardId) => set((st) => {
+    if (!boardId) return { serial: [], serialByBoard: {} };
+    const byBoard = { ...st.serialByBoard, [boardId]: [] };
+    const isActive = st.activeSimBoardId === boardId;
+    return isActive
+      ? { serialByBoard: byBoard, serial: [] }
+      : { serialByBoard: byBoard };
+  }),
   setSimTime: (ms) => set({ simTimeMs: ms }),
   setSpeed: (n) => set({ speed: n }),
   setCompileLog: (l) => set({ compileLog: l }),
+  setActiveSimBoard: (id) => set((st) => ({
+    activeSimBoardId: id,
+    serial: id ? (st.serialByBoard[id] ?? []) : [],
+    pinStates: id ? (st.pinStatesByBoard[id] ?? {}) : {},
+    status: id ? (st.statusByBoard[id] ?? st.status) : st.status,
+  })),
+  setBoardStatus: (id, s) => set((st) => {
+    const byBoard = { ...st.statusByBoard, [id]: s };
+    const isActive = st.activeSimBoardId === id || st.activeSimBoardId == null;
+    // Aggregate top-level status: running if any board is running, else error if any error, else idle.
+    const vals = Object.values(byBoard);
+    const agg: SimStatus = vals.includes("running") ? "running"
+      : vals.includes("paused") ? "paused"
+      : vals.includes("error") ? "error" : "idle";
+    return { statusByBoard: byBoard, status: isActive ? s : agg };
+  }),
 
   toggleTheme: () => set((s) => {
     const next = s.theme === "dark" ? "light" : "dark";
@@ -301,6 +340,7 @@ export const useSimStore = create<SimState>((set, get) => {
 
   resetWorkspace: () => set({
     components: [], wires: [], selectedId: null, serial: [], pinStates: {},
+    serialByBoard: {}, pinStatesByBoard: {}, statusByBoard: {}, activeSimBoardId: null,
     simTimeMs: 0, drawingFrom: null, drawingWaypoints: [],
     wireHistory: [], wireFuture: [],
   }),
