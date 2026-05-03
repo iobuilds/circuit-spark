@@ -90,6 +90,7 @@ export function isLedPowered(
   pinStates: Record<number, { mode: string; digital: 0 | 1; analog: number }>,
 ): boolean {
   if (comp.kind !== "led") return false;
+  if (comp.props?.burned) return false;
   const a = net.netForCompPin.get(key(comp.id, "A"));
   const k = net.netForCompPin.get(key(comp.id, "K"));
   if (!a || !k) return false;
@@ -117,6 +118,40 @@ export function isLedPowered(
   const aHigh = labelToHigh(a), kHigh = labelToHigh(k);
   const aGnd = isGround(a), kGnd = isGround(k);
   return (aHigh && kGnd) || (kHigh && aGnd);
+}
+
+/**
+ * Burn check: LED is being driven from a high-voltage rail (5V/VIN) directly to
+ * GND with NO current-limiting resistor in series. With a resistor anywhere in
+ * the path the union-find groups its pins into the LED's net, so the heuristic
+ * is "powered from rail, terminates at GND, and no resistor pin shares either
+ * the anode or cathode net root". 3V3 is treated as safe (marginal in reality
+ * but generally non-destructive for typical LEDs).
+ */
+export function isLedBurning(
+  comp: CircuitComponent,
+  components: CircuitComponent[],
+  net: NetGraph,
+): boolean {
+  if (comp.kind !== "led") return false;
+  if (comp.props?.burned) return true;
+  const a = net.netForCompPin.get(key(comp.id, "A"));
+  const k = net.netForCompPin.get(key(comp.id, "K"));
+  if (!a || !k) return false;
+  const isGround = (l: string) => l === "GND" || l === "GND1" || l === "GND2" || l === "GND_TOP";
+  const isHotRail = (l: string) => l === "5V" || l === "VIN";
+  const aHot = isHotRail(a), kHot = isHotRail(k);
+  const aGnd = isGround(a), kGnd = isGround(k);
+  const polarized = (aHot && kGnd) || (kHot && aGnd);
+  if (!polarized) return false;
+  // Look for any resistor whose pin lands on the same net label as A or K.
+  for (const c of components) {
+    if (c.kind !== "resistor") continue;
+    const r1 = net.netForCompPin.get(key(c.id, "1"));
+    const r2 = net.netForCompPin.get(key(c.id, "2"));
+    if (r1 === a || r1 === k || r2 === a || r2 === k) return false;
+  }
+  return true;
 }
 
 /**
