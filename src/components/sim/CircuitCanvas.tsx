@@ -86,6 +86,8 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const [pinEditMode, setPinEditMode] = useState(false);
   const setComponentProp = useSimStore((s) => s.setComponentProp);
   const [show3D, setShow3D] = useState(false);
+  /** Active workspace tool. "select" = default; "pan" = drag-to-pan; "wire" = click pins to wire. */
+  const [tool, setTool] = useState<"select" | "pan" | "wire">("select");
   const [pending, setPending] = useState<
     | { kind: "component"; value: ComponentKind; w: number; h: number }
     | { kind: "custom"; customId: string; w: number; h: number }
