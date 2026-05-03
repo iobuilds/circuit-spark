@@ -191,8 +191,8 @@ export function computeLoadVoltage(
     if (l === "5V" || l === "VIN") return { v: 5, pos: true };
     if (l === "3V3") return { v: 3.3, pos: true };
     if (l.startsWith("BAT+:")) {
-      const cells = Number(l.split(":")[2] ?? "1") || 1;
-      return { v: cells * 3.7, pos: true };
+      const v = Number(l.split(":")[2] ?? "3.7") || 3.7;
+      return { v, pos: true };
     }
     if (l.startsWith("BAT-:")) return { v: 0, pos: false };
     return null;
