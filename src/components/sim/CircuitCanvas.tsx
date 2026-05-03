@@ -624,7 +624,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                       strokeDasharray="6 4" pointerEvents="none"
                     />
                     {/* Per-board action toolbar — Run / Compile / Delete */}
-                    <g transform={`translate(${b.x + (bid === "uno" ? UNO_WIDTH : 360) + 16} ${b.y - 8})`}>
+                    <g transform={`translate(${b.x + (bid === "uno" ? UNO_WIDTH : 360) + 32} ${b.y + 8})`}>
                       {/* Run this board only */}
                       <g
                         className="cursor-pointer"
@@ -635,12 +635,12 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                         }}
                       >
                         <title>Run this board's sketch</title>
-                        <circle r={14} fill="oklch(0.72 0.18 145)" stroke="var(--color-background)" strokeWidth={2} />
-                        <polygon points="-4,-6 6,0 -4,6" fill="oklch(0.15 0.02 145)" />
+                        <circle r={28} fill="oklch(0.72 0.18 145)" stroke="var(--color-background)" strokeWidth={3} />
+                        <polygon points="-8,-12 12,0 -8,12" fill="oklch(0.15 0.02 145)" />
                       </g>
                       {/* Compile this board only */}
                       <g
-                        transform="translate(0 34)"
+                        transform="translate(0 68)"
                         className="cursor-pointer"
                         onMouseDown={(e) => {
                           e.stopPropagation();
@@ -649,18 +649,18 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                         }}
                       >
                         <title>Compile this board's sketch</title>
-                        <circle r={14} fill="var(--color-primary)" stroke="var(--color-background)" strokeWidth={2} />
-                        <text textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={800} fill="var(--color-primary-foreground)" fontFamily="monospace">⚙</text>
+                        <circle r={28} fill="var(--color-primary)" stroke="var(--color-background)" strokeWidth={3} />
+                        <text textAnchor="middle" dominantBaseline="central" fontSize={24} fontWeight={800} fill="var(--color-primary-foreground)" fontFamily="monospace">⚙</text>
                       </g>
                       {/* Delete board */}
                       <g
-                        transform="translate(0 68)"
+                        transform="translate(0 136)"
                         className="cursor-pointer"
                         onMouseDown={(e) => { e.stopPropagation(); removeWorkspaceComponent(b.id); }}
                       >
                         <title>Delete board</title>
-                        <circle r={12} fill="var(--color-destructive)" stroke="var(--color-background)" strokeWidth={2} />
-                        <text textAnchor="middle" dominantBaseline="central" fontSize={18} fontWeight={800} fill="var(--color-destructive-foreground)">×</text>
+                        <circle r={26} fill="var(--color-destructive)" stroke="var(--color-background)" strokeWidth={3} />
+                        <text textAnchor="middle" dominantBaseline="central" fontSize={36} fontWeight={800} fill="var(--color-destructive-foreground)">×</text>
                       </g>
                     </g>
                   </>

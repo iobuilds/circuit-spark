@@ -163,15 +163,15 @@ function mergeBoards(persisted: BoardEntry[]): BoardEntry[] {
   persisted.forEach((p) => {
     const def = map.get(p.id);
     if (def) {
-      // Backfill svg/pins from defaults when persisted entry doesn't have them yet.
-      // For built-ins, always use the latest default SVG (so updates to the
-      // embedded artwork — e.g. preserveAspectRatio fixes — propagate even when
-      // older entries are persisted in localStorage). Pins remain user-editable.
+      // Built-in board: prefer the persisted SVG when present so pin
+      // coordinates (which were placed against THAT exact SVG in the admin
+      // editor) line up in the workspace. Fall back to the default SVG if
+      // nothing was saved yet.
       const merged: BoardEntry = {
         ...def,
         ...p,
         builtIn: true,
-        svg: def.svg ?? p.svg,
+        svg: p.svg ?? def.svg,
         pins: p.pins && p.pins.length > 0 ? p.pins : def.pins,
       };
       ordered.push(merged);
