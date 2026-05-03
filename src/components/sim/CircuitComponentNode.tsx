@@ -134,6 +134,17 @@ export function CircuitComponentNode({ comp, isPowered, voltage = 0, reversed = 
           onChange={(v) => setProp(comp.id, "value", v)}
         />
       )}
+      {comp.kind === "motor" && (
+        <MotorSvg
+          voltage={voltage}
+          reversed={reversed}
+          burned={Boolean(comp.props.burned)}
+          color={String(comp.props.propColor ?? "blue")}
+        />
+      )}
+      {comp.kind === "battery" && (
+        <BatterySvg cells={Math.max(1, Math.min(8, Number(comp.props.cells ?? 1) || 1))} />
+      )}
 
       {/* Custom component visual: inline the admin SVG markup. */}
       {comp.kind === "custom" && (
