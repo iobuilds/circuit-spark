@@ -110,7 +110,8 @@ export function buildNetGraph(components: CircuitComponent[], wires: Wire[]): Ne
         if (ep.componentId !== c.id) continue;
         const r = find(key(ep.componentId, ep.pinId));
         const bp = findUnoPin(ep.pinId);
-        const pinNum = bp?.number;
+        if (!bp) continue;
+        const pinNum = bp.number;
         if (pinNum === undefined) continue;
         const list = netToBoardPins.get(r) ?? [];
         if (!list.some((e) => e.boardCompId === c.id && e.pin === pinNum)) {
