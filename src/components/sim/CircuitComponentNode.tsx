@@ -151,30 +151,52 @@ export function CircuitComponentNode({ comp, isPowered, onPinClick, onSelect, on
       {/* Pins */}
       {pins.map((pin) => {
         const editable = pinEditMode && comp.kind === "custom";
-        return (
-          <g key={pin.id} transform={`translate(${pin.x} ${pin.y})`}>
-            <circle
-              r={editable ? 6 : 4}
-              fill={editable ? "var(--color-primary)" : "var(--color-pin)"}
-              stroke={editable ? "oklch(0.95 0 0)" : "oklch(0.15 0 0)"}
-              strokeWidth={editable ? 2 : 1}
-              className={editable ? "cursor-move" : "cursor-crosshair hover:fill-[var(--color-pin-active)]"}
-              onMouseDown={(e) => {
-                if (editable) { startPinDrag(pin.id, e); return; }
-                e.stopPropagation();
-                onPinClick(pin.id, e);
-              }}
-            />
-            {editable && (
-              <text x={0} y={-10} textAnchor="middle" fontSize={9} fontFamily="monospace"
-                fill="var(--color-primary)" pointerEvents="none">
-                {pin.label}
-              </text>
-            )}
-            <title>{pin.label}{editable ? " (drag to reposition)" : ""}</title>
-          </g>
-        );
+        return <PinNode key={pin.id} pin={pin} editable={editable} onPinClick={onPinClick} startPinDrag={startPinDrag} />;
       })}
+    </g>
+  );
+}
+
+function PinNode({
+  pin, editable, onPinClick, startPinDrag,
+}: {
+  pin: { id: string; label: string; x: number; y: number };
+  editable: boolean;
+  onPinClick: (pinId: string, e: React.MouseEvent) => void;
+  startPinDrag: (pinId: string, e: React.MouseEvent) => void;
+}) {
+  const [hover, setHover] = useState(false);
+  const showLabel = editable || hover;
+  return (
+    <g transform={`translate(${pin.x} ${pin.y})`}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      <circle
+        r={editable || hover ? 6 : 4}
+        fill={editable ? "var(--color-primary)" : hover ? "var(--color-pin-active)" : "var(--color-pin)"}
+        stroke={editable ? "oklch(0.95 0 0)" : "oklch(0.15 0 0)"}
+        strokeWidth={editable ? 2 : 1}
+        className={editable ? "cursor-move" : "cursor-crosshair"}
+        onMouseDown={(e) => {
+          if (editable) { startPinDrag(pin.id, e); return; }
+          e.stopPropagation();
+          onPinClick(pin.id, e);
+        }}
+      />
+      {showLabel && (
+        <g pointerEvents="none">
+          <rect
+            x={-pin.label.length * 3.2 - 4} y={-22}
+            width={pin.label.length * 6.4 + 8} height={14} rx={3}
+            fill="var(--color-card)" stroke="var(--color-border)" strokeWidth={0.8}
+            opacity={0.95}
+          />
+          <text x={0} y={-12} textAnchor="middle" fontSize={9} fontFamily="monospace"
+            fill={editable ? "var(--color-primary)" : "var(--color-foreground)"}>
+            {pin.label}
+          </text>
+        </g>
+      )}
+      <title>{pin.label}{editable ? " (drag to reposition)" : ""}</title>
     </g>
   );
 }
