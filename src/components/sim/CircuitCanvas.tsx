@@ -1311,66 +1311,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         </div>
       )}
 
-      {/* 3D-table toggle button */}
-      <div className="absolute top-3 right-3 z-10">
-        <Button
-          size="sm"
-          variant={show3D ? "default" : "outline"}
-          onClick={() => setShow3D((v) => !v)}
-          className="h-8 text-xs gap-1.5 shadow-sm"
-          title="Toggle 3D table view"
-        >
-          <Box className="h-3.5 w-3.5" />
-          {show3D ? "Hide 3D" : "3D table"}
-        </Button>
-      </div>
-
-      {/* 3D table preview panel — shows the real Uno model + components as
-          blocks at their 2D positions. View-only for now. */}
-      {show3D && (
-        <div className="absolute bottom-3 right-3 w-[460px] h-[320px] rounded-md border border-border bg-card shadow-2xl overflow-hidden z-10">
-          <div className="px-2 py-1 border-b border-border flex items-center text-xs">
-            <span className="font-medium">3D table</span>
-            <span className="ml-2 text-muted-foreground text-[10px]">drag to orbit · scroll to zoom</span>
-            <div className="flex-1" />
-            <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => setShow3D(false)}>
-              <X className="h-3 w-3" />
-            </Button>
-          </div>
-          <div className="w-full" style={{ height: "calc(100% - 28px)" }}>
-            <Uno3DViewer
-              topViewWidth={UNO_WIDTH}
-              topViewHeight={UNO_HEIGHT}
-              tablePieces={components
-                .filter((c) => c.kind !== "board")
-                .map<TablePiece3D>((c) => {
-                  // Component canvas position is absolute; translate to be
-                  // relative to the primary board (first placed Uno).
-                  const board = placedBoards[0];
-                  const bx = board?.x ?? BOARD_X;
-                  const by = board?.y ?? BOARD_Y;
-                  const def = c.kind === "custom"
-                    ? null
-                    : COMPONENT_DEFS[c.kind as ComponentKind];
-                  const w = def?.width ?? 30;
-                  const h = def?.height ?? 20;
-                  return {
-                    id: c.id,
-                    x: c.x - bx + w / 2,
-                    y: c.y - by + h / 2,
-                    w,
-                    h,
-                    color: c.kind === "led" ? "#ef4444"
-                      : c.kind === "button" ? "#94a3b8"
-                      : c.kind === "potentiometer" ? "#06b6d4"
-                      : "#3b82f6",
-                    height: 5,
-                  };
-                })}
-            />
-          </div>
-        </div>
-      )}
+      {/* 3D table view removed per user request */}
 
       {/* Use the unused size constants to silence lint */}
       <span className="hidden">{UNO_WIDTH}{UNO_HEIGHT}</span>
