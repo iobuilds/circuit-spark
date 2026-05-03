@@ -502,7 +502,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
             <CircuitComponentNode
               key={c.id}
               comp={c}
-              isPowered={isLedPowered(c, net, pinStates)}
+              isPowered={status === "running" && isLedPowered(c, net, pinStates)}
               selected={selectedId === c.id}
               onSelect={() => setSelected(c.id)}
               onDragStart={(e) => {
