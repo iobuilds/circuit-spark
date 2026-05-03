@@ -366,7 +366,7 @@ export const useSimStore = create<SimState>((set, get) => {
             kind: "board" as const,
             x: 60,
             y: 60,
-            rotation: 0,
+            rotation: 0 as const,
             props: { boardId: p.boardId },
           },
           ...p.components,
