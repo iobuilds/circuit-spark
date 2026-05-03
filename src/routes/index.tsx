@@ -9,6 +9,7 @@ import { IdeMenubar } from "@/components/sim/IdeMenubar";
 import { FileTabs } from "@/components/sim/FileTabs";
 import { CompileOutputPanel } from "@/components/sim/CompileOutputPanel";
 import { PinStateTable } from "@/components/sim/PinStateTable";
+import { BoardSimTabs } from "@/components/sim/BoardSimTabs";
 import { Button } from "@/components/ui/button";
 import { Code2, FileText, FolderTree, PanelRightClose, PanelRightOpen, LogOut, PanelBottomClose, PanelBottomOpen, Trash2 } from "lucide-react";
 import { useSimController } from "@/sim/useSimController";
@@ -50,13 +51,18 @@ function SimulatorPage() {
   const wires = useSimStore((s) => s.wires);
   const loadProject = useSimStore((s) => s.loadProject);
   const boardId = useSimStore((s) => s.boardId);
-  const serialLen = useSimStore((s) => s.serial.length);
-  const pinStateCount = useSimStore((s) => Object.keys(s.pinStates).length);
+  const serialLen = useSimStore((s) =>
+    s.serial.length + Object.values(s.serialByBoard).reduce((a, v) => a + v.length, 0));
+  const pinStateCount = useSimStore((s) =>
+    Object.keys(s.pinStates).length
+    + Object.values(s.pinStatesByBoard).reduce((a, v) => a + Object.keys(v).length, 0));
+  const anyRunning = useSimStore((s) =>
+    s.status === "running" || Object.values(s.statusByBoard).includes("running"));
 
   // Show the Pin States + Serial panels only once the simulation actually
   // has something to show — running/paused, errored, or any captured output.
   const showSimPanels =
-    status === "running" || status === "paused" || status === "error"
+    anyRunning || status === "paused" || status === "error"
     || serialLen > 0 || pinStateCount > 0;
 
   const ideHydrate = useIdeStore((s) => s.hydrate);
@@ -183,7 +189,27 @@ function SimulatorPage() {
   async function compileThenStart(onlyBoardCompIds?: string[]) {
     const ok = await handleBackendCompile(onlyBoardCompIds);
     if (!ok) return;
-    ctrl.start(useSimStore.getState().code, useSimStore.getState().speed);
+    // Start each board with its own sketch, in its own worker.
+    const { components, speed: simSpeed } = useSimStore.getState();
+    const { files } = useIdeStore.getState();
+    let boards = components.filter((c) => c.kind === "board");
+    if (onlyBoardCompIds && onlyBoardCompIds.length > 0) {
+      const set = new Set(onlyBoardCompIds);
+      boards = boards.filter((b) => set.has(b.id));
+    }
+    if (boards.length === 0) {
+      // No board on canvas — fall back to running the active sketch on a default worker.
+      ctrl.start(useSimStore.getState().code, simSpeed);
+      return;
+    }
+    // Focus the first started board so the bottom panels show its serial output.
+    useSimStore.getState().setActiveSimBoard(boards[0].id);
+    for (const b of boards) {
+      const fid = String(b.props.sketchFileId ?? "");
+      const f = files.find((ff) => ff.id === fid && ff.kind === "ino");
+      const sketch = f?.content ?? useSimStore.getState().code;
+      ctrl.start(sketch, simSpeed, b.id);
+    }
   }
 
   // Expose per-board compile/run to the canvas via window so we don't have to
@@ -287,6 +313,7 @@ function SimulatorPage() {
           </div>
           {showSimPanels && showBottomPanels && (
             <>
+              <BoardSimTabs />
               <div className="h-44 shrink-0 border-t border-border relative">
                 <PinStateTable />
                 <Button

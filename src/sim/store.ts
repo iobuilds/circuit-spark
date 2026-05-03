@@ -46,6 +46,16 @@ export interface SimState {
   // editor / runtime
   code: string;
   status: SimStatus;
+  /** Per-board serial lines, keyed by board component id. */
+  serialByBoard: Record<string, SerialLine[]>;
+  /** Per-board pin states, keyed by board component id. */
+  pinStatesByBoard: Record<string, Record<number, PinState>>;
+  /** Per-board run/compile status, keyed by board component id. */
+  statusByBoard: Record<string, SimStatus>;
+  /** Currently focused board for the bottom Pin States / Serial panels. */
+  activeSimBoardId: string | null;
+  /** Aggregate / focused-board mirrors. Components that don't care about
+   *  multi-board can keep reading these. They mirror the active board. */
   serial: SerialLine[];
   pinStates: Record<number, PinState>;
   simTimeMs: number;
@@ -86,12 +96,14 @@ export interface SimState {
   canRedoWires: () => boolean;
 
   setStatus: (s: SimStatus) => void;
-  setPinStates: (s: Record<number, PinState>) => void;
-  appendSerial: (line: SerialLine) => void;
-  clearSerial: () => void;
+  setPinStates: (s: Record<number, PinState>, boardId?: string) => void;
+  appendSerial: (line: SerialLine, boardId?: string) => void;
+  clearSerial: (boardId?: string) => void;
   setSimTime: (ms: number) => void;
   setSpeed: (n: number) => void;
   setCompileLog: (l: SimState["compileLog"]) => void;
+  setActiveSimBoard: (id: string | null) => void;
+  setBoardStatus: (id: string, s: SimStatus) => void;
 
   toggleTheme: () => void;
   resetWorkspace: () => void;
@@ -127,6 +139,10 @@ export const useSimStore = create<SimState>((set, get) => {
   status: "idle",
   serial: [],
   pinStates: {},
+  serialByBoard: {},
+  pinStatesByBoard: {},
+  statusByBoard: {},
+  activeSimBoardId: null,
   simTimeMs: 0,
   speed: 1,
   compileLog: [],
@@ -268,12 +284,51 @@ export const useSimStore = create<SimState>((set, get) => {
   canRedoWires: () => get().wireFuture.length > 0,
 
   setStatus: (s) => set({ status: s }),
-  setPinStates: (p) => set({ pinStates: p }),
-  appendSerial: (line) => set((s) => ({ serial: [...s.serial, line].slice(-500) })),
-  clearSerial: () => set({ serial: [] }),
+  setPinStates: (p, boardId) => set((st) => {
+    if (!boardId) return { pinStates: p };
+    const next = { ...st.pinStatesByBoard, [boardId]: p };
+    const isActive = st.activeSimBoardId === boardId || st.activeSimBoardId == null;
+    return isActive
+      ? { pinStatesByBoard: next, pinStates: p }
+      : { pinStatesByBoard: next };
+  }),
+  appendSerial: (line, boardId) => set((st) => {
+    if (!boardId) return { serial: [...st.serial, line].slice(-500) };
+    const prev = st.serialByBoard[boardId] ?? [];
+    const updated = [...prev, line].slice(-500);
+    const byBoard = { ...st.serialByBoard, [boardId]: updated };
+    const isActive = st.activeSimBoardId === boardId || st.activeSimBoardId == null;
+    return isActive
+      ? { serialByBoard: byBoard, serial: updated }
+      : { serialByBoard: byBoard };
+  }),
+  clearSerial: (boardId) => set((st) => {
+    if (!boardId) return { serial: [], serialByBoard: {} };
+    const byBoard = { ...st.serialByBoard, [boardId]: [] };
+    const isActive = st.activeSimBoardId === boardId;
+    return isActive
+      ? { serialByBoard: byBoard, serial: [] }
+      : { serialByBoard: byBoard };
+  }),
   setSimTime: (ms) => set({ simTimeMs: ms }),
   setSpeed: (n) => set({ speed: n }),
   setCompileLog: (l) => set({ compileLog: l }),
+  setActiveSimBoard: (id) => set((st) => ({
+    activeSimBoardId: id,
+    serial: id ? (st.serialByBoard[id] ?? []) : [],
+    pinStates: id ? (st.pinStatesByBoard[id] ?? {}) : {},
+    status: id ? (st.statusByBoard[id] ?? st.status) : st.status,
+  })),
+  setBoardStatus: (id, s) => set((st) => {
+    const byBoard = { ...st.statusByBoard, [id]: s };
+    const isActive = st.activeSimBoardId === id || st.activeSimBoardId == null;
+    // Aggregate top-level status: running if any board is running, else error if any error, else idle.
+    const vals = Object.values(byBoard);
+    const agg: SimStatus = vals.includes("running") ? "running"
+      : vals.includes("paused") ? "paused"
+      : vals.includes("error") ? "error" : "idle";
+    return { statusByBoard: byBoard, status: isActive ? s : agg };
+  }),
 
   toggleTheme: () => set((s) => {
     const next = s.theme === "dark" ? "light" : "dark";
@@ -285,6 +340,7 @@ export const useSimStore = create<SimState>((set, get) => {
 
   resetWorkspace: () => set({
     components: [], wires: [], selectedId: null, serial: [], pinStates: {},
+    serialByBoard: {}, pinStatesByBoard: {}, statusByBoard: {}, activeSimBoardId: null,
     simTimeMs: 0, drawingFrom: null, drawingWaypoints: [],
     wireHistory: [], wireFuture: [],
   }),
