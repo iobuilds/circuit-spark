@@ -169,7 +169,7 @@ function SimulatorPage() {
         e.preventDefault();
         ctrl.stop();
       }
-      if (meta && e.key.toLowerCase() === "r") {
+      if (meta && !e.shiftKey && e.key.toLowerCase() === "r") {
         e.preventDefault();
         handleBackendCompile();
       }
