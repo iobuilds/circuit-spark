@@ -615,13 +615,23 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                   />
                 )}
                 {isSel && (
-                  <rect
-                    x={b.x - 4} y={b.y - 4}
-                    width={(bid === "uno" ? UNO_WIDTH : 360) + 8}
-                    height={(bid === "uno" ? UNO_HEIGHT : 240) + 8}
-                    fill="none" stroke="var(--color-primary)" strokeWidth={2}
-                    strokeDasharray="6 4" pointerEvents="none"
-                  />
+                  <>
+                    <rect
+                      x={b.x - 4} y={b.y - 4}
+                      width={(bid === "uno" ? UNO_WIDTH : 360) + 8}
+                      height={(bid === "uno" ? UNO_HEIGHT : 240) + 8}
+                      fill="none" stroke="var(--color-primary)" strokeWidth={2}
+                      strokeDasharray="6 4" pointerEvents="none"
+                    />
+                    <g
+                      transform={`translate(${b.x + (bid === "uno" ? UNO_WIDTH : 360) + 16} ${b.y - 8})`}
+                      className="cursor-pointer"
+                      onMouseDown={(e) => { e.stopPropagation(); removeWorkspaceComponent(b.id); }}
+                    >
+                      <circle r={12} fill="var(--color-destructive)" stroke="var(--color-background)" strokeWidth={2} />
+                      <text textAnchor="middle" dominantBaseline="central" fontSize={18} fontWeight={800} fill="var(--color-destructive-foreground)">×</text>
+                    </g>
+                  </>
                 )}
               </g>
             );
