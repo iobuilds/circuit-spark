@@ -10,6 +10,7 @@ import { LIBRARY_PACKAGES } from "@/sim/ideCatalog";
 import { BoardManagerDialog } from "./BoardManagerDialog";
 import { LibraryManagerDialog } from "./LibraryManagerDialog";
 import { PreferencesDialog } from "./PreferencesDialog";
+import { FileManagerDialog } from "./FileManagerDialog";
 import { toast } from "sonner";
 
 interface Props {
@@ -21,6 +22,7 @@ export function IdeMenubar({ onCompile, onUpload }: Props) {
   const [boardMgrOpen, setBoardMgrOpen] = useState(false);
   const [libMgrOpen, setLibMgrOpen] = useState(false);
   const [prefsOpen, setPrefsOpen] = useState(false);
+  const [fileMgrOpen, setFileMgrOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const addFile = useIdeStore((s) => s.addFile);
@@ -98,6 +100,7 @@ export function IdeMenubar({ onCompile, onUpload }: Props) {
           <MenubarContent>
             <MenubarItem onClick={handleNewSketch}>New Sketch <MenubarShortcut>⌘N</MenubarShortcut></MenubarItem>
             <MenubarItem onClick={triggerFileImport}>Open File...</MenubarItem>
+            <MenubarItem onClick={() => setFileMgrOpen(true)}>File Manager...</MenubarItem>
             <MenubarSub>
               <MenubarSubTrigger>Examples</MenubarSubTrigger>
               <MenubarSubContent>
@@ -206,6 +209,7 @@ export function IdeMenubar({ onCompile, onUpload }: Props) {
       <BoardManagerDialog open={boardMgrOpen} onOpenChange={setBoardMgrOpen} />
       <LibraryManagerDialog open={libMgrOpen} onOpenChange={setLibMgrOpen} />
       <PreferencesDialog open={prefsOpen} onOpenChange={setPrefsOpen} />
+      <FileManagerDialog open={fileMgrOpen} onOpenChange={setFileMgrOpen} />
     </>
   );
 }
