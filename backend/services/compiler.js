@@ -5,6 +5,7 @@ const fileManager = require('./fileManager');
 const errorParser = require('../utils/errorParser');
 const logger = require('../utils/logger');
 const config = require('../config');
+const libraryCache = require('./libraryCache');
 
 class CompilerService {
   parseMemoryStats(output, boardKey) {
