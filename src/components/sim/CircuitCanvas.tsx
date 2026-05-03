@@ -566,7 +566,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
             const segPts = [a, ...userMids, b];
             const isWireSel = selectedWireId === w.id;
             const stroke = w.color || "var(--color-wire)";
-            const sw = w.thickness ?? 2.2;
+            const sw = w.thickness ?? 4;
             return (
               <g key={w.id}>
                 {/* Shadow */}
@@ -961,7 +961,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
           { name: "default",val: "" },
         ];
         const cur = w.color || "";
-        const thick = w.thickness ?? 2.2;
+        const thick = w.thickness ?? 4;
 
         // All wire ids that belong to the same electrical net as the selected wire.
         const wiresOnSameNet = (): string[] => {
