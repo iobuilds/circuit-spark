@@ -595,11 +595,23 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
       </svg>
 
       {/* Zoom toolbar overlay */}
-      <div className="absolute bottom-3 right-3 flex items-center gap-2 rounded-md bg-card/90 backdrop-blur border border-border px-2 py-1 text-xs font-mono">
-        <span className="text-muted-foreground">zoom</span>
-        <span className="tabular-nums">{(zoom * 100).toFixed(0)}%</span>
+      <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-md bg-card/90 backdrop-blur border border-border px-2 py-1 text-xs font-mono">
+        <span className="text-muted-foreground mr-1">zoom</span>
         <button
-          className="px-1.5 py-0.5 rounded hover:bg-accent"
+          className="px-1.5 py-0.5 rounded hover:bg-accent disabled:opacity-40"
+          onClick={() => setZoom((z) => Math.max(0.4, +(z - 0.1).toFixed(2)))}
+          disabled={zoom <= 0.4}
+          title="Zoom out"
+        >−</button>
+        <span className="tabular-nums w-10 text-center">{(zoom * 100).toFixed(0)}%</span>
+        <button
+          className="px-1.5 py-0.5 rounded hover:bg-accent disabled:opacity-40"
+          onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.1).toFixed(2)))}
+          disabled={zoom >= 2.5}
+          title="Zoom in"
+        >+</button>
+        <button
+          className="px-1.5 py-0.5 rounded hover:bg-accent ml-1"
           onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
         >reset</button>
       </div>

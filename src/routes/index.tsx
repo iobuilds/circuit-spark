@@ -10,7 +10,7 @@ import { FileTabs } from "@/components/sim/FileTabs";
 import { CompileOutputPanel } from "@/components/sim/CompileOutputPanel";
 import { PinStateTable } from "@/components/sim/PinStateTable";
 import { Button } from "@/components/ui/button";
-import { Code2, PanelRightClose, PanelRightOpen, LogOut } from "lucide-react";
+import { Code2, PanelRightClose, PanelRightOpen, LogOut, PanelBottomClose, PanelBottomOpen } from "lucide-react";
 import { useSimController } from "@/sim/useSimController";
 import { useSimStore } from "@/sim/store";
 import { useIdeStore } from "@/sim/ideStore";
@@ -67,6 +67,7 @@ function SimulatorPage() {
   const [compiling, setCompiling] = useState(false);
   const [compileProgress, setCompileProgress] = useState<CompileProgress | null>(null);
   const [showEditor, setShowEditor] = useState(true);
+  const [showBottomPanels, setShowBottomPanels] = useState(true);
   const inputCacheRef = useRef<Record<number, { d?: 0 | 1; a?: number }>>({});
 
   useEffect(() => { if (!ideLoaded) ideHydrate(); }, [ideLoaded, ideHydrate]);
@@ -232,15 +233,36 @@ function SimulatorPage() {
               </Button>
             )}
           </div>
-          {showSimPanels && (
+          {showSimPanels && showBottomPanels && (
             <>
-              <div className="h-44 shrink-0 border-t border-border">
+              <div className="h-44 shrink-0 border-t border-border relative">
                 <PinStateTable />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="absolute top-1 right-1 h-6 w-6 p-0"
+                  onClick={() => setShowBottomPanels(false)}
+                  title="Hide pin & serial panels"
+                >
+                  <PanelBottomClose className="h-3.5 w-3.5" />
+                </Button>
               </div>
               <div className="h-56 shrink-0 border-t border-border">
                 <SerialPanel onSerialIn={(t) => ctrl.serialIn(t)} />
               </div>
             </>
+          )}
+          {showSimPanels && !showBottomPanels && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="absolute bottom-3 left-3 h-8 shadow-md"
+              onClick={() => setShowBottomPanels(true)}
+              title="Show pin & serial panels"
+            >
+              <PanelBottomOpen className="h-3.5 w-3.5 mr-1.5" />
+              Panels
+            </Button>
           )}
         </section>
 
