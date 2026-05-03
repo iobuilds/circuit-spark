@@ -94,8 +94,16 @@ export function useSimController() {
   return {
     compile: (code: string, boardId?: string) =>
       getOrCreate(resolveBoardId(boardId)).postMessage({ type: "compile", code }),
-    start: (code: string, speed: number, boardId?: string) =>
-      getOrCreate(resolveBoardId(boardId)).postMessage({ type: "start", code, speed }),
+    start: (code: string, speed: number, boardId?: string) => {
+      const id = resolveBoardId(boardId);
+      // Replace the worker on every start so a re-run picks up new code even
+      // if the previous program is still in its loop. Otherwise sim.worker
+      // sees `running=true` and only sets stopRequested without restarting.
+      const existing = workersRef.current.get(id);
+      if (existing) { existing.terminate(); workersRef.current.delete(id); }
+      useSimStore.getState().setPinStates({}, id);
+      getOrCreate(id).postMessage({ type: "start", code, speed });
+    },
     pause: (boardId?: string) => {
       if (boardId) workersRef.current.get(boardId)?.postMessage({ type: "pause" });
       else workersRef.current.forEach((w) => w.postMessage({ type: "pause" }));
