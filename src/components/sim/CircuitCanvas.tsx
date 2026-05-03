@@ -105,6 +105,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const ideSetActive = useIdeStore((s) => s.setActiveFile);
   const ideRenameFile = useIdeStore((s) => s.renameFile);
   const ideUpdateFile = useIdeStore((s) => s.updateFileContent);
+  const ideDeleteFile = useIdeStore((s) => s.deleteFile);
   const ideHydrate = useIdeStore((s) => s.hydrate);
   const ideLoaded = useIdeStore((s) => s.loaded);
   useEffect(() => { if (!ideLoaded) ideHydrate(); }, [ideLoaded, ideHydrate]);
@@ -128,21 +129,12 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
       placedBoards.map((b) => String(b.props.sketchFileId ?? "")).filter(Boolean),
     );
     const orphanInoFiles = ideFiles.filter((f) =>
-      f.kind === "ino" && f.name.startsWith("sketch_") && !ownedIds.has(f.id),
+      f.kind === "ino" && (placedBoards.length === 0 || f.name.startsWith("sketch_")) && !ownedIds.has(f.id),
     );
     if (orphanInoFiles.length > 0) {
-      const ide = useIdeStore.getState();
-      // If removing all .ino files would leave the project empty, replace last
-      // one with an empty default rather than deleting it.
-      const remaining = ideFiles.filter((f) => !orphanInoFiles.some((o) => o.id === f.id));
-      if (remaining.length === 0 && orphanInoFiles.length > 0) {
-        const keep = orphanInoFiles.shift()!;
-        ideRenameFile(keep.id, "sketch.ino");
-        ideUpdateFile(keep.id, "// no boards on workspace — add a board to start a sketch.\n");
-      }
-      orphanInoFiles.forEach((f) => ide.deleteFile(f.id));
+      orphanInoFiles.forEach((f) => ideDeleteFile(f.id));
     }
-  }, [placedBoards, ideLoaded, ideFiles, ideAddFile, ideRenameFile, ideUpdateFile]);
+  }, [placedBoards, ideLoaded, ideFiles, ideAddFile, ideRenameFile, ideUpdateFile, ideDeleteFile]);
 
   // When user selects a board, switch the IDE to that board's sketch.
   useEffect(() => {
