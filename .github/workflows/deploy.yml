@@ -1,0 +1,67 @@
+name: Deploy to VPS
+
+# Deploys the EmbedSim backend (Express + Bull worker) to a VPS over SSH.
+# Frontend is built on Lovable / served separately, so this workflow focuses
+# on the backend/ directory. Trigger: push to main, or manual run.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: SSH deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${{ secrets.VPS_SSH_PORT || 22 }}" -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Rsync backend to VPS
+        run: |
+          rsync -az --delete \
+            --exclude node_modules \
+            --exclude .env \
+            --exclude '*.log' \
+            -e "ssh -p ${{ secrets.VPS_SSH_PORT || 22 }} -i ~/.ssh/id_ed25519" \
+            backend/ \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.VPS_APP_DIR || '/opt/embedsim' }}/"
+
+      - name: Install deps, migrate, restart
+        run: |
+          ssh -p "${{ secrets.VPS_SSH_PORT || 22 }}" -i ~/.ssh/id_ed25519 \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "set -e; \
+             cd ${{ secrets.VPS_APP_DIR || '/opt/embedsim' }}; \
+             npm ci --omit=dev || npm install --omit=dev; \
+             pm2 startOrReload ecosystem.config.js --env production; \
+             pm2 save; \
+             pm2 status"
+
+      - name: Health check
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fsS "https://${{ secrets.VPS_HEALTH_URL || secrets.VPS_HOST }}/api/health" > /dev/null; then
+              echo "Health check passed."
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Health check failed." >&2
+          exit 1
