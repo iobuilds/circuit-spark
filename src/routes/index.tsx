@@ -9,6 +9,7 @@ import { IdeMenubar } from "@/components/sim/IdeMenubar";
 import { FileTabs } from "@/components/sim/FileTabs";
 import { CompileOutputPanel } from "@/components/sim/CompileOutputPanel";
 import { PinStateTable } from "@/components/sim/PinStateTable";
+import { BoardSimTabs } from "@/components/sim/BoardSimTabs";
 import { Button } from "@/components/ui/button";
 import { Code2, FileText, FolderTree, PanelRightClose, PanelRightOpen, LogOut, PanelBottomClose, PanelBottomOpen, Trash2 } from "lucide-react";
 import { useSimController } from "@/sim/useSimController";
@@ -307,6 +308,7 @@ function SimulatorPage() {
           </div>
           {showSimPanels && showBottomPanels && (
             <>
+              <BoardSimTabs />
               <div className="h-44 shrink-0 border-t border-border relative">
                 <PinStateTable />
                 <Button
