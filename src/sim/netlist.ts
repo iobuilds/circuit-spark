@@ -69,6 +69,18 @@ export function buildNetGraph(components: CircuitComponent[], wires: Wire[]): Ne
       }
     }
   }
+  // Battery pins also seed canonical labels so loads can find their voltage
+  // without needing an Arduino board in the circuit.
+  for (const c of components) {
+    if (c.kind !== "battery") continue;
+    for (const pid of ["+", "-"] as const) {
+      const r = find(key(c.id, pid));
+      const cells = Math.max(1, Math.min(8, Number(c.props.cells ?? 1) || 1));
+      const label = pid === "+" ? `BAT+:${c.id}:${cells}` : `BAT-:${c.id}`;
+      // Only set if not already a board label (board wins).
+      if (!rootToBoardLabel.has(r)) rootToBoardLabel.set(r, label);
+    }
+  }
 
   const out = new Map<string, string | null>();
   for (const c of components) {
