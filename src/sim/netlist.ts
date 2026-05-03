@@ -100,7 +100,28 @@ export function buildNetGraph(components: CircuitComponent[], wires: Wire[]): Ne
     }
   }
 
-  return { netForCompPin: out };
+  // Build net root → board-pin list so callers can propagate one board's
+  // output to another board's input on the same wire.
+  const netToBoardPins = new Map<string, { boardCompId: string; pin: number; label: string }[]>();
+  for (const c of components) {
+    if (c.kind !== "board") continue;
+    for (const w of wires) {
+      for (const ep of [w.from, w.to]) {
+        if (ep.componentId !== c.id) continue;
+        const r = find(key(ep.componentId, ep.pinId));
+        const bp = findUnoPin(ep.pinId);
+        const pinNum = bp?.number;
+        if (pinNum === undefined) continue;
+        const list = netToBoardPins.get(r) ?? [];
+        if (!list.some((e) => e.boardCompId === c.id && e.pin === pinNum)) {
+          list.push({ boardCompId: c.id, pin: pinNum, label: bp.id });
+        }
+        netToBoardPins.set(r, list);
+      }
+    }
+  }
+
+  return { netForCompPin: out, netToBoardPins };
 }
 
 export function isLedPowered(
