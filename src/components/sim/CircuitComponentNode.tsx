@@ -150,7 +150,7 @@ export function CircuitComponentNode({ comp, isPowered, onPinClick, onSelect, on
 
       {/* Pins */}
       {pins.map((pin) => {
-        const editable = pinEditMode && comp.kind === "custom";
+        const editable = Boolean(pinEditMode && comp.kind === "custom");
         return <PinNode key={pin.id} pin={pin} editable={editable} onPinClick={onPinClick} startPinDrag={startPinDrag} />;
       })}
     </g>
