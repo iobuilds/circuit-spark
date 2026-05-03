@@ -203,6 +203,13 @@ function SimulatorPage() {
         <Link to="/admin" className="text-xs px-3 py-1 mr-2 text-muted-foreground hover:text-foreground border border-border rounded">
           ✨ AI Builder
         </Link>
+        <Button
+          size="sm" variant="ghost" className="h-7 mr-2 text-xs"
+          onClick={async () => { await supabase.auth.signOut(); window.location.href = "/auth"; }}
+          title="Sign out"
+        >
+          <LogOut className="h-3.5 w-3.5 mr-1" />Sign out
+        </Button>
       </div>
 
       <div className="flex-1 min-h-0 flex w-full overflow-hidden">
