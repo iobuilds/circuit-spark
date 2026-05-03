@@ -353,10 +353,30 @@ export const useSimStore = create<SimState>((set, get) => {
     wireHistory: [], wireFuture: [],
   }),
   loadProject: (p) => {
+    // Ensure a board exists for templates that wire to the legacy "board" id
+    // without including a board component in their components[] array.
+    const hasBoardComp = p.components.some((c) => c.kind === "board");
+    const refsLegacyBoard = p.wires.some(
+      (w) => w.from.componentId === "board" || w.to.componentId === "board",
+    );
+    const components = !hasBoardComp && (refsLegacyBoard || p.components.length === 0 || (!p.sketches || p.sketches.length === 0))
+      ? [
+          {
+            id: "board",
+            kind: "board" as const,
+            x: 60,
+            y: 60,
+            rotation: 0,
+            props: { boardId: p.boardId },
+          },
+          ...p.components,
+        ]
+      : p.components;
+
     // Reset multi-board runtime state so old data doesn't leak between projects.
     set({
       code: p.code,
-      components: p.components,
+      components,
       wires: p.wires,
       boardId: p.boardId,
       selectedId: null,
