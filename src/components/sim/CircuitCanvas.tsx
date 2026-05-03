@@ -701,6 +701,28 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         </g>
       </svg>
 
+      {/* Floating workspace tool panel — Select / Pan / Wire (more tools added later). */}
+      {!locked && (
+        <div className="absolute top-3 left-3 z-10 flex items-center gap-1 rounded-md bg-card/95 backdrop-blur border border-border p-1 shadow-lg">
+          {[
+            { id: "select" as const, icon: MousePointer2, label: "Select (V)" },
+            { id: "pan" as const,    icon: Hand,          label: "Pan (H) — drag to move workspace" },
+            { id: "wire" as const,   icon: Cable,         label: "Wire (W) — click pins to connect" },
+          ].map(({ id, icon: Icon, label }) => (
+            <button
+              key={id}
+              onClick={() => setTool(id)}
+              title={label}
+              className={`h-8 w-8 flex items-center justify-center rounded transition-colors ${
+                tool === id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Zoom toolbar overlay */}
       <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-md bg-card/90 backdrop-blur border border-border px-2 py-1 text-xs font-mono">
         <span className="text-muted-foreground mr-1">zoom</span>
