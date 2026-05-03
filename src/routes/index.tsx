@@ -104,28 +104,58 @@ function SimulatorPage() {
   async function handleBackendCompile(): Promise<boolean> {
     const { files, activeFileId } = useIdeStore.getState();
     const installedLibraries = useIdeStore.getState().installedLibraries.map((l) => l.id);
-    const compileFiles = fileSliceForActiveSketch(files, activeFileId);
+    // Compile each board's sketch separately. Each placed board owns its own
+    // .ino file (sketch_<board>_<n>.ino); shared support files (.h/.cpp) are
+    // included with every compile.
+    const boards = useSimStore.getState().components.filter((c) => c.kind === "board");
+    const supportFiles = files.filter((f) => f.kind !== "ino").map((f) => ({ name: f.name, content: f.content }));
+    const sketches: { boardId: string; fileId: string; files: { name: string; content: string }[] }[] = [];
+    for (const b of boards) {
+      const fid = String(b.props.sketchFileId ?? "");
+      const f = files.find((ff) => ff.id === fid && ff.kind === "ino");
+      if (f) sketches.push({
+        boardId: String(b.props.boardId ?? boardId),
+        fileId: f.id,
+        files: [{ name: f.name, content: f.content }, ...supportFiles],
+      });
+    }
+    // Fallback to active sketch if no boards placed.
+    if (sketches.length === 0) {
+      const slice = fileSliceForActiveSketch(files, activeFileId);
+      if (slice.length > 0) sketches.push({ boardId, fileId: slice[0].name, files: slice });
+    }
+    if (sketches.length === 0) {
+      toast.error("No sketches to compile");
+      return false;
+    }
     setCompiling(true);
-    setCompileProgress({ step: "Queued", percent: 0, message: "Submitting job..." });
     setCompileOutput(null);
-    const result = await compileSketch(
-      {
-        board: boardId,
-        files: compileFiles,
-        libraries: installedLibraries,
-      },
-      (p) => setCompileProgress(p),
-    );
-    setCompileOutput(result);
+    let allOk = true;
+    let lastResult: CompileResult | null = null;
+    for (let i = 0; i < sketches.length; i++) {
+      const s = sketches[i];
+      setCompileProgress({ step: `Board ${i + 1}/${sketches.length}`, percent: 0, message: `Compiling ${s.files[0].name}...` });
+      const result = await compileSketch(
+        { board: s.boardId, files: s.files, libraries: installedLibraries },
+        (p) => setCompileProgress({ ...p, message: `[${s.files[0].name}] ${p.message ?? ""}` }),
+      );
+      lastResult = result;
+      if (!result.success) {
+        allOk = false;
+        setCompileOutput(result);
+        toast.error(`${s.files[0].name}: ${result.errors[0]?.message ?? "compile failed"}`);
+        break;
+      }
+    }
+    if (allOk && lastResult) setCompileOutput(lastResult);
     setCompiling(false);
     setCompileProgress(null);
-    if (result.success) {
+    if (allOk && lastResult) {
       toast.success(
-        `Compile OK · Flash ${result.flashPercent?.toFixed(1) ?? "?"}% · RAM ${result.ramPercent?.toFixed(1) ?? "?"}%`,
+        `Compiled ${sketches.length} sketch${sketches.length === 1 ? "" : "es"} · Flash ${lastResult.flashPercent?.toFixed(1) ?? "?"}% · RAM ${lastResult.ramPercent?.toFixed(1) ?? "?"}%`,
       );
       return true;
     }
-    toast.error(`Compilation failed: ${result.errors[0]?.message ?? "see output"}`);
     return false;
   }
 
