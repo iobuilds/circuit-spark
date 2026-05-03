@@ -9,7 +9,7 @@ export const UNO_VIEW_W = 960;
 export const UNO_VIEW_H = 704;
 
 export const UNO_SVG = `
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${UNO_VIEW_W} ${UNO_VIEW_H}" preserveAspectRatio="none">
-  <image href="${unoPng}" x="0" y="0" width="${UNO_VIEW_W}" height="${UNO_VIEW_H}" preserveAspectRatio="none" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${UNO_VIEW_W} ${UNO_VIEW_H}" preserveAspectRatio="xMidYMid meet">
+  <image href="${unoPng}" x="0" y="0" width="${UNO_VIEW_W}" height="${UNO_VIEW_H}" preserveAspectRatio="xMidYMid meet" />
 </svg>
 `.trim();
