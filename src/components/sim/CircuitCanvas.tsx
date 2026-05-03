@@ -442,11 +442,17 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
       return bp ? { x: bp.x, y: bp.y } : null;
     };
 
-    // Legacy primary board (rendered at fixed BOARD_X/Y).
+    // Legacy primary board id "board": prefer the actual placed component's
+    // position so wires follow when the user drags it. Fall back to the fixed
+    // BOARD_X/Y only if no such component exists.
     if (componentId === "board") {
-      const p = resolveBoardPin("uno");
+      const placed = components.find((cc) => cc.id === "board");
+      const boardId = placed ? String(placed.props.boardId ?? "uno") : "uno";
+      const p = resolveBoardPin(boardId);
       if (!p) return null;
-      return { x: BOARD_X + p.x, y: BOARD_Y + p.y };
+      const bx = placed ? placed.x : BOARD_X;
+      const by = placed ? placed.y : BOARD_Y;
+      return { x: bx + p.x, y: by + p.y };
     }
     const c = components.find((cc) => cc.id === componentId);
     if (!c) return null;
