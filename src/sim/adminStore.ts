@@ -164,11 +164,14 @@ function mergeBoards(persisted: BoardEntry[]): BoardEntry[] {
     const def = map.get(p.id);
     if (def) {
       // Backfill svg/pins from defaults when persisted entry doesn't have them yet.
+      // For built-ins, always use the latest default SVG (so updates to the
+      // embedded artwork — e.g. preserveAspectRatio fixes — propagate even when
+      // older entries are persisted in localStorage). Pins remain user-editable.
       const merged: BoardEntry = {
         ...def,
         ...p,
         builtIn: true,
-        svg: p.svg ?? def.svg,
+        svg: def.svg ?? p.svg,
         pins: p.pins && p.pins.length > 0 ? p.pins : def.pins,
       };
       ordered.push(merged);
