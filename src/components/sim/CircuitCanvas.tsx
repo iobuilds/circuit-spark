@@ -659,7 +659,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
               <path
                 d={wirePath(drawingFromPos, mouse, drawingWaypoints)}
                 stroke="var(--color-primary)"
-                strokeWidth={2}
+                strokeWidth={4}
                 strokeDasharray="6 4"
                 fill="none"
                 strokeLinecap="round"
