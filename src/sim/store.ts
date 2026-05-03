@@ -107,7 +107,15 @@ export interface SimState {
 
   toggleTheme: () => void;
   resetWorkspace: () => void;
-  loadProject: (p: { code: string; components: CircuitComponent[]; wires: Wire[]; boardId: BoardId }) => void;
+  loadProject: (p: {
+    code: string;
+    components: CircuitComponent[];
+    wires: Wire[];
+    boardId: BoardId;
+    /** Optional: per-board sketches. When present, the IDE creates one .ino
+     *  file per entry and attaches each to its `boardCompId` board. */
+    sketches?: { boardCompId: string; fileName: string; code: string }[];
+  }) => void;
 }
 
 let cidCounter = 1;
