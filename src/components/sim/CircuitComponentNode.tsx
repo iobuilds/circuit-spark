@@ -7,6 +7,10 @@ import { useAdminStore } from "@/sim/adminStore";
 interface Props {
   comp: CircuitComponent;
   isPowered: boolean;
+  /** Voltage applied across +/- pins (for motor / battery loads). */
+  voltage?: number;
+  /** Reversed polarity (for motor direction). */
+  reversed?: boolean;
   onPinClick: (pinId: string, e: React.MouseEvent) => void;
   onSelect: (e: React.MouseEvent) => void;
   onDragStart: (e: React.MouseEvent) => void;
@@ -37,7 +41,7 @@ const LED_COLORS: Record<string, { off: string; on: string; glow: string }> = {
   purple: { off: "oklch(0.4 0.10 305)", on: "oklch(0.7 0.22 305)",  glow: "led-glow-blue" },
 };
 
-export function CircuitComponentNode({ comp, isPowered, onPinClick, onSelect, onDragStart, selected, pinEditMode, toCanvasPoint }: Props) {
+export function CircuitComponentNode({ comp, isPowered, voltage = 0, reversed = false, onPinClick, onSelect, onDragStart, selected, pinEditMode, toCanvasPoint }: Props) {
   const def = COMPONENT_DEFS[comp.kind];
   const setProp = useSimStore((s) => s.setComponentProp);
   const adminComps = useAdminStore((s) => s.components);
@@ -129,6 +133,17 @@ export function CircuitComponentNode({ comp, isPowered, onPinClick, onSelect, on
           value={Number(comp.props.value ?? 512)}
           onChange={(v) => setProp(comp.id, "value", v)}
         />
+      )}
+      {comp.kind === "motor" && (
+        <MotorSvg
+          voltage={voltage}
+          reversed={reversed}
+          burned={Boolean(comp.props.burned)}
+          color={String(comp.props.propColor ?? "blue")}
+        />
+      )}
+      {comp.kind === "battery" && (
+        <BatterySvg cells={Math.max(1, Math.min(8, Number(comp.props.cells ?? 1) || 1))} />
       )}
 
       {/* Custom component visual: inline the admin SVG markup. */}
@@ -341,8 +356,8 @@ function ResistorSvg({ ohms }: { ohms: number }) {
         <rect x={52} y={5} width={4} height={20} fill={b3} stroke={bodyDark} strokeWidth={0.4} />
         <rect x={66} y={5} width={4} height={20} fill={b4} stroke={bodyDark} strokeWidth={0.4} />
       </g>
-      <text x={50} y={44} textAnchor="middle" fontSize={16} fontWeight={700} fontFamily="monospace"
-        fill="var(--color-foreground)" stroke="var(--color-background)" strokeWidth={3}
+      <text x={50} y={50} textAnchor="middle" fontSize={22} fontWeight={800} fontFamily="monospace"
+        fill="var(--color-foreground)" stroke="var(--color-background)" strokeWidth={4}
         paintOrder="stroke" style={{ paintOrder: "stroke" }}>
         {formatOhms(ohms)}
       </text>
@@ -413,3 +428,108 @@ function PotentiometerSvg({ value, onChange }: { value: number; onChange: (v: nu
     </g>
   );
 }
+
+const PROP_COLORS: Record<string, string> = {
+  blue: "oklch(0.7 0.20 240)",
+  red: "oklch(0.65 0.22 25)",
+  pink: "oklch(0.72 0.22 0)",
+  yellow: "oklch(0.88 0.18 95)",
+  green: "oklch(0.65 0.20 145)",
+};
+
+function MotorSvg({ voltage, reversed, burned, color }: { voltage: number; reversed: boolean; burned: boolean; color: string }) {
+  // Speed: 0 below ~0.5V, full at 5V. Above 12V → burned (handled by canvas).
+  const v = Math.max(0, voltage);
+  const speed = Math.min(1, Math.max(0, (v - 0.4) / (5 - 0.4)));
+  const rps = (reversed ? -1 : 1) * speed * 8; // up to 8 revs/sec at 5V
+  const dur = rps !== 0 ? Math.abs(1 / rps) : 0;
+  const propFill = burned ? "oklch(0.35 0.02 30)" : (PROP_COLORS[color] ?? PROP_COLORS.blue);
+  const propStroke = "oklch(0.18 0.01 240)";
+  // Geometry centred around x=55. Pins exit at (38,148) and (72,148).
+  return (
+    <g>
+      {/* leads */}
+      <line x1={38} y1={120} x2={38} y2={148} stroke="oklch(0.78 0.02 240)" strokeWidth={2} />
+      <line x1={72} y1={120} x2={72} y2={148} stroke="oklch(0.78 0.02 240)" strokeWidth={2} />
+      {/* red end-cap with pins */}
+      <rect x={28} y={108} width={54} height={16} rx={3}
+        fill={burned ? "oklch(0.30 0.05 25)" : "oklch(0.55 0.20 25)"} stroke={propStroke} strokeWidth={1.2} />
+      {/* main grey can */}
+      <rect x={22} y={50} width={66} height={60} rx={4}
+        fill={burned ? "oklch(0.25 0.005 250)" : "oklch(0.55 0.005 250)"} stroke={propStroke} strokeWidth={1.4} />
+      {/* highlight strip */}
+      <rect x={30} y={56} width={6} height={48} rx={2} fill="oklch(0.78 0.005 250 / 0.5)" />
+      {/* shaft cap */}
+      <rect x={45} y={42} width={20} height={10} rx={2} fill="oklch(0.42 0.005 250)" stroke={propStroke} strokeWidth={1} />
+      {/* shaft */}
+      <line x1={55} y1={42} x2={55} y2={28} stroke="oklch(0.7 0.005 250)" strokeWidth={3} strokeLinecap="round" />
+      {/* propeller — animated rotation */}
+      <g transform="translate(55 24)">
+        {dur > 0 && !burned && (
+          <animateTransform
+            attributeName="transform"
+            type="rotate"
+            from={reversed ? "360 0 0" : "0 0 0"}
+            to={reversed ? "0 0 0" : "360 0 0"}
+            dur={`${dur}s`}
+            repeatCount="indefinite"
+          />
+        )}
+        {/* hub */}
+        <circle r={5} fill={propFill} stroke={propStroke} strokeWidth={1} />
+        {/* two blades */}
+        <ellipse cx={-22} cy={0} rx={22} ry={5} fill={propFill} stroke={propStroke} strokeWidth={1} />
+        <ellipse cx={22} cy={0} rx={22} ry={5} fill={propFill} stroke={propStroke} strokeWidth={1} />
+      </g>
+      {/* burned overlay */}
+      {burned && (
+        <g>
+          <path d="M40 36 q4 -6 0 -14" stroke="oklch(0.55 0.01 240 / 0.7)" strokeWidth={2} fill="none" strokeLinecap="round" />
+          <path d="M55 28 q5 -8 0 -18" stroke="oklch(0.45 0.01 240 / 0.6)" strokeWidth={2} fill="none" strokeLinecap="round" />
+          <path d="M70 36 q4 -6 0 -14" stroke="oklch(0.55 0.01 240 / 0.7)" strokeWidth={2} fill="none" strokeLinecap="round" />
+          <text x={55} y={88} textAnchor="middle" fontSize={20} fontWeight={800}
+            fill="oklch(0.7 0.22 25)" fontFamily="monospace">✕</text>
+        </g>
+      )}
+      {/* status label */}
+      <text x={55} y={138} textAnchor="middle" fontSize={11} fontWeight={700} fontFamily="monospace"
+        fill="var(--color-foreground)" stroke="var(--color-background)" strokeWidth={3}
+        paintOrder="stroke" style={{ paintOrder: "stroke" }}>
+        {burned ? "BURNED" : v < 0.4 ? "0V" : `${v.toFixed(1)}V ${reversed ? "◀" : "▶"}`}
+      </text>
+    </g>
+  );
+}
+
+function BatterySvg({ cells }: { cells: number }) {
+  const volts = +(cells * 3.7).toFixed(1);
+  // 90×120, pins at + (24,118) and - (66,118)
+  return (
+    <g>
+      {/* leads */}
+      <line x1={24} y1={100} x2={24} y2={118} stroke="oklch(0.78 0.02 240)" strokeWidth={2} />
+      <line x1={66} y1={100} x2={66} y2={118} stroke="oklch(0.78 0.02 240)" strokeWidth={2} />
+      {/* body — stack of cells */}
+      <rect x={10} y={20} width={70} height={80} rx={6}
+        fill="oklch(0.55 0.18 25)" stroke="oklch(0.30 0.10 25)" strokeWidth={1.5} />
+      {/* cell separator lines */}
+      {Array.from({ length: cells - 1 }).map((_, i) => {
+        const y = 20 + ((i + 1) * 80) / cells;
+        return <line key={i} x1={10} y1={y} x2={80} y2={y} stroke="oklch(0.30 0.10 25)" strokeWidth={1} />;
+      })}
+      {/* terminals on top */}
+      <rect x={18} y={14} width={12} height={6} rx={1} fill="oklch(0.30 0.10 25)" />
+      <rect x={60} y={14} width={12} height={6} rx={1} fill="oklch(0.30 0.10 25)" />
+      <text x={24} y={11} textAnchor="middle" fontSize={11} fontWeight={800}
+        fill="oklch(0.7 0.22 145)" fontFamily="monospace">+</text>
+      <text x={66} y={11} textAnchor="middle" fontSize={13} fontWeight={800}
+        fill="var(--color-foreground)" fontFamily="monospace">−</text>
+      {/* label */}
+      <text x={45} y={56} textAnchor="middle" fontSize={18} fontWeight={800}
+        fill="oklch(0.98 0 0)" fontFamily="monospace">{volts}V</text>
+      <text x={45} y={74} textAnchor="middle" fontSize={11} fontWeight={600}
+        fill="oklch(0.98 0 0 / 0.85)" fontFamily="monospace">{cells}× 3.7V</text>
+    </g>
+  );
+}
+

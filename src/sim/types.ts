@@ -48,6 +48,7 @@ export type ComponentKind =
   | "pir"
   | "ldr"
   | "battery"
+  | "motor"
   | "rgb-led"
   | "switch"
   | "7seg"

@@ -137,11 +137,18 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
     ], available: false,
   },
   battery: {
-    kind: "battery", label: "9V Battery", category: "Power", width: 80, height: 100,
+    kind: "battery", label: "Battery", category: "Power", width: 90, height: 120,
     pins: [
-      { id: "+", label: "+", x: 24, y: 98 },
-      { id: "-", label: "-", x: 56, y: 98 },
-    ], available: false,
+      { id: "+", label: "+", x: 24, y: 118 },
+      { id: "-", label: "-", x: 66, y: 118 },
+    ], available: true,
+  },
+  motor: {
+    kind: "motor", label: "DC Motor", category: "Actuators", width: 110, height: 150,
+    pins: [
+      { id: "+", label: "+", x: 38, y: 148 },
+      { id: "-", label: "-", x: 72, y: 148 },
+    ], available: true,
   },
   // Generic placeholder for admin-defined custom components. Real visuals come
   // from the admin entry's SVG and pins (resolved at render time).

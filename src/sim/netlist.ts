@@ -69,6 +69,18 @@ export function buildNetGraph(components: CircuitComponent[], wires: Wire[]): Ne
       }
     }
   }
+  // Battery pins also seed canonical labels so loads can find their voltage
+  // without needing an Arduino board in the circuit.
+  for (const c of components) {
+    if (c.kind !== "battery") continue;
+    for (const pid of ["+", "-"] as const) {
+      const r = find(key(c.id, pid));
+      const cells = Math.max(1, Math.min(8, Number(c.props.cells ?? 1) || 1));
+      const label = pid === "+" ? `BAT+:${c.id}:${cells}` : `BAT-:${c.id}`;
+      // Only set if not already a board label (board wins).
+      if (!rootToBoardLabel.has(r)) rootToBoardLabel.set(r, label);
+    }
+  }
 
   const out = new Map<string, string | null>();
   for (const c of components) {
@@ -152,6 +164,44 @@ export function isLedBurning(
     if (r1 === a || r1 === k || r2 === a || r2 === k) return false;
   }
   return true;
+}
+
+/**
+ * Compute approximate voltage applied across (+,−) pins of a 2-terminal load.
+ * Recognises board rails (5V, 3V3, VIN, GND) and Battery components
+ * (each cell = 3.7V). Returns 0 when not connected to a complete loop.
+ * Direction: positive value means + pin is higher than − pin; if reversed
+ * we still return the magnitude — caller checks direction separately.
+ */
+export function computeLoadVoltage(
+  comp: CircuitComponent,
+  net: NetGraph,
+  plusPin: string,
+  minusPin: string,
+): { volts: number; reversed: boolean } {
+  const pLabel = net.netForCompPin.get(key(comp.id, plusPin)) ?? null;
+  const mLabel = net.netForCompPin.get(key(comp.id, minusPin)) ?? null;
+  if (!pLabel || !mLabel) return { volts: 0, reversed: false };
+
+  const labelVolts = (l: string): { v: number; pos: boolean } | null => {
+    if (l === "GND" || l === "GND1" || l === "GND2" || l === "GND_TOP") return { v: 0, pos: false };
+    if (l === "5V" || l === "VIN") return { v: 5, pos: true };
+    if (l === "3V3") return { v: 3.3, pos: true };
+    if (l.startsWith("BAT+:")) {
+      const cells = Number(l.split(":")[2] ?? "1") || 1;
+      return { v: cells * 3.7, pos: true };
+    }
+    if (l.startsWith("BAT-:")) return { v: 0, pos: false };
+    return null;
+  };
+
+  const p = labelVolts(pLabel);
+  const m = labelVolts(mLabel);
+  if (!p || !m) return { volts: 0, reversed: false };
+  // Need a positive on one side and ground on the other.
+  if (p.pos && !m.pos) return { volts: p.v - m.v, reversed: false };
+  if (!p.pos && m.pos) return { volts: m.v - p.v, reversed: true };
+  return { volts: 0, reversed: false };
 }
 
 /**
