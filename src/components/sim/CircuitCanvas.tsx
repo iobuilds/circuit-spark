@@ -5,7 +5,8 @@ import { ArduinoUnoBoard } from "./ArduinoUnoBoard";
 import { GenericBoard } from "./GenericBoard";
 import { CircuitComponentNode } from "./CircuitComponentNode";
 import { findUnoPin, UNO_HEIGHT, UNO_WIDTH } from "@/sim/uno-pins";
-import { buildNetGraph, evaluateInputs, isLedPowered } from "@/sim/netlist";
+import { buildNetGraph, evaluateInputs, isLedPowered, isLedBurning } from "@/sim/netlist";
+import { toast } from "sonner";
 import type { BoardId, ComponentKind } from "@/sim/types";
 import { useAdminStore } from "@/sim/adminStore";
 import { CornerDownLeft, Lock, Plus, Trash2, X, Undo2, Redo2, Wand2, Share2, Move, RotateCcw, Box } from "lucide-react";
@@ -111,6 +112,20 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
       onPinInputChange(Number(pin), val);
     }
   }, [components, net, pinStates, onPinInputChange]);
+
+  // LED burn detection: only while sim is running. If an LED is wired straight
+  // from 5V/VIN to GND with no series resistor, mark it burned (sticky — has to
+  // be replaced or rewired + un-burned manually).
+  useEffect(() => {
+    if (status !== "running") return;
+    for (const c of components) {
+      if (c.kind !== "led" || c.props?.burned) continue;
+      if (isLedBurning(c, components, net)) {
+        setComponentProp(c.id, "burned", true);
+        toast.error(`💥 ${String(c.props.color || "red").toUpperCase()} LED burned out — no current-limiting resistor between 5V and GND.`);
+      }
+    }
+  }, [status, components, net, setComponentProp]);
 
   // Esc / Backspace shortcuts while drawing a wire.
   useEffect(() => {
@@ -704,6 +719,15 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                   <option value="power">Power indicator</option>
                   <option value="gpio">GPIO-driven</option>
                 </select>
+                {Boolean(sel.props.burned) && (
+                  <button
+                    onClick={() => setComponentProp(selectedId, "burned", false)}
+                    className="ml-2 px-2 py-0.5 rounded bg-destructive text-destructive-foreground text-xs hover:opacity-90"
+                    title="Replace this burned LED"
+                  >
+                    Replace LED
+                  </button>
+                )}
               </div>
             )}
             {isCustom && (

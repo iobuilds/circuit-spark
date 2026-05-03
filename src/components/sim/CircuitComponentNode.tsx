@@ -119,6 +119,7 @@ export function CircuitComponentNode({ comp, isPowered, onPinClick, onSelect, on
           color={String(comp.props.color || "red")}
           size={Number(comp.props.size ?? 1) || 1}
           on={isPowered}
+          burned={Boolean(comp.props.burned)}
         />
       )}
       {comp.kind === "resistor" && <ResistorSvg ohms={Number(comp.props.ohms || 220)} />}
@@ -178,25 +179,66 @@ export function CircuitComponentNode({ comp, isPowered, onPinClick, onSelect, on
   );
 }
 
-function LedSvg({ color, on, size = 1 }: { color: string; on: boolean; size?: number }) {
+function LedSvg({ color, on, size = 1, burned = false }: { color: string; on: boolean; size?: number; burned?: boolean }) {
   const c = LED_COLORS[color] ?? LED_COLORS.red;
   const s = Math.max(0.5, Math.min(2.5, size));
-  // Scale around the bulb center (30, 28).
+  // Dome bulb sits between the two leads at x=20 / x=40 (pin positions, anchored by the parent).
+  // Geometry mirrors the reference dome-LED icon: rounded top, flat collar, two stub leads.
+  const bodyOff = "oklch(0.78 0.02 240)";   // light grey dome when off
+  const bodyOn = c.on;
+  const fill = burned ? "oklch(0.22 0.01 30)" : on ? bodyOn : bodyOff;
+  const stroke = burned ? "oklch(0.12 0.01 30)" : "oklch(0.18 0.01 240)";
+  const rays = on && !burned;
+
   return (
     <g>
-      {/* leads (always anchored to pin positions) */}
-      <line x1={20} y1={50} x2={20} y2={78} stroke="oklch(0.78 0.02 240)" strokeWidth={1.5} />
-      <line x1={40} y1={50} x2={40} y2={78} stroke="oklch(0.78 0.02 240)" strokeWidth={1.5} />
+      {/* leads anchored to pin positions */}
+      <line x1={20} y1={62} x2={20} y2={78} stroke="oklch(0.78 0.02 240)" strokeWidth={1.5} />
+      <line x1={40} y1={62} x2={40} y2={78} stroke="oklch(0.78 0.02 240)" strokeWidth={1.5} />
+      {/* collar / base plate */}
+      <rect x={12} y={50} width={36} height={6} rx={1.5}
+        fill={burned ? "oklch(0.18 0.01 30)" : "oklch(0.45 0.02 240)"}
+        stroke={stroke} strokeWidth={1} />
+      <line x1={16} y1={56} x2={16} y2={62} stroke={stroke} strokeWidth={1} />
+      <line x1={44} y1={56} x2={44} y2={62} stroke={stroke} strokeWidth={1} />
       <g transform={`translate(${30 * (1 - s)} ${28 * (1 - s)}) scale(${s})`}>
-        <ellipse
-          cx={30} cy={28} rx={20} ry={26}
-          fill={on ? c.on : c.off}
-          stroke="oklch(0.2 0.01 240)"
-          strokeWidth={1}
-          className={on ? c.glow : ""}
+        {/* dome: rounded top + flat bottom — `path` produces the silhouette in the icon */}
+        <path
+          d="M10 50 V28 a20 20 0 0 1 40 0 V50 Z"
+          fill={fill}
+          stroke={stroke}
+          strokeWidth={1.5}
+          className={rays ? c.glow : ""}
         />
-        <ellipse cx={24} cy={20} rx={5} ry={8} fill="oklch(1 0 0 / 0.35)" />
+        {/* highlight */}
+        {!burned && (
+          <ellipse cx={22} cy={22} rx={4} ry={9} fill="oklch(1 0 0 / 0.35)" />
+        )}
+        {/* tiny inner die (the square chip element visible in the reference) */}
+        <rect x={26} y={42} width={8} height={5} rx={0.5}
+          fill={burned ? "oklch(0.08 0.01 30)" : on ? "oklch(0.95 0.02 90)" : "oklch(0.55 0.02 240)"} />
       </g>
+      {/* light rays — only when the LED is on and not burned */}
+      {rays && (
+        <g stroke={c.on} strokeWidth={1.6} strokeLinecap="round" opacity={0.9}>
+          <line x1={30} y1={-2} x2={30} y2={4} />
+          <line x1={6} y1={4} x2={11} y2={9} />
+          <line x1={54} y1={4} x2={49} y2={9} />
+          <line x1={-2} y1={26} x2={5} y2={26} />
+          <line x1={55} y1={26} x2={62} y2={26} />
+          <line x1={6} y1={48} x2={11} y2={43} />
+          <line x1={54} y1={48} x2={49} y2={43} />
+        </g>
+      )}
+      {/* burned: smoke wisps + 'X' */}
+      {burned && (
+        <g>
+          <path d="M22 -2 q4 4 0 8 q-4 4 0 8" stroke="oklch(0.55 0.01 240 / 0.6)" strokeWidth={1.5} fill="none" strokeLinecap="round" />
+          <path d="M34 -2 q4 4 0 8 q-4 4 0 8" stroke="oklch(0.45 0.01 240 / 0.5)" strokeWidth={1.5} fill="none" strokeLinecap="round" />
+          <text x={30} y={32} textAnchor="middle" fontSize={14} fontWeight={700}
+            fill="oklch(0.7 0.22 25)" fontFamily="monospace">✕</text>
+        </g>
+      )}
     </g>
   );
 }
