@@ -1,10 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-// Simple flex layout (no resizable panels) for reliability across viewports.
 import { Toaster } from "@/components/ui/sonner";
 import { CodeEditor } from "@/components/sim/CodeEditor";
 import { CircuitCanvas } from "@/components/sim/CircuitCanvas";
-
 import { SerialPanel } from "@/components/sim/SerialPanel";
 import { Toolbar } from "@/components/sim/Toolbar";
 import { IdeMenubar } from "@/components/sim/IdeMenubar";
@@ -12,12 +10,13 @@ import { FileTabs } from "@/components/sim/FileTabs";
 import { CompileOutputPanel } from "@/components/sim/CompileOutputPanel";
 import { PinStateTable } from "@/components/sim/PinStateTable";
 import { Button } from "@/components/ui/button";
-import { Code2, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Code2, PanelRightClose, PanelRightOpen, LogOut } from "lucide-react";
 import { useSimController } from "@/sim/useSimController";
 import { useSimStore } from "@/sim/store";
 import { useIdeStore } from "@/sim/ideStore";
 import { compileSketch, fileSliceForCompile, type CompileResult, type CompileProgress } from "@/sim/compileApi";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -28,6 +27,17 @@ export const Route = createFileRoute("/")({
       { property: "og:description", content: "Cloud Arduino IDE with multi-file projects, board manager, library manager, serial plotter, and a live circuit simulator." },
     ],
   }),
+  beforeLoad: async () => {
+    if (typeof window === "undefined") return;
+    const { data } = await supabase.auth.getSession();
+    const user = data.session?.user;
+    if (!user) throw redirect({ to: "/auth" });
+    const confirmed = (user as { email_confirmed_at?: string; confirmed_at?: string }).email_confirmed_at
+      || (user as { email_confirmed_at?: string; confirmed_at?: string }).confirmed_at;
+    if (user.email && !confirmed) {
+      throw redirect({ to: "/auth" });
+    }
+  },
   component: SimulatorPage,
 });
 
