@@ -353,6 +353,7 @@ export const useSimStore = create<SimState>((set, get) => {
     wireHistory: [], wireFuture: [],
   }),
   loadProject: (p) => {
+    // Reset multi-board runtime state so old data doesn't leak between projects.
     set({
       code: p.code,
       components: p.components,
@@ -360,14 +361,49 @@ export const useSimStore = create<SimState>((set, get) => {
       boardId: p.boardId,
       selectedId: null,
       serial: [],
+      pinStates: {},
+      serialByBoard: {},
+      pinStatesByBoard: {},
+      statusByBoard: {},
+      activeSimBoardId: null,
       wireHistory: [],
       wireFuture: [],
     });
-    // Sync the loaded code into the IDE editor (active .ino file, or the first file).
-    // Dynamic import avoids a circular dependency at module init.
+
     import("./ideStore").then(({ useIdeStore }) => {
       const ide = useIdeStore.getState();
-      if (!ide.loaded || ide.files.length === 0) return;
+      if (!ide.loaded) return;
+
+      // Multi-board path: create one .ino per entry in p.sketches and attach
+      // each new file's id to its target board's `sketchFileId` prop.
+      if (p.sketches && p.sketches.length > 0) {
+        const keep = ide.files.filter(
+          (f) => !(f.kind === "ino" && f.name.startsWith("sketch_")),
+        );
+        const cidGen = (n: number) =>
+          `f_${Date.now().toString(36)}_${n.toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+        const newFiles = p.sketches.map((s, i) => ({
+          id: cidGen(i),
+          name: s.fileName,
+          kind: "ino" as const,
+          content: s.code,
+        }));
+        const allFiles = [...keep, ...newFiles];
+
+        const compsWithSketches = p.components.map((c) => {
+          if (c.kind !== "board") return c;
+          const idx = p.sketches!.findIndex((s) => s.boardCompId === c.id);
+          if (idx < 0) return c;
+          return { ...c, props: { ...c.props, sketchFileId: newFiles[idx].id } };
+        });
+
+        useIdeStore.setState({ files: allFiles, activeFileId: newFiles[0].id });
+        set({ components: compsWithSketches });
+        return;
+      }
+
+      // Single-board legacy path: write p.code into the active .ino file.
+      if (ide.files.length === 0) return;
       const target =
         ide.files.find((f) => f.id === ide.activeFileId && f.kind === "ino") ??
         ide.files.find((f) => f.kind === "ino") ??
