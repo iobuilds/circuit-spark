@@ -931,6 +931,62 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                 )}
               </div>
             )}
+            {sel?.kind === "battery" && (
+              <div className="flex items-center gap-2 rounded-md border border-border bg-card/95 backdrop-blur px-2 py-1 text-xs shadow">
+                <span className="text-muted-foreground">Cells</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={8}
+                  step={1}
+                  value={Number(sel.props.cells ?? 1)}
+                  onChange={(e) => {
+                    const n = Math.max(1, Math.min(8, Math.round(Number(e.target.value) || 1)));
+                    setComponentProp(selectedId, "cells", n);
+                  }}
+                  className="bg-input border border-border rounded px-1.5 py-0.5 text-xs w-16 font-mono"
+                />
+                <span className="text-muted-foreground font-mono">
+                  = {(Number(sel.props.cells ?? 1) * 3.7).toFixed(1)}V
+                </span>
+              </div>
+            )}
+            {sel?.kind === "motor" && (
+              <div className="flex items-center gap-2 rounded-md border border-border bg-card/95 backdrop-blur px-2 py-1 text-xs shadow">
+                <span className="text-muted-foreground">Propeller</span>
+                <div className="flex items-center gap-1">
+                  {(["blue", "red", "pink", "yellow", "green"] as const).map((col) => {
+                    const sw: Record<string, string> = {
+                      blue: "oklch(0.7 0.20 240)", red: "oklch(0.65 0.22 25)",
+                      pink: "oklch(0.72 0.22 0)", yellow: "oklch(0.88 0.18 95)",
+                      green: "oklch(0.65 0.20 145)",
+                    };
+                    return (
+                      <button
+                        key={col}
+                        onClick={() => setComponentProp(selectedId, "propColor", col)}
+                        className={[
+                          "w-5 h-5 rounded-full border transition",
+                          String(sel.props.propColor || "blue") === col ? "ring-2 ring-primary border-primary" : "border-border",
+                        ].join(" ")}
+                        style={{ background: sw[col] }}
+                        title={col}
+                      />
+                    );
+                  })}
+                </div>
+                <span className="ml-2 text-muted-foreground font-mono">5V • 50–100mA • burns &gt;12V</span>
+                {Boolean(sel.props.burned) && (
+                  <button
+                    onClick={() => setComponentProp(selectedId, "burned", false)}
+                    className="ml-2 px-2 py-0.5 rounded bg-destructive text-destructive-foreground text-xs hover:opacity-90"
+                    title="Replace this burned motor"
+                  >
+                    Replace Motor
+                  </button>
+                )}
+              </div>
+            )}
             {isCustom && (
               <>
                 <Button
