@@ -84,6 +84,24 @@ class CompilerService {
     });
   }
 
+  // Drift check: confirm a library actually shows up in `arduino-cli lib list`
+  // after a reportedly successful install. Matches by name (case-insensitive).
+  async _verifyLibraryInstalled(libName) {
+    const target = String(libName).split('@')[0].trim().toLowerCase();
+    const res = await this._run(['lib', 'list', '--format', 'json'], { timeoutMs: 30000 });
+    if (res.code !== 0) {
+      logger.warn(`verify lib list failed (${res.code}): ${res.stderr.trim()}`);
+      return false;
+    }
+    try {
+      const arr = JSON.parse(res.stdout || '[]');
+      return arr.some(l => (l.library?.name || '').toLowerCase() === target);
+    } catch (e) {
+      logger.warn(`verify lib list parse error: ${e.message}`);
+      return false;
+    }
+  }
+
   // Self-healing index refresh. arduino-cli sometimes returns non-zero when an
   // optional 3rd-party index (e.g. rp2040) is unreachable. We log it but never
   // treat it as fatal — the official lib index is what matters for `lib install`.
