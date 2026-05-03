@@ -204,12 +204,11 @@ export const useIdeStore = create<IdeState>((set, get) => ({
   },
   deleteFile: (id) => {
     const { files, activeFileId } = get();
-    if (files.length <= 1) return;
     const next = files.filter((f) => f.id !== id);
     saveJson(KEY_PROJECT, next);
     set({
       files: next,
-      activeFileId: activeFileId === id ? next[0].id : activeFileId,
+      activeFileId: activeFileId === id ? (next[0]?.id ?? null) : activeFileId,
     });
   },
   duplicateFile: (id) => {

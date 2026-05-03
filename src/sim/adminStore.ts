@@ -91,10 +91,6 @@ function defaultBoards(): BoardEntry[] {
 }
 
 function defaultComponents(): ComponentEntry[] {
-  // All built-in components are wiped from the default library. Users (or the
-  // admin AI builder) add components on demand. Built-in component kinds remain
-  // in COMPONENT_DEFS so existing saved circuits still resolve, but none are
-  // shipped enabled by default.
   return Object.values(COMPONENT_DEFS)
     .filter((c) => c.available)
     .map((c) => ({
@@ -103,7 +99,41 @@ function defaultComponents(): ComponentEntry[] {
       category: c.category,
       enabled: c.available,
       builtIn: true,
+      width: c.width,
+      height: c.height,
+      svg: componentPlaceholderSvg(c.label, c.width, c.height),
+      pins: c.pins.map((p) => ({
+        id: p.id,
+        label: p.label,
+        type: inferComponentPinType(p.id, p.label),
+        x: p.x,
+        y: p.y,
+        color: pinColor(inferComponentPinType(p.id, p.label)),
+      })),
     }));
+}
+
+function inferComponentPinType(id: string, label: string): VisualPin["type"] {
+  const s = `${id} ${label}`.toLowerCase();
+  if (s.includes("gnd") || s.includes("cathode") || id === "-" || id === "K") return "ground";
+  if (s.includes("vcc") || s.includes("power") || s.includes("anode") || id === "+" || id === "A") return "power";
+  if (s.includes("analog") || /^a\d+$/i.test(id)) return "analog";
+  if (s.includes("sda")) return "i2c-sda";
+  if (s.includes("scl")) return "i2c-scl";
+  return "digital";
+}
+
+function pinColor(type: VisualPin["type"]): string {
+  if (type === "power") return "#ef4444";
+  if (type === "ground") return "#111827";
+  if (type === "analog") return "#3b82f6";
+  if (type === "i2c-sda" || type === "i2c-scl") return "#f59e0b";
+  return "#22c55e";
+}
+
+function componentPlaceholderSvg(label: string, width: number, height: number): string {
+  const safe = label.replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch] ?? ch));
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet"><rect x="1" y="1" width="${Math.max(1, width - 2)}" height="${Math.max(1, height - 2)}" rx="6" fill="oklch(0.28 0.02 250)" stroke="oklch(0.55 0.04 250)" stroke-width="1.5"/><text x="${width / 2}" y="${height / 2}" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="10" fill="oklch(0.92 0.02 250)">${safe}</text></svg>`;
 }
 
 function loadPersisted<T>(key: string, fallback: T[]): T[] {
@@ -160,7 +190,15 @@ function mergeComponents(persisted: ComponentEntry[]): ComponentEntry[] {
   persisted.forEach((p) => {
     const def = map.get(p.id);
     if (def) {
-      ordered.push({ ...def, ...p, builtIn: true });
+      ordered.push({
+        ...def,
+        ...p,
+        builtIn: true,
+        width: p.width ?? def.width,
+        height: p.height ?? def.height,
+        svg: p.svg ?? def.svg,
+        pins: p.pins && p.pins.length > 0 ? p.pins : def.pins,
+      });
       map.delete(p.id);
     } else if (!p.builtIn) {
       ordered.push(p);

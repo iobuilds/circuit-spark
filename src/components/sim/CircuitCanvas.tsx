@@ -103,8 +103,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const ideFiles = useIdeStore((s) => s.files);
   const ideAddFile = useIdeStore((s) => s.addFile);
   const ideSetActive = useIdeStore((s) => s.setActiveFile);
-  const ideRenameFile = useIdeStore((s) => s.renameFile);
-  const ideUpdateFile = useIdeStore((s) => s.updateFileContent);
+  const ideDeleteFile = useIdeStore((s) => s.deleteFile);
   const ideHydrate = useIdeStore((s) => s.hydrate);
   const ideLoaded = useIdeStore((s) => s.loaded);
   useEffect(() => { if (!ideLoaded) ideHydrate(); }, [ideLoaded, ideHydrate]);
@@ -128,21 +127,27 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
       placedBoards.map((b) => String(b.props.sketchFileId ?? "")).filter(Boolean),
     );
     const orphanInoFiles = ideFiles.filter((f) =>
-      f.kind === "ino" && f.name.startsWith("sketch_") && !ownedIds.has(f.id),
+      f.kind === "ino" && (placedBoards.length === 0 || f.name.startsWith("sketch_")) && !ownedIds.has(f.id),
     );
     if (orphanInoFiles.length > 0) {
-      const ide = useIdeStore.getState();
-      // If removing all .ino files would leave the project empty, replace last
-      // one with an empty default rather than deleting it.
-      const remaining = ideFiles.filter((f) => !orphanInoFiles.some((o) => o.id === f.id));
-      if (remaining.length === 0 && orphanInoFiles.length > 0) {
-        const keep = orphanInoFiles.shift()!;
-        ideRenameFile(keep.id, "sketch.ino");
-        ideUpdateFile(keep.id, "// no boards on workspace — add a board to start a sketch.\n");
-      }
-      orphanInoFiles.forEach((f) => ide.deleteFile(f.id));
+      orphanInoFiles.forEach((f) => ideDeleteFile(f.id));
     }
-  }, [placedBoards, ideLoaded, ideFiles, ideAddFile, ideRenameFile, ideUpdateFile]);
+  }, [placedBoards, ideLoaded, ideFiles, ideAddFile, ideDeleteFile]);
+
+  useEffect(() => {
+    if (!selectedId || locked) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || t?.isContentEditable) return;
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      if (!components.some((c) => c.id === selectedId)) return;
+      e.preventDefault();
+      removeWorkspaceComponent(selectedId);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedId, locked, components]);
 
   // When user selects a board, switch the IDE to that board's sketch.
   useEffect(() => {
@@ -454,6 +459,13 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     return pts.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(" ");
   }
 
+  function removeWorkspaceComponent(id: string) {
+    const comp = components.find((c) => c.id === id);
+    const sketchFileId = comp?.kind === "board" ? String(comp.props.sketchFileId ?? "") : "";
+    if (sketchFileId) ideDeleteFile(sketchFileId);
+    removeComponent(id);
+  }
+
   /**
    * Auto-route a manhattan (orthogonal) path between two pins. Pins on top/bottom
    * board headers leave vertically first; side pins leave horizontally. A small
@@ -603,13 +615,23 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                   />
                 )}
                 {isSel && (
-                  <rect
-                    x={b.x - 4} y={b.y - 4}
-                    width={(bid === "uno" ? UNO_WIDTH : 360) + 8}
-                    height={(bid === "uno" ? UNO_HEIGHT : 240) + 8}
-                    fill="none" stroke="var(--color-primary)" strokeWidth={2}
-                    strokeDasharray="6 4" pointerEvents="none"
-                  />
+                  <>
+                    <rect
+                      x={b.x - 4} y={b.y - 4}
+                      width={(bid === "uno" ? UNO_WIDTH : 360) + 8}
+                      height={(bid === "uno" ? UNO_HEIGHT : 240) + 8}
+                      fill="none" stroke="var(--color-primary)" strokeWidth={2}
+                      strokeDasharray="6 4" pointerEvents="none"
+                    />
+                    <g
+                      transform={`translate(${b.x + (bid === "uno" ? UNO_WIDTH : 360) + 16} ${b.y - 8})`}
+                      className="cursor-pointer"
+                      onMouseDown={(e) => { e.stopPropagation(); removeWorkspaceComponent(b.id); }}
+                    >
+                      <circle r={12} fill="var(--color-destructive)" stroke="var(--color-background)" strokeWidth={2} />
+                      <text textAnchor="middle" dominantBaseline="central" fontSize={18} fontWeight={800} fill="var(--color-destructive-foreground)">×</text>
+                    </g>
+                  </>
                 )}
               </g>
             );
@@ -1014,7 +1036,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
             <Button
               size="sm"
               variant="destructive"
-              onClick={() => removeComponent(selectedId)}
+              onClick={() => removeWorkspaceComponent(selectedId)}
             >
               <Trash2 className="h-3.5 w-3.5 mr-1" />
               Delete

@@ -10,11 +10,11 @@ import { FileTabs } from "@/components/sim/FileTabs";
 import { CompileOutputPanel } from "@/components/sim/CompileOutputPanel";
 import { PinStateTable } from "@/components/sim/PinStateTable";
 import { Button } from "@/components/ui/button";
-import { Code2, PanelRightClose, PanelRightOpen, LogOut, PanelBottomClose, PanelBottomOpen } from "lucide-react";
+import { Code2, FileText, FolderTree, PanelRightClose, PanelRightOpen, LogOut, PanelBottomClose, PanelBottomOpen, Trash2 } from "lucide-react";
 import { useSimController } from "@/sim/useSimController";
 import { useSimStore } from "@/sim/store";
-import { useIdeStore } from "@/sim/ideStore";
-import { compileSketch, fileSliceForCompile, type CompileResult, type CompileProgress } from "@/sim/compileApi";
+import { useIdeStore, type SourceFile } from "@/sim/ideStore";
+import { compileSketch, type CompileResult, type CompileProgress } from "@/sim/compileApi";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -67,6 +67,7 @@ function SimulatorPage() {
   const [compiling, setCompiling] = useState(false);
   const [compileProgress, setCompileProgress] = useState<CompileProgress | null>(null);
   const [showEditor, setShowEditor] = useState(true);
+  const [showExplorer, setShowExplorer] = useState(true);
   const [showBottomPanels, setShowBottomPanels] = useState(true);
   const inputCacheRef = useRef<Record<number, { d?: 0 | 1; a?: number }>>({});
 
@@ -101,15 +102,16 @@ function SimulatorPage() {
   }, [compileOutput]);
 
   async function handleBackendCompile(): Promise<boolean> {
-    const { files } = useIdeStore.getState();
+    const { files, activeFileId } = useIdeStore.getState();
     const installedLibraries = useIdeStore.getState().installedLibraries.map((l) => l.id);
+    const compileFiles = fileSliceForActiveSketch(files, activeFileId);
     setCompiling(true);
     setCompileProgress({ step: "Queued", percent: 0, message: "Submitting job..." });
     setCompileOutput(null);
     const result = await compileSketch(
       {
         board: boardId,
-        files: fileSliceForCompile(files),
+        files: compileFiles,
         libraries: installedLibraries,
       },
       (p) => setCompileProgress(p),
@@ -270,6 +272,15 @@ function SimulatorPage() {
         {showEditor && (
           <section className="w-[42%] min-w-[360px] max-w-[720px] flex flex-col bg-card">
             <div className="flex items-center justify-between border-b border-border bg-muted/30">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0 shrink-0"
+                onClick={() => setShowExplorer((v) => !v)}
+                title={showExplorer ? "Hide project file explorer" : "Show project file explorer"}
+              >
+                <FolderTree className="h-4 w-4" />
+              </Button>
               <div className="flex-1 min-w-0">
                 <FileTabs />
               </div>
@@ -283,8 +294,11 @@ function SimulatorPage() {
                 <PanelRightClose className="h-4 w-4" />
               </Button>
             </div>
-            <div className="flex-1 min-h-0">
-              <CodeEditor />
+            <div className="flex-1 min-h-0 flex">
+              {showExplorer && <ProjectFileExplorer />}
+              <div className="flex-1 min-w-0">
+                <CodeEditor />
+              </div>
             </div>
             {(compileOutput || compiling) && (
               <CompileOutputPanel
@@ -319,4 +333,47 @@ function SimulatorPage() {
       <Toaster />
     </div>
   );
+}
+
+function ProjectFileExplorer() {
+  const files = useIdeStore((s) => s.files);
+  const activeFileId = useIdeStore((s) => s.activeFileId);
+  const setActiveFile = useIdeStore((s) => s.setActiveFile);
+  const deleteFile = useIdeStore((s) => s.deleteFile);
+
+  return (
+    <aside className="w-44 shrink-0 border-r border-border bg-muted/20 overflow-y-auto">
+      <div className="px-2 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border">
+        Project files
+      </div>
+      <div className="py-1">
+        {files.map((f) => (
+          <button
+            key={f.id}
+            onClick={() => setActiveFile(f.id)}
+            className={`group w-full flex items-center gap-1.5 px-2 py-1.5 text-left text-xs transition-colors ${
+              f.id === activeFileId ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+            }`}
+            title={f.name}
+          >
+            <FileText className="h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 flex-1 truncate font-mono">{f.name}</span>
+            <Trash2
+              className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-70 hover:text-destructive"
+              onClick={(e) => { e.stopPropagation(); deleteFile(f.id); }}
+            />
+          </button>
+        ))}
+        {files.length === 0 && (
+          <div className="px-2 py-4 text-xs text-muted-foreground">Add a board to create a sketch file.</div>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+function fileSliceForActiveSketch(files: SourceFile[], activeFileId: string | null) {
+  const active = files.find((f) => f.id === activeFileId && f.kind === "ino") ?? files.find((f) => f.kind === "ino");
+  const support = files.filter((f) => f.kind !== "ino");
+  return active ? [{ name: active.name, content: active.content }, ...support.map((f) => ({ name: f.name, content: f.content }))] : [];
 }
