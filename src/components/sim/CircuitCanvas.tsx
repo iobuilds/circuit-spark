@@ -103,8 +103,6 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const ideFiles = useIdeStore((s) => s.files);
   const ideAddFile = useIdeStore((s) => s.addFile);
   const ideSetActive = useIdeStore((s) => s.setActiveFile);
-  const ideRenameFile = useIdeStore((s) => s.renameFile);
-  const ideUpdateFile = useIdeStore((s) => s.updateFileContent);
   const ideDeleteFile = useIdeStore((s) => s.deleteFile);
   const ideHydrate = useIdeStore((s) => s.hydrate);
   const ideLoaded = useIdeStore((s) => s.loaded);
@@ -134,7 +132,22 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     if (orphanInoFiles.length > 0) {
       orphanInoFiles.forEach((f) => ideDeleteFile(f.id));
     }
-  }, [placedBoards, ideLoaded, ideFiles, ideAddFile, ideRenameFile, ideUpdateFile, ideDeleteFile]);
+  }, [placedBoards, ideLoaded, ideFiles, ideAddFile, ideDeleteFile]);
+
+  useEffect(() => {
+    if (!selectedId || locked) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || t?.isContentEditable) return;
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      if (!components.some((c) => c.id === selectedId)) return;
+      e.preventDefault();
+      removeComponent(selectedId);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedId, locked, components, removeComponent]);
 
   // When user selects a board, switch the IDE to that board's sketch.
   useEffect(() => {
