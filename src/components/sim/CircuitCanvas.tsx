@@ -251,8 +251,36 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
 
   function onWheel(e: React.WheelEvent) {
     e.preventDefault();
-    const delta = -e.deltaY * 0.001;
-    setZoom((z) => Math.max(0.4, Math.min(2.5, z + delta)));
+    const delta = -e.deltaY * 0.0015;
+    // Lower bound effectively unlimited (0.05 = 5%). Upper bound stays at 4×.
+    setZoom((z) => Math.max(0.05, Math.min(4, z * (1 + delta))));
+  }
+
+  /** Zoom-to-fit: center & scale all placed components into the viewport. */
+  function fitToScreen() {
+    if (!svgRef.current || components.length === 0) {
+      setZoom(1); setPan({ x: 0, y: 0 }); return;
+    }
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const c of components) {
+      const w = c.kind === "board" ? 460 : 100;
+      const h = c.kind === "board" ? 320 : 90;
+      minX = Math.min(minX, c.x);
+      minY = Math.min(minY, c.y);
+      maxX = Math.max(maxX, c.x + w);
+      maxY = Math.max(maxY, c.y + h);
+    }
+    const pad = 60;
+    const bw = Math.max(1, maxX - minX) + pad * 2;
+    const bh = Math.max(1, maxY - minY) + pad * 2;
+    const r = svgRef.current.getBoundingClientRect();
+    const z = Math.min(r.width / bw, r.height / bh);
+    const newZoom = Math.max(0.05, Math.min(4, z));
+    // Centering: viewport center should map to bounds center.
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    setZoom(newZoom);
+    setPan({ x: r.width / (2 * newZoom) - cx, y: r.height / (2 * newZoom) - cy });
   }
 
   function onPinClickFactory(componentId: string) {
@@ -614,20 +642,26 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         <span className="text-muted-foreground mr-1">zoom</span>
         <button
           className="px-1.5 py-0.5 rounded hover:bg-accent disabled:opacity-40"
-          onClick={() => setZoom((z) => Math.max(0.4, +(z - 0.1).toFixed(2)))}
-          disabled={zoom <= 0.4}
+          onClick={() => setZoom((z) => Math.max(0.05, +(z * 0.85).toFixed(3)))}
+          disabled={zoom <= 0.05}
           title="Zoom out"
         >−</button>
-        <span className="tabular-nums w-10 text-center">{(zoom * 100).toFixed(0)}%</span>
+        <span className="tabular-nums w-12 text-center">{(zoom * 100).toFixed(0)}%</span>
         <button
           className="px-1.5 py-0.5 rounded hover:bg-accent disabled:opacity-40"
-          onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.1).toFixed(2)))}
-          disabled={zoom >= 2.5}
+          onClick={() => setZoom((z) => Math.min(4, +(z * 1.18).toFixed(3)))}
+          disabled={zoom >= 4}
           title="Zoom in"
         >+</button>
         <button
           className="px-1.5 py-0.5 rounded hover:bg-accent ml-1"
+          onClick={fitToScreen}
+          title="Auto-fit all components to screen"
+        >fit</button>
+        <button
+          className="px-1.5 py-0.5 rounded hover:bg-accent"
           onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+          title="Reset zoom to 100%"
         >reset</button>
       </div>
 

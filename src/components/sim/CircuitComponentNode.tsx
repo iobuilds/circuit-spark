@@ -278,17 +278,48 @@ function formatOhms(ohms: number): string {
 
 function ResistorSvg({ ohms }: { ohms: number }) {
   const [b1, b2, b3, b4] = resistorBands(ohms);
+  // Cartoon-style body: beige bulged barrel with rounded bumpy ends. The
+  // overall component is 100×30 with pins at (4,15) and (96,15).
+  const body = "oklch(0.82 0.07 80)";   // light tan
+  const bodyDark = "oklch(0.55 0.05 70)"; // outline / shadow
+  // Bulge path: leads exit at the top of two end-caps; the body has a wide
+  // central section with concave shoulders, mirroring the reference SVG.
+  const bodyPath =
+    "M 18 15 " +
+    "C 18 8, 24 4, 32 4 " +     // top-left shoulder up
+    "C 36 4, 40 6, 44 6 " +     // top-left bump
+    "L 56 6 " +
+    "C 60 6, 64 4, 68 4 " +     // top-right bump
+    "C 76 4, 82 8, 82 15 " +    // top-right shoulder down
+    "C 82 22, 76 26, 68 26 " +
+    "C 64 26, 60 24, 56 24 " +
+    "L 44 24 " +
+    "C 40 24, 36 26, 32 26 " +
+    "C 24 26, 18 22, 18 15 Z";
+
   return (
     <g>
+      {/* leads */}
       <line x1={4} y1={15} x2={20} y2={15} stroke="oklch(0.78 0.02 240)" strokeWidth={2} />
       <line x1={80} y1={15} x2={96} y2={15} stroke="oklch(0.78 0.02 240)" strokeWidth={2} />
-      <rect x={20} y={6} width={60} height={18} rx={4}
-        fill="oklch(0.78 0.06 75)" stroke="oklch(0.3 0.04 60)" />
-      <rect x={28} y={6} width={4} height={18} fill={b1} />
-      <rect x={36} y={6} width={4} height={18} fill={b2} />
-      <rect x={44} y={6} width={4} height={18} fill={b3} />
-      <rect x={68} y={6} width={4} height={18} fill={b4} />
-      <text x={50} y={36} textAnchor="middle" fontSize={8} fontFamily="monospace" fill="var(--color-foreground)">
+      {/* body */}
+      <path d={bodyPath} fill={body} stroke={bodyDark} strokeWidth={1.2} strokeLinejoin="round" />
+      {/* subtle highlight along the top */}
+      <path
+        d="M 26 9 C 32 7, 50 7, 70 9"
+        stroke="oklch(0.95 0.04 80 / 0.6)"
+        strokeWidth={1.2}
+        fill="none"
+        strokeLinecap="round"
+      />
+      {/* color bands (clipped to body silhouette via overlap) */}
+      <g>
+        <rect x={32} y={5} width={4} height={20} fill={b1} stroke={bodyDark} strokeWidth={0.4} />
+        <rect x={42} y={5} width={4} height={20} fill={b2} stroke={bodyDark} strokeWidth={0.4} />
+        <rect x={52} y={5} width={4} height={20} fill={b3} stroke={bodyDark} strokeWidth={0.4} />
+        <rect x={66} y={5} width={4} height={20} fill={b4} stroke={bodyDark} strokeWidth={0.4} />
+      </g>
+      <text x={50} y={38} textAnchor="middle" fontSize={8} fontFamily="monospace" fill="var(--color-foreground)">
         {formatOhms(ohms)}
       </text>
     </g>
