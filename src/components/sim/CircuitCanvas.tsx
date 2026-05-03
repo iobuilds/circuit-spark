@@ -291,8 +291,11 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     }
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const c of components) {
-      const w = c.kind === "board" ? 460 : 100;
-      const h = c.kind === "board" ? 320 : 90;
+      // Use the real Uno board dimensions (matches the embedded illustration
+      // and the calibrated pin coordinates in unoPins.ts) so fit-to-screen
+      // doesn't crop pins or shift them outside the viewport.
+      const w = c.kind === "board" ? UNO_WIDTH : 100;
+      const h = c.kind === "board" ? UNO_HEIGHT : 90;
       minX = Math.min(minX, c.x);
       minY = Math.min(minY, c.y);
       maxX = Math.max(maxX, c.x + w);
