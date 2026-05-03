@@ -143,7 +143,16 @@ export function CircuitComponentNode({ comp, isPowered, voltage = 0, reversed = 
         />
       )}
       {comp.kind === "battery" && (
-        <BatterySvg cells={Math.max(1, Math.min(8, Number(comp.props.cells ?? 1) || 1))} />
+        <BatterySvg
+          cells={Math.max(1, Math.min(8, Number(comp.props.cells ?? 1) || 1))}
+          voltage={(() => {
+            const cells = Math.max(1, Math.min(8, Number(comp.props.cells ?? 1) || 1));
+            const raw = comp.props.voltage;
+            const v = raw === undefined || raw === "" ? cells * 3.7 : Number(raw);
+            return Number.isFinite(v) ? v : cells * 3.7;
+          })()}
+          onVoltageChange={(v) => setProp(comp.id, "voltage", v)}
+        />
       )}
 
       {/* Custom component visual: inline the admin SVG markup. */}
