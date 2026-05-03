@@ -112,30 +112,33 @@ export async function compileSketch(
   sock.on("compile:done", onDone);
   sock.on("compile:error", onErr);
 
-  // Polling fallback: if the socket doesn't deliver events in 3s, start polling.
-  let pollingInterval: ReturnType<typeof setInterval> | null = null;
-  const startPolling = () => {
-    pollingInterval = setInterval(async () => {
-      try {
-        const r = await fetch(`${API_URL}/api/compile/${jobId}`);
+  // Polling fallback: only used if the socket doesn't deliver progress events
+  // within ~5s. Uses a long interval + exponential backoff on 429 to avoid
+  // hammering the backend rate limiter.
+  let pollingInterval: ReturnType<typeof setTimeout> | null = null;
+  let pollDelay = 2500;
+  const poll = async () => {
+    try {
+      const r = await fetch(`${API_URL}/api/compile/${jobId}`);
+      if (r.status === 429) {
+        pollDelay = Math.min(pollDelay * 2, 15000);
+      } else {
+        pollDelay = 2500;
         const data = await r.json();
         if (data.progress) callbacks.onProgress?.(data.progress);
-        if (data.status === "completed") {
-          cleanup();
-          callbacks.onComplete?.(data.result);
-        } else if (data.status === "failed") {
-          cleanup();
-          callbacks.onError?.(data.error, data.errors);
-        }
-      } catch (e) { /* keep polling */ }
-    }, 1000);
+        if (data.status === "completed") { cleanup(); callbacks.onComplete?.(data.result); return; }
+        if (data.status === "failed")    { cleanup(); callbacks.onError?.(data.error, data.errors); return; }
+      }
+    } catch { /* keep polling */ }
+    pollingInterval = setTimeout(poll, pollDelay);
   };
+  const startPolling = () => { pollingInterval = setTimeout(poll, pollDelay); };
 
-  const socketTimeout = setTimeout(startPolling, 3000);
+  const socketTimeout = setTimeout(startPolling, 5000);
 
   function cleanup() {
     clearTimeout(socketTimeout);
-    if (pollingInterval) clearInterval(pollingInterval);
+    if (pollingInterval) clearTimeout(pollingInterval);
     sock.off("compile:progress", onProgress);
     sock.off("compile:done", onDone);
     sock.off("compile:error", onErr);
