@@ -119,6 +119,7 @@ export function CircuitComponentNode({ comp, isPowered, onPinClick, onSelect, on
           color={String(comp.props.color || "red")}
           size={Number(comp.props.size ?? 1) || 1}
           on={isPowered}
+          burned={Boolean(comp.props.burned)}
         />
       )}
       {comp.kind === "resistor" && <ResistorSvg ohms={Number(comp.props.ohms || 220)} />}
