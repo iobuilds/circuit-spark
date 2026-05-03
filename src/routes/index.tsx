@@ -121,22 +121,24 @@ function SimulatorPage() {
       boards = boards.filter((b) => set.has(b.id));
     }
     const supportFiles = files.filter((f) => f.kind !== "ino").map((f) => ({ name: f.name, content: f.content }));
-    const sketches: { boardId: string; fileId: string; files: { name: string; content: string }[] }[] = [];
+    const sketches: { boardId: string; fileId: string; displayName: string; files: { name: string; content: string }[] }[] = [];
     for (const b of boards) {
       const fid = String(b.props.sketchFileId ?? "");
       const f = files.find((ff) => ff.id === fid && ff.kind === "ino");
       if (f) sketches.push({
         boardId: String(b.props.boardId ?? boardId),
         fileId: f.id,
-        // Arduino CLI requires the main sketch filename to match its folder
-        // ("sketch/sketch.ino"). The IDE-side display name (e.g.
-        // sketch_uno_1.ino) is preserved for the user but renamed on the wire.
+        // Keep the IDE-side filename (e.g. sketch_uno_2.ino) for display in
+        // toasts/progress so the user can tell WHICH board's sketch is being
+        // compiled. Arduino CLI requires the main file to match its folder, so
+        // we rename to "sketch.ino" only on the wire.
+        displayName: f.name,
         files: [{ name: "sketch.ino", content: f.content }, ...supportFiles],
       });
     }
     if (sketches.length === 0 && !onlyBoardCompIds) {
       const slice = fileSliceForActiveSketch(files, activeFileId);
-      if (slice.length > 0) sketches.push({ boardId, fileId: slice[0].name, files: slice });
+      if (slice.length > 0) sketches.push({ boardId, fileId: slice[0].name, displayName: slice[0].name, files: slice });
     }
     if (sketches.length === 0) {
       toast.error("No sketches to compile");
@@ -148,16 +150,16 @@ function SimulatorPage() {
     let lastResult: CompileResult | null = null;
     for (let i = 0; i < sketches.length; i++) {
       const s = sketches[i];
-      setCompileProgress({ step: `Board ${i + 1}/${sketches.length}`, percent: 0, message: `Compiling ${s.files[0].name}...` });
+      setCompileProgress({ step: `Board ${i + 1}/${sketches.length} · ${s.displayName}`, percent: 0, message: `Compiling ${s.displayName}...` });
       const result = await compileSketch(
         { board: s.boardId, files: s.files, libraries: installedLibraries },
-        (p) => setCompileProgress({ ...p, message: `[${s.files[0].name}] ${p.message ?? ""}` }),
+        (p) => setCompileProgress({ ...p, step: `Board ${i + 1}/${sketches.length} · ${s.displayName}`, message: `[${s.displayName}] ${p.message ?? ""}` }),
       );
       lastResult = result;
       if (!result.success) {
         allOk = false;
         setCompileOutput(result);
-        toast.error(`${s.files[0].name}: ${result.errors[0]?.message ?? "compile failed"}`);
+        toast.error(`${s.displayName}: ${result.errors[0]?.message ?? "compile failed"}`);
         break;
       }
     }
