@@ -122,7 +122,10 @@ function SimulatorPage() {
       if (f) sketches.push({
         boardId: String(b.props.boardId ?? boardId),
         fileId: f.id,
-        files: [{ name: f.name, content: f.content }, ...supportFiles],
+        // Arduino CLI requires the main sketch filename to match its folder
+        // ("sketch/sketch.ino"). The IDE-side display name (e.g.
+        // sketch_uno_1.ino) is preserved for the user but renamed on the wire.
+        files: [{ name: "sketch.ino", content: f.content }, ...supportFiles],
       });
     }
     if (sketches.length === 0 && !onlyBoardCompIds) {
