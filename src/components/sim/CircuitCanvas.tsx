@@ -581,6 +581,19 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
 
   return (
     <div className="relative w-full h-full canvas-grid-bg overflow-hidden">
+      {missingBoardIds.length > 0 && !locked && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 max-w-[90%] flex items-center gap-3 rounded-md border border-warning/60 bg-warning/15 backdrop-blur px-3 py-2 text-xs shadow-lg">
+          <span className="font-semibold text-warning-foreground">⚠ Missing board</span>
+          <span className="text-muted-foreground">
+            This example wires to {missingBoardIds.length === 1
+              ? <code className="font-mono">{missingBoardIds[0]}</code>
+              : <>{missingBoardIds.length} boards</>}, but {missingBoardIds.length === 1 ? "it isn't" : "they aren't"} on the canvas.
+          </span>
+          <Button size="sm" className="h-7" onClick={autoInsertMissingBoards}>
+            Auto-insert {missingBoardIds.length === 1 ? "board" : "boards"}
+          </Button>
+        </div>
+      )}
       <svg
         ref={svgRef}
         className={`w-full h-full select-none ${pending ? "cursor-copy" : tool === "pan" ? (panning ? "cursor-grabbing" : "cursor-grab") : ""}`}
