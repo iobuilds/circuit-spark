@@ -137,10 +137,10 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
     ], available: false,
   },
   battery: {
-    kind: "battery", label: "Battery", category: "Power", width: 90, height: 120,
+    kind: "battery", label: "Battery", category: "Power", width: 160, height: 210,
     pins: [
-      { id: "+", label: "+", x: 24, y: 118 },
-      { id: "-", label: "-", x: 66, y: 118 },
+      { id: "+", label: "+", x: 44, y: 208 },
+      { id: "-", label: "-", x: 116, y: 208 },
     ], available: true,
   },
   motor: {

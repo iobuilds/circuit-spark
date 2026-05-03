@@ -76,7 +76,10 @@ export function buildNetGraph(components: CircuitComponent[], wires: Wire[]): Ne
     for (const pid of ["+", "-"] as const) {
       const r = find(key(c.id, pid));
       const cells = Math.max(1, Math.min(8, Number(c.props.cells ?? 1) || 1));
-      const label = pid === "+" ? `BAT+:${c.id}:${cells}` : `BAT-:${c.id}`;
+      const rawV = c.props.voltage;
+      const v = rawV === undefined || rawV === "" ? cells * 3.7 : Number(rawV);
+      const volts = Number.isFinite(v) ? v : cells * 3.7;
+      const label = pid === "+" ? `BAT+:${c.id}:${volts}` : `BAT-:${c.id}`;
       // Only set if not already a board label (board wins).
       if (!rootToBoardLabel.has(r)) rootToBoardLabel.set(r, label);
     }
@@ -188,8 +191,8 @@ export function computeLoadVoltage(
     if (l === "5V" || l === "VIN") return { v: 5, pos: true };
     if (l === "3V3") return { v: 3.3, pos: true };
     if (l.startsWith("BAT+:")) {
-      const cells = Number(l.split(":")[2] ?? "1") || 1;
-      return { v: cells * 3.7, pos: true };
+      const v = Number(l.split(":")[2] ?? "3.7") || 3.7;
+      return { v, pos: true };
     }
     if (l.startsWith("BAT-:")) return { v: 0, pos: false };
     return null;

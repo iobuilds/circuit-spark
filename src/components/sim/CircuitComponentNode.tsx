@@ -143,7 +143,16 @@ export function CircuitComponentNode({ comp, isPowered, voltage = 0, reversed = 
         />
       )}
       {comp.kind === "battery" && (
-        <BatterySvg cells={Math.max(1, Math.min(8, Number(comp.props.cells ?? 1) || 1))} />
+        <BatterySvg
+          cells={Math.max(1, Math.min(8, Number(comp.props.cells ?? 1) || 1))}
+          voltage={(() => {
+            const cells = Math.max(1, Math.min(8, Number(comp.props.cells ?? 1) || 1));
+            const raw = comp.props.voltage;
+            const v = raw === undefined || raw === "" ? cells * 3.7 : Number(raw);
+            return Number.isFinite(v) ? v : cells * 3.7;
+          })()}
+          onVoltageChange={(v) => setProp(comp.id, "voltage", v)}
+        />
       )}
 
       {/* Custom component visual: inline the admin SVG markup. */}
@@ -501,34 +510,62 @@ function MotorSvg({ voltage, reversed, burned, color }: { voltage: number; rever
   );
 }
 
-function BatterySvg({ cells }: { cells: number }) {
-  const volts = +(cells * 3.7).toFixed(1);
-  // 90×120, pins at + (24,118) and - (66,118)
+function BatterySvg({ cells, voltage, onVoltageChange }: {
+  cells: number;
+  voltage: number;
+  onVoltageChange: (v: number) => void;
+}) {
+  const max = +(cells * 4.2).toFixed(1);
+  const min = +(cells * 0.8).toFixed(1);
+  const v = +Math.max(min, Math.min(max, voltage)).toFixed(2);
+  // 160×210, pins at + (44,208) and - (116,208)
   return (
     <g>
       {/* leads */}
-      <line x1={24} y1={100} x2={24} y2={118} stroke="oklch(0.78 0.02 240)" strokeWidth={2} />
-      <line x1={66} y1={100} x2={66} y2={118} stroke="oklch(0.78 0.02 240)" strokeWidth={2} />
-      {/* body — stack of cells */}
-      <rect x={10} y={20} width={70} height={80} rx={6}
-        fill="oklch(0.55 0.18 25)" stroke="oklch(0.30 0.10 25)" strokeWidth={1.5} />
-      {/* cell separator lines */}
+      <line x1={44} y1={180} x2={44} y2={208} stroke="oklch(0.78 0.02 240)" strokeWidth={3} />
+      <line x1={116} y1={180} x2={116} y2={208} stroke="oklch(0.78 0.02 240)" strokeWidth={3} />
+      {/* body */}
+      <rect x={14} y={28} width={132} height={150} rx={10}
+        fill="oklch(0.55 0.18 25)" stroke="oklch(0.30 0.10 25)" strokeWidth={2} />
+      {/* cell separators */}
       {Array.from({ length: cells - 1 }).map((_, i) => {
-        const y = 20 + ((i + 1) * 80) / cells;
-        return <line key={i} x1={10} y1={y} x2={80} y2={y} stroke="oklch(0.30 0.10 25)" strokeWidth={1} />;
+        const yy = 28 + ((i + 1) * 150) / cells;
+        return <line key={i} x1={14} y1={yy} x2={146} y2={yy} stroke="oklch(0.30 0.10 25)" strokeWidth={1.5} />;
       })}
-      {/* terminals on top */}
-      <rect x={18} y={14} width={12} height={6} rx={1} fill="oklch(0.30 0.10 25)" />
-      <rect x={60} y={14} width={12} height={6} rx={1} fill="oklch(0.30 0.10 25)" />
-      <text x={24} y={11} textAnchor="middle" fontSize={11} fontWeight={800}
+      {/* terminals */}
+      <rect x={34} y={20} width={20} height={10} rx={2} fill="oklch(0.30 0.10 25)" />
+      <rect x={106} y={20} width={20} height={10} rx={2} fill="oklch(0.30 0.10 25)" />
+      <text x={44} y={16} textAnchor="middle" fontSize={14} fontWeight={800}
         fill="oklch(0.7 0.22 145)" fontFamily="monospace">+</text>
-      <text x={66} y={11} textAnchor="middle" fontSize={13} fontWeight={800}
+      <text x={116} y={16} textAnchor="middle" fontSize={16} fontWeight={800}
         fill="var(--color-foreground)" fontFamily="monospace">−</text>
-      {/* label */}
-      <text x={45} y={56} textAnchor="middle" fontSize={18} fontWeight={800}
-        fill="oklch(0.98 0 0)" fontFamily="monospace">{volts}V</text>
-      <text x={45} y={74} textAnchor="middle" fontSize={11} fontWeight={600}
-        fill="oklch(0.98 0 0 / 0.85)" fontFamily="monospace">{cells}× 3.7V</text>
+      {/* big voltage label */}
+      <text x={80} y={88} textAnchor="middle" fontSize={32} fontWeight={800}
+        fill="oklch(0.98 0 0)" fontFamily="monospace">{v}V</text>
+      <text x={80} y={108} textAnchor="middle" fontSize={12} fontWeight={600}
+        fill="oklch(0.98 0 0 / 0.85)" fontFamily="monospace">{cells}× cell · {min}–{max}V</text>
+      {/* slider (foreignObject so it works in SVG) */}
+      <foreignObject x={20} y={128} width={120} height={42}
+        onMouseDown={(e) => e.stopPropagation()}>
+        <div style={{ width: "100%", padding: "4px 0" }}>
+          <input
+            type="range"
+            min={min}
+            max={max}
+            step={0.1}
+            value={v}
+            onChange={(e) => onVoltageChange(Number(e.target.value))}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={{ width: "100%", accentColor: "oklch(0.78 0.22 145)" }}
+          />
+          <div style={{
+            fontFamily: "monospace", fontSize: 10, color: "oklch(0.98 0 0 / 0.85)",
+            textAlign: "center", marginTop: 2,
+          }}>
+            adjust voltage
+          </div>
+        </div>
+      </foreignObject>
     </g>
   );
 }
