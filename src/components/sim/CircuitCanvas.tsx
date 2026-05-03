@@ -422,7 +422,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     <div className="relative w-full h-full canvas-grid-bg overflow-hidden">
       <svg
         ref={svgRef}
-        className="w-full h-full select-none"
+        className={`w-full h-full select-none ${pending ? "cursor-copy" : ""}`}
         onDragOver={onSvgDragOver}
         onDrop={onSvgDrop}
         onMouseMove={onMouseMove}
