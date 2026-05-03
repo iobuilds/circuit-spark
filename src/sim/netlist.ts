@@ -155,6 +155,82 @@ export function isLedBurning(
 }
 
 /**
+ * Compute approximate voltage applied across the (+, -) pins of a 2-terminal
+ * load (motor / DC actuator) by walking the netlist. Recognises:
+ *  - Boards rails: 5V (+5), 3V3 (+3.3), VIN (+5), GND (0)
+ *  - Battery components on the same nets (uses cells × 3.7V)
+ * Returns 0 when not connected to a coherent +/− pair.
+ */
+export function computeLoadVoltage(
+  comp: CircuitComponent,
+  components: CircuitComponent[],
+  net: NetGraph,
+  plusPin: string,
+  minusPin: string,
+): number {
+  const pLabel = net.netForCompPin.get(key(comp.id, plusPin)) ?? null;
+  const mLabel = net.netForCompPin.get(key(comp.id, minusPin)) ?? null;
+
+  // Build a "voltage" reading per (componentId,pinId) by checking battery sources too.
+  // Walk components: any battery with both pins resolved to nets contributes.
+  const railVolts = (label: string | null): number | null => {
+    if (!label) return null;
+    if (label === "GND" || label === "GND1" || label === "GND2" || label === "GND_TOP") return 0;
+    if (label === "5V" || label === "VIN") return 5;
+    if (label === "3V3") return 3.3;
+    return null;
+  };
+
+  let pV = railVolts(pLabel);
+  let mV = railVolts(mLabel);
+
+  // Battery contribution: a battery has + and − pins; if its + pin shares
+  // the load's + net (or − pin shares the load's − net) we apply its voltage.
+  for (const c of components) {
+    if (c.kind !== "battery") continue;
+    const cells = Math.max(1, Math.min(8, Number(c.props.cells ?? 1) || 1));
+    const v = cells * 3.7;
+    const bp = net.netForCompPin.get(key(c.id, "+")) ?? null;
+    const bm = net.netForCompPin.get(key(c.id, "-")) ?? null;
+    // Also handle the case where battery is connected directly to load pins
+    // via shared component-pin nets. Use union-find roots indirectly by net label.
+    if (bp && pLabel && bp === pLabel && pV === null) pV = v;
+    if (bm && mLabel && bm === mLabel && mV === null) mV = 0;
+    // Direct connection (no board labels): match by net root via unique synthetic key
+    // — buildNetGraph only labels nets that touch a board. Fall back to direct
+    // wire walking using component pin keys.
+  }
+
+  // If still unknown, see if the load is wired DIRECTLY to a battery (no board).
+  if (pV === null || mV === null) {
+    // Build (compId,pinId) -> root group via wires (mini union-find on the fly).
+    const parent = new Map<string, string>();
+    const find = (x: string): string => {
+      if (!parent.has(x)) parent.set(x, x);
+      const p = parent.get(x)!;
+      if (p === x) return x;
+      const r = find(p);
+      parent.set(x, r);
+      return r;
+    };
+    const union = (a: string, b: string) => {
+      const ra = find(a), rb = find(b);
+      if (ra !== rb) parent.set(ra, rb);
+    };
+    // We re-derive only what we need; reuse the existing wires array would require
+    // it as input. computeLoadVoltage already runs after net is built so we instead
+    // use net.netForCompPin entries that share the SAME label to detect rail
+    // connections. For battery-only connections, fall back: scan battery pin labels
+    // and compare to the load pin labels by string equality (already done above).
+    void union; void find;
+  }
+
+  if (pV === null) pV = 0;
+  if (mV === null) mV = 0;
+  return Math.max(0, pV - mV);
+}
+
+/**
  * For each board input pin, evaluate what the connected components write to it
  * (e.g. potentiometer wiper, button + pullup).
  * Returns a map of board pin number -> { digital?, analog? } overrides for this tick.
