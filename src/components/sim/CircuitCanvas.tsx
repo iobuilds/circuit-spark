@@ -111,6 +111,14 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   // Cancel any in-progress wire when the workspace becomes locked.
   useEffect(() => { if (locked && drawingFrom) cancelWire(); }, [locked, drawingFrom, cancelWire]);
 
+  // ESC cancels any pending placement.
+  useEffect(() => {
+    if (!pending) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setPending(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pending]);
+
   // Push input states (pot, button) to worker
   useEffect(() => {
     const inputs = evaluateInputs(components, net, pinStates);
