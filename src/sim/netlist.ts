@@ -9,6 +9,10 @@ import { findUnoPin } from "./uno-pins";
 export interface NetGraph {
   /** for a given (componentId,pinId), which board pin number (or "GND"/"5V"/"3V3"/null) it connects to */
   netForCompPin: Map<string, string | null>;
+  /** Reverse lookup: net root → list of (boardCompId, pin, label) endpoints
+   *  so we can detect when multiple boards share a net and drive one board's
+   *  input from another's output (e.g. master.D5 wired to slave.D7). */
+  netToBoardPins?: Map<string, { boardCompId: string; pin: number; label: string }[]>;
 }
 
 const key = (cid: string, pid: string) => `${cid}::${pid}`;
@@ -96,7 +100,29 @@ export function buildNetGraph(components: CircuitComponent[], wires: Wire[]): Ne
     }
   }
 
-  return { netForCompPin: out };
+  // Build net root → board-pin list so callers can propagate one board's
+  // output to another board's input on the same wire.
+  const netToBoardPins = new Map<string, { boardCompId: string; pin: number; label: string }[]>();
+  for (const c of components) {
+    if (c.kind !== "board") continue;
+    for (const w of wires) {
+      for (const ep of [w.from, w.to]) {
+        if (ep.componentId !== c.id) continue;
+        const r = find(key(ep.componentId, ep.pinId));
+        const bp = findUnoPin(ep.pinId);
+        if (!bp) continue;
+        const pinNum = bp.number;
+        if (pinNum === undefined) continue;
+        const list = netToBoardPins.get(r) ?? [];
+        if (!list.some((e) => e.boardCompId === c.id && e.pin === pinNum)) {
+          list.push({ boardCompId: c.id, pin: pinNum, label: bp.id });
+        }
+        netToBoardPins.set(r, list);
+      }
+    }
+  }
+
+  return { netForCompPin: out, netToBoardPins };
 }
 
 export function isLedPowered(
