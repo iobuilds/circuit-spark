@@ -585,9 +585,19 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                     onPinHover={hoverHandler}
                   />
                 )}
+                {/* Invisible hit target so clicks anywhere on the board reliably select/drag it. */}
+                <rect
+                  x={b.x} y={b.y}
+                  width={bid === "uno" ? UNO_WIDTH : 360}
+                  height={bid === "uno" ? UNO_HEIGHT : 240}
+                  fill="transparent"
+                  pointerEvents="all"
+                />
                 {isSel && (
                   <rect
-                    x={b.x - 2} y={b.y - 2} width={364} height={244}
+                    x={b.x - 4} y={b.y - 4}
+                    width={(bid === "uno" ? UNO_WIDTH : 360) + 8}
+                    height={(bid === "uno" ? UNO_HEIGHT : 240) + 8}
                     fill="none" stroke="var(--color-primary)" strokeWidth={2}
                     strokeDasharray="6 4" pointerEvents="none"
                   />
