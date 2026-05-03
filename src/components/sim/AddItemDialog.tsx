@@ -363,8 +363,18 @@ function ComponentIcon({ kind }: { kind: ComponentKind }) {
       return (
         <svg viewBox="0 0 36 36" className={cls}>
           <rect x={9} y={6} width={18} height={24} rx={2} fill="oklch(0.55 0.18 25)" stroke="currentColor" strokeWidth={0.6} />
-          <rect x={14} y={3} width={8} height={3} rx={0.5} fill="oklch(0.18 0.02 250)" />
-          <text x={18} y={22} textAnchor="middle" fontSize={9} fontWeight={700} fill="oklch(0.98 0 0)" fontFamily="monospace">9V</text>
+          <rect x={12} y={3} width={4} height={3} rx={0.5} fill="oklch(0.18 0.02 250)" />
+          <rect x={20} y={3} width={4} height={3} rx={0.5} fill="oklch(0.18 0.02 250)" />
+          <text x={18} y={22} textAnchor="middle" fontSize={9} fontWeight={700} fill="oklch(0.98 0 0)" fontFamily="monospace">3.7V</text>
+        </svg>
+      );
+    case "motor":
+      return (
+        <svg viewBox="0 0 36 36" className={cls}>
+          <rect x={11} y={14} width={14} height={16} rx={2} fill="oklch(0.55 0.005 250)" stroke="currentColor" strokeWidth={0.6} />
+          <rect x={13} y={28} width={10} height={4} rx={1} fill="oklch(0.55 0.20 25)" />
+          <ellipse cx={18} cy={9} rx={11} ry={2.2} fill="oklch(0.7 0.20 240)" stroke="currentColor" strokeWidth={0.5} />
+          <line x1={18} y1={11} x2={18} y2={14} stroke="currentColor" strokeWidth={1.2} />
         </svg>
       );
     default:
