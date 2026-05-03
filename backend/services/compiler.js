@@ -129,6 +129,7 @@ class CompilerService {
         failed.push({ lib, error: msg });
       } else {
         logger.info(`Installed library: ${lib}`);
+        await libraryCache.markInstalled(lib);
       }
     }
 
