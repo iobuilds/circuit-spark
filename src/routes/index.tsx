@@ -67,6 +67,7 @@ function SimulatorPage() {
   const [compiling, setCompiling] = useState(false);
   const [compileProgress, setCompileProgress] = useState<CompileProgress | null>(null);
   const [showEditor, setShowEditor] = useState(true);
+  const [showBottomPanels, setShowBottomPanels] = useState(true);
   const inputCacheRef = useRef<Record<number, { d?: 0 | 1; a?: number }>>({});
 
   useEffect(() => { if (!ideLoaded) ideHydrate(); }, [ideLoaded, ideHydrate]);
