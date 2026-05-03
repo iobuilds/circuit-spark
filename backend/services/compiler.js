@@ -128,8 +128,19 @@ class CompilerService {
         logger.error(`Failed to install ${lib}: ${msg}`);
         failed.push({ lib, error: msg });
       } else {
-        logger.info(`Installed library: ${lib}`);
-        await libraryCache.markInstalled(lib);
+        // Drift detection: arduino-cli sometimes reports success but the lib
+        // isn't actually resolvable (corrupted index, partial download, perms).
+        // Verify by asking `lib list` and confirming it shows up. If not,
+        // invalidate the cache so we don't poison future compiles, and fail loud.
+        const verified = await this._verifyLibraryInstalled(lib);
+        if (!verified) {
+          logger.error(`Drift detected: ${lib} reported installed but not visible to arduino-cli`);
+          await libraryCache.invalidate();
+          failed.push({ lib, error: `install reported success but library not found by arduino-cli (drift); cache invalidated` });
+        } else {
+          logger.info(`Installed library: ${lib} (verified)`);
+          await libraryCache.markInstalled(lib);
+        }
       }
     }
 
