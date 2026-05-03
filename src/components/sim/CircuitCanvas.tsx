@@ -192,10 +192,18 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   useEffect(() => {
     if (status !== "running") return;
     for (const c of components) {
-      if (c.kind !== "led" || c.props?.burned) continue;
-      if (isLedBurning(c, components, net)) {
-        setComponentProp(c.id, "burned", true);
-        toast.error(`💥 ${String(c.props.color || "red").toUpperCase()} LED burned out — no current-limiting resistor between 5V and GND.`);
+      if (c.kind === "led" && !c.props?.burned) {
+        if (isLedBurning(c, components, net)) {
+          setComponentProp(c.id, "burned", true);
+          toast.error(`💥 ${String(c.props.color || "red").toUpperCase()} LED burned out — no current-limiting resistor between 5V and GND.`);
+        }
+      }
+      if (c.kind === "motor" && !c.props?.burned) {
+        const { volts } = computeLoadVoltage(c, net, "+", "-");
+        if (volts > 12) {
+          setComponentProp(c.id, "burned", true);
+          toast.error(`🔥 DC motor burned out — ${volts.toFixed(1)}V exceeds the 12V limit.`);
+        }
       }
     }
   }, [status, components, net, setComponentProp]);
