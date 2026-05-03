@@ -51,13 +51,18 @@ function SimulatorPage() {
   const wires = useSimStore((s) => s.wires);
   const loadProject = useSimStore((s) => s.loadProject);
   const boardId = useSimStore((s) => s.boardId);
-  const serialLen = useSimStore((s) => s.serial.length);
-  const pinStateCount = useSimStore((s) => Object.keys(s.pinStates).length);
+  const serialLen = useSimStore((s) =>
+    s.serial.length + Object.values(s.serialByBoard).reduce((a, v) => a + v.length, 0));
+  const pinStateCount = useSimStore((s) =>
+    Object.keys(s.pinStates).length
+    + Object.values(s.pinStatesByBoard).reduce((a, v) => a + Object.keys(v).length, 0));
+  const anyRunning = useSimStore((s) =>
+    s.status === "running" || Object.values(s.statusByBoard).includes("running"));
 
   // Show the Pin States + Serial panels only once the simulation actually
   // has something to show — running/paused, errored, or any captured output.
   const showSimPanels =
-    status === "running" || status === "paused" || status === "error"
+    anyRunning || status === "paused" || status === "error"
     || serialLen > 0 || pinStateCount > 0;
 
   const ideHydrate = useIdeStore((s) => s.hydrate);
