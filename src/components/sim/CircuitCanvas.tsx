@@ -113,6 +113,20 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     }
   }, [components, net, pinStates, onPinInputChange]);
 
+  // LED burn detection: only while sim is running. If an LED is wired straight
+  // from 5V/VIN to GND with no series resistor, mark it burned (sticky — has to
+  // be replaced or rewired + un-burned manually).
+  useEffect(() => {
+    if (status !== "running") return;
+    for (const c of components) {
+      if (c.kind !== "led" || c.props?.burned) continue;
+      if (isLedBurning(c, components, net)) {
+        setComponentProp(c.id, "burned", true);
+        toast.error(`💥 ${String(c.props.color || "red").toUpperCase()} LED burned out — no current-limiting resistor between 5V and GND.`);
+      }
+    }
+  }, [status, components, net, setComponentProp]);
+
   // Esc / Backspace shortcuts while drawing a wire.
   useEffect(() => {
     if (!drawingFrom) return;
