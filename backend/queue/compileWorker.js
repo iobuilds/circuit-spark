@@ -69,7 +69,19 @@ compileQueue.process(config.MAX_CONCURRENT_JOBS, async (job) => {
       const missing = await compiler.checkLibraries(allLibs);
       if (missing.length > 0) {
         await emit('install_libs', 50, `Installing ${missing.length} missing libraries: ${missing.join(', ')}`);
-        await compiler.installLibraries(missing);
+        try {
+          await compiler.installLibraries(missing);
+        } catch (installErr) {
+          await emit('install_libs', 100, `Library install failed ✗`);
+          return {
+            success: false, stdout: '', stderr: installErr.message,
+            errors: [{ file: 'libraries', line: 0, col: 0, message: installErr.message, severity: 'error' }],
+            warnings: [], binary: null, binaryType: null, binarySize: 0,
+            flashUsed: 0, flashTotal: 0, flashPercent: 0,
+            ramUsed: 0, ramTotal: 0, ramPercent: 0,
+            duration: Date.now() - startTime, fromCache: false,
+          };
+        }
       }
 
       await emit('compile', 65, 'Compiling with arduino-cli...');

@@ -49,14 +49,51 @@ class CompilerService {
     });
   }
 
-  async installLibraries(libraries) {
-    for (const lib of libraries) {
-      await new Promise((resolve) => {
-        logger.info(`Installing library: ${lib}`);
-        const proc = spawn(config.ARDUINO_CLI_PATH, ['lib', 'install', lib]);
-        proc.on('close', resolve);
-        proc.on('error', resolve);
+  async updateIndex() {
+    return new Promise((resolve) => {
+      logger.info('Updating arduino-cli library index...');
+      const proc = spawn(config.ARDUINO_CLI_PATH, ['lib', 'update-index'], {
+        env: { ...process.env, HOME: '/root' },
       });
+      let err = '';
+      proc.stderr.on('data', d => err += d.toString());
+      proc.on('close', (code) => {
+        if (code !== 0) logger.warn(`lib update-index exited ${code}: ${err.trim()}`);
+        resolve();
+      });
+      proc.on('error', (e) => { logger.warn(`lib update-index error: ${e.message}`); resolve(); });
+    });
+  }
+
+  async installLibraries(libraries) {
+    const failed = [];
+    // Refresh the index once before installs so a stale/missing index file
+    // (e.g. package_rp2040_index.json missing) cannot silently break installs.
+    await this.updateIndex();
+
+    for (const lib of libraries) {
+      const result = await new Promise((resolve) => {
+        logger.info(`Installing library: ${lib}`);
+        const proc = spawn(config.ARDUINO_CLI_PATH, ['lib', 'install', lib], {
+          env: { ...process.env, HOME: '/root' },
+        });
+        let stderr = '';
+        let stdout = '';
+        proc.stdout.on('data', d => stdout += d.toString());
+        proc.stderr.on('data', d => stderr += d.toString());
+        proc.on('close', (code) => resolve({ code, stderr, stdout }));
+        proc.on('error', (e) => resolve({ code: -1, stderr: e.message, stdout: '' }));
+      });
+      if (result.code !== 0) {
+        logger.error(`Failed to install ${lib} (exit ${result.code}): ${result.stderr.trim() || result.stdout.trim()}`);
+        failed.push({ lib, error: result.stderr.trim() || result.stdout.trim() || `exit ${result.code}` });
+      } else {
+        logger.info(`Installed library: ${lib}`);
+      }
+    }
+    if (failed.length > 0) {
+      const msg = failed.map(f => `${f.lib}: ${f.error}`).join('; ');
+      throw new Error(`Library install failed — ${msg}`);
     }
   }
 
