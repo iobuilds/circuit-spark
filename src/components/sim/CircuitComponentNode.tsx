@@ -185,12 +185,12 @@ function PinNode({
       {showLabel && (
         <g pointerEvents="none">
           <rect
-            x={-pin.label.length * 3.2 - 4} y={-22}
-            width={pin.label.length * 6.4 + 8} height={14} rx={3}
-            fill="var(--color-card)" stroke="var(--color-border)" strokeWidth={0.8}
-            opacity={0.95}
+            x={-pin.label.length * 5 - 8} y={-36}
+            width={pin.label.length * 10 + 16} height={22} rx={5}
+            fill="var(--color-card)" stroke="var(--color-primary)" strokeWidth={1.2}
+            opacity={0.98}
           />
-          <text x={0} y={-12} textAnchor="middle" fontSize={9} fontFamily="monospace"
+          <text x={0} y={-21} textAnchor="middle" fontSize={14} fontWeight={600} fontFamily="monospace"
             fill={editable ? "var(--color-primary)" : "var(--color-foreground)"}>
             {pin.label}
           </text>
