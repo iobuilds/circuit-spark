@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import type { BoardId, ComponentKind } from "@/sim/types";
 import { useAdminStore } from "@/sim/adminStore";
 import { useIdeStore } from "@/sim/ideStore";
-import { CornerDownLeft, Lock, Plus, Trash2, X, Undo2, Redo2, Wand2, Share2, Move, RotateCcw, Box, Hand, MousePointer2, Cable } from "lucide-react";
+import { CornerDownLeft, Lock, Plus, Trash2, X, Undo2, Redo2, Wand2, Share2, Move, RotateCcw, Hand, MousePointer2, Cable } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddItemDialog } from "./AddItemDialog";
 import { SensorControlsPanel } from "./SensorControlsPanel";
