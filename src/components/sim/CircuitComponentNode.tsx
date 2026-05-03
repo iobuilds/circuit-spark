@@ -341,7 +341,9 @@ function ResistorSvg({ ohms }: { ohms: number }) {
         <rect x={52} y={5} width={4} height={20} fill={b3} stroke={bodyDark} strokeWidth={0.4} />
         <rect x={66} y={5} width={4} height={20} fill={b4} stroke={bodyDark} strokeWidth={0.4} />
       </g>
-      <text x={50} y={40} textAnchor="middle" fontSize={11} fontWeight={600} fontFamily="monospace" fill="var(--color-foreground)">
+      <text x={50} y={44} textAnchor="middle" fontSize={16} fontWeight={700} fontFamily="monospace"
+        fill="var(--color-foreground)" stroke="var(--color-background)" strokeWidth={3}
+        paintOrder="stroke" style={{ paintOrder: "stroke" }}>
         {formatOhms(ohms)}
       </text>
     </g>
