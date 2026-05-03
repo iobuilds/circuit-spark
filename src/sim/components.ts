@@ -25,7 +25,7 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
     ], available: false,
   },
   resistor: {
-    kind: "resistor", label: "Resistor", category: "Basic", width: 100, height: 30,
+    kind: "resistor", label: "Resistor", category: "Basic", width: 100, height: 56,
     pins: [
       { id: "1", label: "Pin 1", x: 4, y: 15 },
       { id: "2", label: "Pin 2", x: 96, y: 15 },
