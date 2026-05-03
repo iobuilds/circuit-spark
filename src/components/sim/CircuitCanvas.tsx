@@ -671,6 +671,28 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
               ))}
             </g>
           )}
+
+          {/* Ghost placement preview: follows the cursor until clicked or Escaped. */}
+          {pending && (
+            <g
+              transform={`translate(${mouse.x - pending.w / 2} ${mouse.y - pending.h / 2})`}
+              opacity={0.6}
+              pointerEvents="none"
+            >
+              <rect
+                x={-4} y={-4} width={pending.w + 8} height={pending.h + 8}
+                rx={6} fill="var(--color-primary)" fillOpacity={0.08}
+                stroke="var(--color-primary)" strokeWidth={1.5} strokeDasharray="6 4"
+              />
+              <text x={pending.w / 2} y={pending.h / 2} textAnchor="middle"
+                dominantBaseline="middle" fontSize={11} fontFamily="monospace"
+                fill="var(--color-primary)">
+                {pending.kind === "board" ? `Place ${pending.boardId} board`
+                  : pending.kind === "custom" ? "Place component"
+                  : `Place ${pending.value}`}
+              </text>
+            </g>
+          )}
         </g>
       </svg>
 
