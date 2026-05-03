@@ -143,11 +143,11 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
       if (e.key !== "Delete" && e.key !== "Backspace") return;
       if (!components.some((c) => c.id === selectedId)) return;
       e.preventDefault();
-      removeComponent(selectedId);
+      removeWorkspaceComponent(selectedId);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedId, locked, components, removeComponent]);
+  }, [selectedId, locked, components]);
 
   // When user selects a board, switch the IDE to that board's sketch.
   useEffect(() => {
@@ -457,6 +457,13 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   function wirePath(a: { x: number; y: number }, b: { x: number; y: number }, mids: { x: number; y: number }[]) {
     const pts = [a, ...mids, b];
     return pts.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(" ");
+  }
+
+  function removeWorkspaceComponent(id: string) {
+    const comp = components.find((c) => c.id === id);
+    const sketchFileId = comp?.kind === "board" ? String(comp.props.sketchFileId ?? "") : "";
+    if (sketchFileId) ideDeleteFile(sketchFileId);
+    removeComponent(id);
   }
 
   /**
@@ -1019,7 +1026,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
             <Button
               size="sm"
               variant="destructive"
-              onClick={() => removeComponent(selectedId)}
+              onClick={() => removeWorkspaceComponent(selectedId)}
             >
               <Trash2 className="h-3.5 w-3.5 mr-1" />
               Delete
