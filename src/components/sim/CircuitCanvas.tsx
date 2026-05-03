@@ -98,6 +98,62 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
 
   const placedBoards = useMemo(() => components.filter((c) => c.kind === "board"), [components]);
 
+  /** Per-board sketch tabs: each board owns a .ino file in the IDE. Adding a
+   *  board creates the file, removing the board deletes it. */
+  const ideFiles = useIdeStore((s) => s.files);
+  const ideAddFile = useIdeStore((s) => s.addFile);
+  const ideSetActive = useIdeStore((s) => s.setActiveFile);
+  const ideRenameFile = useIdeStore((s) => s.renameFile);
+  const ideUpdateFile = useIdeStore((s) => s.updateFileContent);
+  const ideHydrate = useIdeStore((s) => s.hydrate);
+  const ideLoaded = useIdeStore((s) => s.loaded);
+  useEffect(() => { if (!ideLoaded) ideHydrate(); }, [ideLoaded, ideHydrate]);
+
+  useEffect(() => {
+    if (!ideLoaded) return;
+    // Create a sketch file for any board that doesn't have one yet.
+    placedBoards.forEach((b, idx) => {
+      const existing = String(b.props.sketchFileId ?? "");
+      const hasFile = existing && ideFiles.some((f) => f.id === existing);
+      if (!hasFile) {
+        const boardId = String(b.props.boardId ?? "uno");
+        const name = `sketch_${boardId}_${idx + 1}.ino`;
+        const seed = `// ${name} — sketch for ${boardId} board\nvoid setup() {\n  pinMode(13, OUTPUT);\n}\n\nvoid loop() {\n  digitalWrite(13, HIGH);\n  delay(500);\n  digitalWrite(13, LOW);\n  delay(500);\n}\n`;
+        const fid = ideAddFile(name, "ino", seed);
+        useSimStore.getState().setComponentProp(b.id, "sketchFileId", fid);
+      }
+    });
+    // Remove orphan sketch files (file's owning board no longer exists).
+    const ownedIds = new Set(
+      placedBoards.map((b) => String(b.props.sketchFileId ?? "")).filter(Boolean),
+    );
+    const orphanInoFiles = ideFiles.filter((f) =>
+      f.kind === "ino" && f.name.startsWith("sketch_") && !ownedIds.has(f.id),
+    );
+    if (orphanInoFiles.length > 0) {
+      const ide = useIdeStore.getState();
+      // If removing all .ino files would leave the project empty, replace last
+      // one with an empty default rather than deleting it.
+      const remaining = ideFiles.filter((f) => !orphanInoFiles.some((o) => o.id === f.id));
+      if (remaining.length === 0 && orphanInoFiles.length > 0) {
+        const keep = orphanInoFiles.shift()!;
+        ideRenameFile(keep.id, "sketch.ino");
+        ideUpdateFile(keep.id, "// no boards on workspace — add a board to start a sketch.\n");
+      }
+      orphanInoFiles.forEach((f) => ide.deleteFile(f.id));
+    }
+  }, [placedBoards, ideLoaded, ideFiles, ideAddFile, ideRenameFile, ideUpdateFile]);
+
+  // When user selects a board, switch the IDE to that board's sketch.
+  useEffect(() => {
+    if (!selectedId) return;
+    const b = placedBoards.find((bb) => bb.id === selectedId);
+    if (!b) return;
+    const fid = String(b.props.sketchFileId ?? "");
+    if (fid && ideFiles.some((f) => f.id === fid)) ideSetActive(fid);
+  }, [selectedId, placedBoards, ideFiles, ideSetActive]);
+
+
   /**
    * Seed a default Uno board on first load so users see something to wire,
    * but make it a regular placed board (deletable like any other).
