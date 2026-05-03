@@ -98,6 +98,41 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
 
   const placedBoards = useMemo(() => components.filter((c) => c.kind === "board"), [components]);
 
+  /** Wires reference component IDs that don't exist on the workspace —
+   *  usually a "board" id from a legacy template loaded without a board.
+   *  Surface as a banner with a one-click fix. */
+  const missingBoardIds = useMemo(() => {
+    const ids = new Set(components.map((c) => c.id));
+    const missing = new Set<string>();
+    for (const w of wires) {
+      if (!ids.has(w.from.componentId)) missing.add(w.from.componentId);
+      if (!ids.has(w.to.componentId)) missing.add(w.to.componentId);
+    }
+    return Array.from(missing);
+  }, [components, wires]);
+
+  const fallbackBoardId = useSimStore((s) => s.boardId);
+  function autoInsertMissingBoards() {
+    if (missingBoardIds.length === 0) return;
+    useSimStore.setState((st) => {
+      const next = [...st.components];
+      missingBoardIds.forEach((mid, i) => {
+        next.push({
+          id: mid,
+          kind: "board" as const,
+          x: BOARD_X + i * 60,
+          y: BOARD_Y + i * 60,
+          rotation: 0 as const,
+          props: { boardId: fallbackBoardId },
+        });
+      });
+      return { components: next };
+    });
+    toast.success(
+      `Inserted ${missingBoardIds.length} board${missingBoardIds.length === 1 ? "" : "s"}.`,
+    );
+  }
+
   /** Per-board sketch tabs: each board owns a .ino file in the IDE. Adding a
    *  board creates the file, removing the board deletes it. */
   const ideFiles = useIdeStore((s) => s.files);
@@ -442,11 +477,17 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
       return bp ? { x: bp.x, y: bp.y } : null;
     };
 
-    // Legacy primary board (rendered at fixed BOARD_X/Y).
+    // Legacy primary board id "board": prefer the actual placed component's
+    // position so wires follow when the user drags it. Fall back to the fixed
+    // BOARD_X/Y only if no such component exists.
     if (componentId === "board") {
-      const p = resolveBoardPin("uno");
+      const placed = components.find((cc) => cc.id === "board");
+      const boardId = placed ? String(placed.props.boardId ?? "uno") : "uno";
+      const p = resolveBoardPin(boardId);
       if (!p) return null;
-      return { x: BOARD_X + p.x, y: BOARD_Y + p.y };
+      const bx = placed ? placed.x : BOARD_X;
+      const by = placed ? placed.y : BOARD_Y;
+      return { x: bx + p.x, y: by + p.y };
     }
     const c = components.find((cc) => cc.id === componentId);
     if (!c) return null;
@@ -540,6 +581,19 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
 
   return (
     <div className="relative w-full h-full canvas-grid-bg overflow-hidden">
+      {missingBoardIds.length > 0 && !locked && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 max-w-[90%] flex items-center gap-3 rounded-md border border-warning/60 bg-warning/15 backdrop-blur px-3 py-2 text-xs shadow-lg">
+          <span className="font-semibold text-warning-foreground">⚠ Missing board</span>
+          <span className="text-muted-foreground">
+            This example wires to {missingBoardIds.length === 1
+              ? <code className="font-mono">{missingBoardIds[0]}</code>
+              : <>{missingBoardIds.length} boards</>}, but {missingBoardIds.length === 1 ? "it isn't" : "they aren't"} on the canvas.
+          </span>
+          <Button size="sm" className="h-7" onClick={autoInsertMissingBoards}>
+            Auto-insert {missingBoardIds.length === 1 ? "board" : "boards"}
+          </Button>
+        </div>
+      )}
       <svg
         ref={svgRef}
         className={`w-full h-full select-none ${pending ? "cursor-copy" : tool === "pan" ? (panning ? "cursor-grabbing" : "cursor-grab") : ""}`}
