@@ -790,7 +790,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
             const segPts = [a, ...userMids, b];
             const isWireSel = selectedWireId === w.id;
             const stroke = w.color || "var(--color-wire)";
-            const sw = w.thickness ?? 4;
+            const sw = w.thickness ?? 7;
             return (
               <g key={w.id}>
                 {/* Shadow */}
