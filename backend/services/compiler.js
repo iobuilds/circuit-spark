@@ -5,6 +5,7 @@ const fileManager = require('./fileManager');
 const errorParser = require('../utils/errorParser');
 const logger = require('../utils/logger');
 const config = require('../config');
+const libraryCache = require('./libraryCache');
 
 class CompilerService {
   parseMemoryStats(output, boardKey) {
@@ -31,21 +32,39 @@ class CompilerService {
 
   async checkLibraries(libraries) {
     if (!libraries || libraries.length === 0) return [];
+
+    // Fast path: Redis-backed cache of the installed set, salted by the
+    // arduino-cli index version. Skips spawning `lib list` (~300-800ms) every
+    // compile and skips re-installing libs we know are already there.
+    const cached = await libraryCache.getInstalledSet();
+    if (cached) {
+      const missing = libraries.filter(l => !cached.has(l.toLowerCase()));
+      logger.info(`libcache hit (v=${libraryCache.getIndexVersion()}): ${libraries.length - missing.length}/${libraries.length} already installed`);
+      return missing;
+    }
+
+    // Slow path: ask arduino-cli, then warm the cache.
     return new Promise((resolve) => {
-      const proc = spawn(config.ARDUINO_CLI_PATH, ['lib', 'list', '--format', 'json']);
+      const proc = spawn(config.ARDUINO_CLI_PATH, ['lib', 'list', '--format', 'json'], {
+        env: { ...process.env, HOME: '/root' },
+      });
       let out = '';
       proc.stdout.on('data', d => out += d);
-      proc.on('close', () => {
+      proc.on('close', async () => {
         try {
           const installed = JSON.parse(out || '[]');
-          const installedNames = installed.map(l => l.library?.name?.toLowerCase());
-          const missing = libraries.filter(l => !installedNames.includes(l.toLowerCase()));
+          const installedNames = installed
+            .map(l => l.library?.name)
+            .filter(Boolean);
+          await libraryCache.setInstalledSet(installedNames);
+          const lower = new Set(installedNames.map(n => n.toLowerCase()));
+          const missing = libraries.filter(l => !lower.has(l.toLowerCase()));
           resolve(missing);
         } catch (e) {
-          resolve([]);
+          resolve(libraries); // assume missing on parse error
         }
       });
-      proc.on('error', () => resolve([]));
+      proc.on('error', () => resolve(libraries));
     });
   }
 
@@ -110,6 +129,7 @@ class CompilerService {
         failed.push({ lib, error: msg });
       } else {
         logger.info(`Installed library: ${lib}`);
+        await libraryCache.markInstalled(lib);
       }
     }
 
