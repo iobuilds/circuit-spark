@@ -211,25 +211,39 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     addComponent(kind, snap(x - def.width / 2), snap(y - def.height / 2));
   }
 
-  /** Add an item at the canvas center (used by the "+" popup). */
-  function addAtCenter(payload: { kind: "component"; value: ComponentKind }
+  /** Pending placement: after picking from the "+" dialog, the item follows
+   * the cursor as a ghost until the user clicks an empty spot to place. */
+  type Pending =
+    | { kind: "component"; value: ComponentKind; w: number; h: number }
+    | { kind: "custom"; customId: string; w: number; h: number }
+    | { kind: "board"; boardId: BoardId; w: number; h: number };
+
+  function startPlacement(payload: { kind: "component"; value: ComponentKind }
     | { kind: "custom"; customId: string; w: number; h: number }
     | { kind: "board"; boardId: BoardId }) {
     if (locked) return;
-    const svg = svgRef.current;
-    const r = svg?.getBoundingClientRect();
-    const cx = r ? (r.width / 2) / zoom - pan.x : 400;
-    const cy = r ? (r.height / 2) / zoom - pan.y : 250;
-    const snap = (n: number) => Math.round(n / 10) * 10;
     if (payload.kind === "board") {
-      addComponent("board", snap(cx - 180), snap(cy - 120), payload.boardId);
-      setBoard(payload.boardId);
+      setPending({ kind: "board", boardId: payload.boardId, w: 360, h: 240 });
     } else if (payload.kind === "custom") {
-      addComponent("custom", snap(cx - payload.w / 2), snap(cy - payload.h / 2), payload.customId);
+      setPending({ kind: "custom", customId: payload.customId, w: payload.w, h: payload.h });
     } else {
       const def = COMPONENT_DEFS[payload.value];
-      addComponent(payload.value, snap(cx - def.width / 2), snap(cy - def.height / 2));
+      setPending({ kind: "component", value: payload.value, w: def.width, h: def.height });
     }
+  }
+
+  function commitPlacement(p: { x: number; y: number }) {
+    if (!pending) return;
+    const snap = (n: number) => Math.round(n / 10) * 10;
+    if (pending.kind === "board") {
+      addComponent("board", snap(p.x - pending.w / 2), snap(p.y - pending.h / 2), pending.boardId);
+      setBoard(pending.boardId);
+    } else if (pending.kind === "custom") {
+      addComponent("custom", snap(p.x - pending.w / 2), snap(p.y - pending.h / 2), pending.customId);
+    } else {
+      addComponent(pending.value, snap(p.x - pending.w / 2), snap(p.y - pending.h / 2));
+    }
+    setPending(null);
   }
 
   // Wire/drag mouse handling
