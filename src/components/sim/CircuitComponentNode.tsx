@@ -7,6 +7,10 @@ import { useAdminStore } from "@/sim/adminStore";
 interface Props {
   comp: CircuitComponent;
   isPowered: boolean;
+  /** Voltage applied across +/- pins (for motor / battery loads). */
+  voltage?: number;
+  /** Reversed polarity (for motor direction). */
+  reversed?: boolean;
   onPinClick: (pinId: string, e: React.MouseEvent) => void;
   onSelect: (e: React.MouseEvent) => void;
   onDragStart: (e: React.MouseEvent) => void;
