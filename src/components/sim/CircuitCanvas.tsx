@@ -9,7 +9,8 @@ import { buildNetGraph, evaluateInputs, isLedPowered, isLedBurning } from "@/sim
 import { toast } from "sonner";
 import type { BoardId, ComponentKind } from "@/sim/types";
 import { useAdminStore } from "@/sim/adminStore";
-import { CornerDownLeft, Lock, Plus, Trash2, X, Undo2, Redo2, Wand2, Share2, Move, RotateCcw, Box } from "lucide-react";
+import { useIdeStore } from "@/sim/ideStore";
+import { CornerDownLeft, Lock, Plus, Trash2, X, Undo2, Redo2, Wand2, Share2, Move, RotateCcw, Box, Hand, MousePointer2, Cable } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddItemDialog } from "./AddItemDialog";
 import { SensorControlsPanel } from "./SensorControlsPanel";
@@ -86,6 +87,8 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const [pinEditMode, setPinEditMode] = useState(false);
   const setComponentProp = useSimStore((s) => s.setComponentProp);
   const [show3D, setShow3D] = useState(false);
+  /** Active workspace tool. "select" = default; "pan" = drag-to-pan; "wire" = click pins to wire. */
+  const [tool, setTool] = useState<"select" | "pan" | "wire">("select");
   const [pending, setPending] = useState<
     | { kind: "component"; value: ComponentKind; w: number; h: number }
     | { kind: "custom"; customId: string; w: number; h: number }
@@ -94,6 +97,62 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   >(null);
 
   const placedBoards = useMemo(() => components.filter((c) => c.kind === "board"), [components]);
+
+  /** Per-board sketch tabs: each board owns a .ino file in the IDE. Adding a
+   *  board creates the file, removing the board deletes it. */
+  const ideFiles = useIdeStore((s) => s.files);
+  const ideAddFile = useIdeStore((s) => s.addFile);
+  const ideSetActive = useIdeStore((s) => s.setActiveFile);
+  const ideRenameFile = useIdeStore((s) => s.renameFile);
+  const ideUpdateFile = useIdeStore((s) => s.updateFileContent);
+  const ideHydrate = useIdeStore((s) => s.hydrate);
+  const ideLoaded = useIdeStore((s) => s.loaded);
+  useEffect(() => { if (!ideLoaded) ideHydrate(); }, [ideLoaded, ideHydrate]);
+
+  useEffect(() => {
+    if (!ideLoaded) return;
+    // Create a sketch file for any board that doesn't have one yet.
+    placedBoards.forEach((b, idx) => {
+      const existing = String(b.props.sketchFileId ?? "");
+      const hasFile = existing && ideFiles.some((f) => f.id === existing);
+      if (!hasFile) {
+        const boardId = String(b.props.boardId ?? "uno");
+        const name = `sketch_${boardId}_${idx + 1}.ino`;
+        const seed = `// ${name} — sketch for ${boardId} board\nvoid setup() {\n  pinMode(13, OUTPUT);\n}\n\nvoid loop() {\n  digitalWrite(13, HIGH);\n  delay(500);\n  digitalWrite(13, LOW);\n  delay(500);\n}\n`;
+        const fid = ideAddFile(name, "ino", seed);
+        useSimStore.getState().setComponentProp(b.id, "sketchFileId", fid);
+      }
+    });
+    // Remove orphan sketch files (file's owning board no longer exists).
+    const ownedIds = new Set(
+      placedBoards.map((b) => String(b.props.sketchFileId ?? "")).filter(Boolean),
+    );
+    const orphanInoFiles = ideFiles.filter((f) =>
+      f.kind === "ino" && f.name.startsWith("sketch_") && !ownedIds.has(f.id),
+    );
+    if (orphanInoFiles.length > 0) {
+      const ide = useIdeStore.getState();
+      // If removing all .ino files would leave the project empty, replace last
+      // one with an empty default rather than deleting it.
+      const remaining = ideFiles.filter((f) => !orphanInoFiles.some((o) => o.id === f.id));
+      if (remaining.length === 0 && orphanInoFiles.length > 0) {
+        const keep = orphanInoFiles.shift()!;
+        ideRenameFile(keep.id, "sketch.ino");
+        ideUpdateFile(keep.id, "// no boards on workspace — add a board to start a sketch.\n");
+      }
+      orphanInoFiles.forEach((f) => ide.deleteFile(f.id));
+    }
+  }, [placedBoards, ideLoaded, ideFiles, ideAddFile, ideRenameFile, ideUpdateFile]);
+
+  // When user selects a board, switch the IDE to that board's sketch.
+  useEffect(() => {
+    if (!selectedId) return;
+    const b = placedBoards.find((bb) => bb.id === selectedId);
+    if (!b) return;
+    const fid = String(b.props.sketchFileId ?? "");
+    if (fid && ideFiles.some((f) => f.id === fid)) ideSetActive(fid);
+  }, [selectedId, placedBoards, ideFiles, ideSetActive]);
+
 
   /**
    * Seed a default Uno board on first load so users see something to wire,
@@ -433,7 +492,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     <div className="relative w-full h-full canvas-grid-bg overflow-hidden">
       <svg
         ref={svgRef}
-        className={`w-full h-full select-none ${pending ? "cursor-copy" : ""}`}
+        className={`w-full h-full select-none ${pending ? "cursor-copy" : tool === "pan" ? (panning ? "cursor-grabbing" : "cursor-grab") : ""}`}
         onDragOver={onSvgDragOver}
         onDrop={onSvgDrop}
         onMouseMove={onMouseMove}
@@ -472,7 +531,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
           // Not drawing: clear selection / start panning.
           setSelected(null);
           setSelectedWireId(null);
-          if (e.button === 0 && (e.altKey || e.metaKey)) setPanning(true);
+          if (e.button === 0 && (tool === "pan" || e.altKey || e.metaKey || e.shiftKey)) setPanning(true);
           else if (e.button === 1) setPanning(true);
         }}
         onContextMenu={(e) => {
@@ -508,6 +567,15 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                 }}
                 style={{ cursor: locked ? "default" : "grab" }}
               >
+                {/* Invisible hit target rendered BEFORE the board art so clicks anywhere on
+                    the board reliably select/drag it. Pins (rendered after) stay on top. */}
+                <rect
+                  x={b.x} y={b.y}
+                  width={bid === "uno" ? UNO_WIDTH : 360}
+                  height={bid === "uno" ? UNO_HEIGHT : 240}
+                  fill="transparent"
+                  pointerEvents="all"
+                />
                 {bid === "uno" ? (
                   <ArduinoUnoBoard
                     x={b.x}
@@ -528,7 +596,9 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                 )}
                 {isSel && (
                   <rect
-                    x={b.x - 2} y={b.y - 2} width={364} height={244}
+                    x={b.x - 4} y={b.y - 4}
+                    width={(bid === "uno" ? UNO_WIDTH : 360) + 8}
+                    height={(bid === "uno" ? UNO_HEIGHT : 240) + 8}
                     fill="none" stroke="var(--color-primary)" strokeWidth={2}
                     strokeDasharray="6 4" pointerEvents="none"
                   />
@@ -698,6 +768,28 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
           )}
         </g>
       </svg>
+
+      {/* Floating workspace tool panel — Select / Pan / Wire (more tools added later). */}
+      {!locked && (
+        <div className="absolute top-3 left-3 z-10 flex items-center gap-1 rounded-md bg-card/95 backdrop-blur border border-border p-1 shadow-lg">
+          {[
+            { id: "select" as const, icon: MousePointer2, label: "Select (V)" },
+            { id: "pan" as const,    icon: Hand,          label: "Pan (H) — drag to move workspace" },
+            { id: "wire" as const,   icon: Cable,         label: "Wire (W) — click pins to connect" },
+          ].map(({ id, icon: Icon, label }) => (
+            <button
+              key={id}
+              onClick={() => setTool(id)}
+              title={label}
+              className={`h-8 w-8 flex items-center justify-center rounded transition-colors ${
+                tool === id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Zoom toolbar overlay */}
       <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-md bg-card/90 backdrop-blur border border-border px-2 py-1 text-xs font-mono">
