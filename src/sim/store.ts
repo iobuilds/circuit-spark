@@ -46,6 +46,16 @@ export interface SimState {
   // editor / runtime
   code: string;
   status: SimStatus;
+  /** Per-board serial lines, keyed by board component id. */
+  serialByBoard: Record<string, SerialLine[]>;
+  /** Per-board pin states, keyed by board component id. */
+  pinStatesByBoard: Record<string, Record<number, PinState>>;
+  /** Per-board run/compile status, keyed by board component id. */
+  statusByBoard: Record<string, SimStatus>;
+  /** Currently focused board for the bottom Pin States / Serial panels. */
+  activeSimBoardId: string | null;
+  /** Aggregate / focused-board mirrors. Components that don't care about
+   *  multi-board can keep reading these. They mirror the active board. */
   serial: SerialLine[];
   pinStates: Record<number, PinState>;
   simTimeMs: number;
