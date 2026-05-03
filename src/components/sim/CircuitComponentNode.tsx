@@ -41,7 +41,7 @@ const LED_COLORS: Record<string, { off: string; on: string; glow: string }> = {
   purple: { off: "oklch(0.4 0.10 305)", on: "oklch(0.7 0.22 305)",  glow: "led-glow-blue" },
 };
 
-export function CircuitComponentNode({ comp, isPowered, onPinClick, onSelect, onDragStart, selected, pinEditMode, toCanvasPoint }: Props) {
+export function CircuitComponentNode({ comp, isPowered, voltage = 0, reversed = false, onPinClick, onSelect, onDragStart, selected, pinEditMode, toCanvasPoint }: Props) {
   const def = COMPONENT_DEFS[comp.kind];
   const setProp = useSimStore((s) => s.setComponentProp);
   const adminComps = useAdminStore((s) => s.components);
