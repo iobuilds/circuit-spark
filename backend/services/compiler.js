@@ -49,48 +49,70 @@ class CompilerService {
     });
   }
 
-  async updateIndex() {
+  // Run a CLI command and capture exit code + output. Resolves (never rejects).
+  _run(args, { timeoutMs = 120000 } = {}) {
     return new Promise((resolve) => {
-      logger.info('Updating arduino-cli library index...');
-      const proc = spawn(config.ARDUINO_CLI_PATH, ['lib', 'update-index'], {
+      const proc = spawn(config.ARDUINO_CLI_PATH, args, {
         env: { ...process.env, HOME: '/root' },
       });
-      let err = '';
-      proc.stderr.on('data', d => err += d.toString());
-      proc.on('close', (code) => {
-        if (code !== 0) logger.warn(`lib update-index exited ${code}: ${err.trim()}`);
-        resolve();
-      });
-      proc.on('error', (e) => { logger.warn(`lib update-index error: ${e.message}`); resolve(); });
+      let stdout = '';
+      let stderr = '';
+      const timer = setTimeout(() => { try { proc.kill('SIGKILL'); } catch (_) {} }, timeoutMs);
+      proc.stdout.on('data', d => stdout += d.toString());
+      proc.stderr.on('data', d => stderr += d.toString());
+      proc.on('close', (code) => { clearTimeout(timer); resolve({ code: code ?? -1, stdout, stderr }); });
+      proc.on('error', (e) => { clearTimeout(timer); resolve({ code: -1, stdout: '', stderr: e.message }); });
     });
   }
 
+  // Self-healing index refresh. arduino-cli sometimes returns non-zero when an
+  // optional 3rd-party index (e.g. rp2040) is unreachable. We log it but never
+  // treat it as fatal — the official lib index is what matters for `lib install`.
+  async updateIndex() {
+    logger.info('Refreshing arduino-cli indexes...');
+    const core = await this._run(['core', 'update-index']);
+    if (core.code !== 0) logger.warn(`core update-index: ${core.stderr.trim() || core.stdout.trim()}`);
+    const lib = await this._run(['lib', 'update-index']);
+    if (lib.code !== 0) logger.warn(`lib update-index: ${lib.stderr.trim() || lib.stdout.trim()}`);
+  }
+
   async installLibraries(libraries) {
+    if (!libraries || libraries.length === 0) return;
+
+    const tryInstall = (lib) => this._run(['lib', 'install', lib], { timeoutMs: 180000 });
     const failed = [];
-    // Refresh the index once before installs so a stale/missing index file
-    // (e.g. package_rp2040_index.json missing) cannot silently break installs.
-    await this.updateIndex();
 
     for (const lib of libraries) {
-      const result = await new Promise((resolve) => {
-        logger.info(`Installing library: ${lib}`);
-        const proc = spawn(config.ARDUINO_CLI_PATH, ['lib', 'install', lib], {
-          env: { ...process.env, HOME: '/root' },
-        });
-        let stderr = '';
-        let stdout = '';
-        proc.stdout.on('data', d => stdout += d.toString());
-        proc.stderr.on('data', d => stderr += d.toString());
-        proc.on('close', (code) => resolve({ code, stderr, stdout }));
-        proc.on('error', (e) => resolve({ code: -1, stderr: e.message, stdout: '' }));
-      });
+      logger.info(`Installing library: ${lib}`);
+      let result = await tryInstall(lib);
+
+      // Retry once after a fresh index refresh — covers stale/missing index
+      // files (the rp2040 warning the user is seeing) and transient network blips.
       if (result.code !== 0) {
-        logger.error(`Failed to install ${lib} (exit ${result.code}): ${result.stderr.trim() || result.stdout.trim()}`);
-        failed.push({ lib, error: result.stderr.trim() || result.stdout.trim() || `exit ${result.code}` });
+        const errText = (result.stderr + result.stdout).toLowerCase();
+        const recoverable =
+          errText.includes('index') ||
+          errText.includes('not found') ||
+          errText.includes('no such file') ||
+          errText.includes('temporary') ||
+          errText.includes('timeout') ||
+          errText.includes('network');
+        if (recoverable) {
+          logger.warn(`Install of ${lib} failed (${result.code}); refreshing index and retrying...`);
+          await this.updateIndex();
+          result = await tryInstall(lib);
+        }
+      }
+
+      if (result.code !== 0) {
+        const msg = (result.stderr.trim() || result.stdout.trim() || `exit ${result.code}`);
+        logger.error(`Failed to install ${lib}: ${msg}`);
+        failed.push({ lib, error: msg });
       } else {
         logger.info(`Installed library: ${lib}`);
       }
     }
+
     if (failed.length > 0) {
       const msg = failed.map(f => `${f.lib}: ${f.error}`).join('; ');
       throw new Error(`Library install failed — ${msg}`);
