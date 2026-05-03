@@ -86,6 +86,12 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const [pinEditMode, setPinEditMode] = useState(false);
   const setComponentProp = useSimStore((s) => s.setComponentProp);
   const [show3D, setShow3D] = useState(false);
+  const [pending, setPending] = useState<
+    | { kind: "component"; value: ComponentKind; w: number; h: number }
+    | { kind: "custom"; customId: string; w: number; h: number }
+    | { kind: "board"; boardId: BoardId; w: number; h: number }
+    | null
+  >(null);
 
   const placedBoards = useMemo(() => components.filter((c) => c.kind === "board"), [components]);
 
