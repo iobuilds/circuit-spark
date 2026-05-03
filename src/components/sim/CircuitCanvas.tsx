@@ -183,13 +183,43 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [pending]);
 
-  // Push input states (pot, button) to worker
+  // Get all per-board pin states for cross-board propagation. We subscribe via
+  // a selector so the effect re-runs when any board's pins change.
+  const pinStatesByBoard = useSimStore((s) => s.pinStatesByBoard);
+
+  // Push input states (pot/button/sensors + cross-board GPIO) to each board's worker.
   useEffect(() => {
+    // Sensor / passive inputs (uses focused-board pinStates as a fallback view).
     const inputs = evaluateInputs(components, net, pinStates);
     for (const [pin, val] of Object.entries(inputs)) {
       onPinInputChange(Number(pin), val);
     }
-  }, [components, net, pinStates, onPinInputChange]);
+
+    // Cross-board GPIO: if board A drives an OUTPUT pin and that wire reaches
+    // board B, mirror the digital/analog value onto board B's pin so its
+    // digitalRead/analogRead reflect the master's drive level.
+    if (!net.netToBoardPins) return;
+    const propagate = (window as unknown as {
+      __embedsimPropagateBoardGPIO?: (target: { boardCompId: string; pin: number; digital?: 0 | 1; analog?: number }) => void;
+    }).__embedsimPropagateBoardGPIO;
+    if (!propagate) return;
+    for (const endpoints of net.netToBoardPins.values()) {
+      if (endpoints.length < 2) continue;
+      // Find any driver: a board whose pinStatesByBoard has this pin in OUTPUT mode.
+      let driver: { digital: 0 | 1; analog: number } | null = null;
+      for (const ep of endpoints) {
+        const ps = pinStatesByBoard[ep.boardCompId]?.[ep.pin];
+        if (ps && ps.mode === "OUTPUT") { driver = { digital: ps.digital, analog: ps.analog }; break; }
+      }
+      if (!driver) continue;
+      // Mirror onto every other endpoint that is NOT the driver.
+      for (const ep of endpoints) {
+        const ps = pinStatesByBoard[ep.boardCompId]?.[ep.pin];
+        if (ps?.mode === "OUTPUT") continue; // skip the driver itself
+        propagate({ boardCompId: ep.boardCompId, pin: ep.pin, digital: driver.digital, analog: driver.analog });
+      }
+    }
+  }, [components, net, pinStates, pinStatesByBoard, onPinInputChange]);
 
   // LED burn detection: only while sim is running. If an LED is wired straight
   // from 5V/VIN to GND with no series resistor, mark it burned (sticky — has to
