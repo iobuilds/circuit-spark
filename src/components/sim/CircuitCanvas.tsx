@@ -719,6 +719,15 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                   <option value="power">Power indicator</option>
                   <option value="gpio">GPIO-driven</option>
                 </select>
+                {Boolean(sel.props.burned) && (
+                  <button
+                    onClick={() => setComponentProp(selectedId, "burned", false)}
+                    className="ml-2 px-2 py-0.5 rounded bg-destructive text-destructive-foreground text-xs hover:opacity-90"
+                    title="Replace this burned LED"
+                  >
+                    Replace LED
+                  </button>
+                )}
               </div>
             )}
             {isCustom && (
