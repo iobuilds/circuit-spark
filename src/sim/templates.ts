@@ -1,13 +1,28 @@
 import type { CircuitComponent, Wire, BoardId } from "@/sim/types";
 
+/** A single sketch attached to a specific board component on the canvas. */
+export interface BoardSketch {
+  /** componentId of the board this sketch should attach to. */
+  boardCompId: string;
+  /** filename shown in the IDE (e.g. master.ino, slave.ino). */
+  fileName: string;
+  /** sketch source code. */
+  code: string;
+}
+
 export interface ProjectTemplate {
   id: string;
   name: string;
   description: string;
   boardId: BoardId;
+  /** Single-board legacy entry (used when sketches[] is absent). */
   code: string;
   components: CircuitComponent[];
   wires: Wire[];
+  /** Optional per-board sketches for multi-board projects. The componentIds
+   *  here MUST match the ids in `components` so the IDE attaches the right
+   *  .ino file to the right board on the canvas. */
+  sketches?: BoardSketch[];
 }
 
 export const TEMPLATES: ProjectTemplate[] = [
