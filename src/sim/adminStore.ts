@@ -9,7 +9,7 @@ import { UNO_SVG } from "./boardSvgs/unoSvg";
 
 // v7: VisualPin gained `properties: string[]` (multi-select catalog keys).
 // Old persisted entries are forward-compatible (missing field treated as empty).
-const STORAGE_VERSION = 7;
+const STORAGE_VERSION = 8;
 const KEY_BOARDS = "embedsim_boards";
 const KEY_COMPONENTS = "embedsim_components";
 
