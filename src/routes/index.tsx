@@ -101,13 +101,19 @@ function SimulatorPage() {
     }));
   }, [compileOutput]);
 
-  async function handleBackendCompile(): Promise<boolean> {
+  /**
+   * Compile sketches.
+   * @param onlyBoardCompIds Optional list of board component IDs. When provided,
+   * only those boards' sketches are compiled. Otherwise, all placed boards.
+   */
+  async function handleBackendCompile(onlyBoardCompIds?: string[]): Promise<boolean> {
     const { files, activeFileId } = useIdeStore.getState();
     const installedLibraries = useIdeStore.getState().installedLibraries.map((l) => l.id);
-    // Compile each board's sketch separately. Each placed board owns its own
-    // .ino file (sketch_<board>_<n>.ino); shared support files (.h/.cpp) are
-    // included with every compile.
-    const boards = useSimStore.getState().components.filter((c) => c.kind === "board");
+    let boards = useSimStore.getState().components.filter((c) => c.kind === "board");
+    if (onlyBoardCompIds && onlyBoardCompIds.length > 0) {
+      const set = new Set(onlyBoardCompIds);
+      boards = boards.filter((b) => set.has(b.id));
+    }
     const supportFiles = files.filter((f) => f.kind !== "ino").map((f) => ({ name: f.name, content: f.content }));
     const sketches: { boardId: string; fileId: string; files: { name: string; content: string }[] }[] = [];
     for (const b of boards) {
@@ -119,8 +125,7 @@ function SimulatorPage() {
         files: [{ name: f.name, content: f.content }, ...supportFiles],
       });
     }
-    // Fallback to active sketch if no boards placed.
-    if (sketches.length === 0) {
+    if (sketches.length === 0 && !onlyBoardCompIds) {
       const slice = fileSliceForActiveSketch(files, activeFileId);
       if (slice.length > 0) sketches.push({ boardId, fileId: slice[0].name, files: slice });
     }
@@ -172,11 +177,23 @@ function SimulatorPage() {
   // Simulation REQUIRES a successful compile first. If the compile fails, the
   // errors stay visible in the CompileOutputPanel + a toast, and the sim does
   // not start.
-  async function compileThenStart() {
-    const ok = await handleBackendCompile();
+  async function compileThenStart(onlyBoardCompIds?: string[]) {
+    const ok = await handleBackendCompile(onlyBoardCompIds);
     if (!ok) return;
     ctrl.start(useSimStore.getState().code, useSimStore.getState().speed);
   }
+
+  // Expose per-board compile/run to the canvas via window so we don't have to
+  // thread the handlers through every nested component.
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).__embedsimCompileBoards = (ids: string[]) => handleBackendCompile(ids);
+    (window as unknown as Record<string, unknown>).__embedsimRunBoards = (ids: string[]) => compileThenStart(ids);
+    return () => {
+      delete (window as unknown as Record<string, unknown>).__embedsimCompileBoards;
+      delete (window as unknown as Record<string, unknown>).__embedsimRunBoards;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleUpload() {
     // "Upload" in this browser context = compile + start the in-browser sim
