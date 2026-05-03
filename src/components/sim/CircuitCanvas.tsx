@@ -616,11 +616,15 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
           })}
 
           {/* Components (skip placed boards — rendered above) */}
-          {components.filter((c) => c.kind !== "board").map((c) => (
+          {components.filter((c) => c.kind !== "board").map((c) => {
+            const motorV = c.kind === "motor" ? computeLoadVoltage(c, net, "+", "-") : { volts: 0, reversed: false };
+            return (
             <CircuitComponentNode
               key={c.id}
               comp={c}
               isPowered={status === "running" && isLedPowered(c, net, pinStates)}
+              voltage={motorV.volts}
+              reversed={motorV.reversed}
               selected={selectedId === c.id}
               onSelect={() => setSelected(c.id)}
               onDragStart={(e) => {
@@ -633,7 +637,8 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
               pinEditMode={pinEditMode && !locked && selectedId === c.id && c.kind === "custom"}
               toCanvasPoint={clientToSvg}
             />
-          ))}
+            );
+          })}
 
           {/* Wires: draggable waypoints, click segment to add a bend, right-click to delete. */}
           {wires.map((w) => {
