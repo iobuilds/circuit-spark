@@ -199,12 +199,11 @@ async function runLoop() {
       });
     }
 
-    // Flush serial buffer if it's been idle for a moment (sketches that
-    // print without trailing newline still appear in the monitor).
-    if (serialBuf && performance.now() - lastSerialFlush > 50) {
-      post({ type: "serial", text: serialBuf, kind: "out" });
-      serialBuf = "";
-    }
+    // Note: we deliberately do NOT idle-flush partial lines. Sketches that
+    // print without trailing newlines still get their data delivered when
+    // the buffer reaches 256 chars (handled in onByteTransmit), or when the
+    // simulation stops (final flush below). Idle-flushing fragments lines
+    // because AVR-sim time is slower than wall-clock time.
 
     // Yield so the worker stays responsive to messages.
     await new Promise((r) => setTimeout(r, 0));
