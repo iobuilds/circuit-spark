@@ -52,8 +52,9 @@ void loop() {
 `,
     components: [
       BOARD("uno1", 60, 60),
-      { id: "led1", kind: "led", x: 540, y: 130, rotation: 0, props: { color: "red" } },
-      { id: "r1",   kind: "resistor", x: 520, y: 240, rotation: 0, props: { ohms: 220 } },
+      // Components placed clear of the Uno PCB (60..1020 × 60..764).
+      { id: "led1", kind: "led", x: 1120, y: 200, rotation: 0, props: { color: "red" } },
+      { id: "r1",   kind: "resistor", x: 1100, y: 360, rotation: 0, props: { ohms: 220 } },
     ],
     wires: [
       { id: "w1", from: { componentId: "uno1", pinId: "D13" }, to: { componentId: "led1", pinId: "A" } },
