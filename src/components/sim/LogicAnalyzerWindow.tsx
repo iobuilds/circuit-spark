@@ -45,6 +45,24 @@ const CH_COLORS = [
   "oklch(0.78 0.2 200)",  // cyan
 ];
 
+const MIN_SPAN_MS = 0.05;
+const MAX_SPAN_MS = 60_000;
+const CHANNEL_LABEL_W = 130;
+const CHANNEL_GAP_W = 8;
+const PLOT_SIDE_PAD = 16;
+
+function clonePinEvents(source: Record<number, PinEvent[]>): Record<number, PinEvent[]> {
+  const snap: Record<number, PinEvent[]> = {};
+  for (const [pin, events] of Object.entries(source ?? {})) {
+    snap[Number(pin)] = events.slice();
+  }
+  return snap;
+}
+
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && Boolean(target.closest("button, select, input, textarea, a"));
+}
+
 function defaultDecoder(pin: number): { decoder: Decoder; pin2?: number; baud?: number } {
   if (pin === 18) return { decoder: "i2c", pin2: 19 }; // SDA → pair with SCL
   if (pin === 19) return { decoder: "i2c", pin2: 18 };
@@ -92,22 +110,52 @@ export function LogicAnalyzerWindow({
   const [paused, setPaused] = useState(false);
   /** When paused, this is the frozen window end. When live, it's tNow. */
   const [frozenEnd, setFrozenEnd] = useState<number | null>(null);
+  /** Captured event snapshot used while paused/inspecting so live edges do not move under the cursor. */
+  const [frozenEvents, setFrozenEvents] = useState<Record<number, PinEvent[]> | null>(null);
   /** Pan offset (ms) — positive moves view to the past. */
   const [panMs, setPanMs] = useState(0);
 
   const allEvents = useCallback(
-    (pin: number): PinEvent[] => pinEvents?.[pin] ?? [],
-    [pinEvents],
+    (pin: number): PinEvent[] => (paused && frozenEvents ? frozenEvents : pinEvents)?.[pin] ?? [],
+    [paused, frozenEvents, pinEvents],
   );
 
   const liveEnd = useMemo(() => {
     let t = simTimeMs;
     for (const ch of channels) {
-      const evs = allEvents(ch.pin);
+      const evs = pinEvents?.[ch.pin] ?? [];
       if (evs.length) t = Math.max(t, evs[evs.length - 1].t);
     }
     return t;
-  }, [simTimeMs, channels, allEvents]);
+  }, [simTimeMs, channels, pinEvents]);
+
+  const ensurePausedCapture = useCallback(() => {
+    const baseEnd = paused && frozenEnd !== null ? frozenEnd : liveEnd;
+    if (!paused || !frozenEvents) {
+      setFrozenEvents(clonePinEvents(pinEvents));
+      setFrozenEnd(baseEnd);
+      setPaused(true);
+    }
+    return baseEnd;
+  }, [paused, frozenEnd, liveEnd, frozenEvents, pinEvents]);
+
+  const resumeLive = useCallback(() => {
+    setPaused(false);
+    setFrozenEnd(null);
+    setFrozenEvents(null);
+    setPanMs(0);
+  }, []);
+
+  const togglePause = useCallback(() => {
+    if (paused) {
+      resumeLive();
+      return;
+    }
+    setFrozenEvents(clonePinEvents(pinEvents));
+    setFrozenEnd(liveEnd);
+    setPaused(true);
+    setPanMs(0);
+  }, [paused, resumeLive, pinEvents, liveEnd]);
 
   const winEnd = paused && frozenEnd !== null ? frozenEnd - panMs : liveEnd - panMs;
   const winStart = winEnd - spanMs;
