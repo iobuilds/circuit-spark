@@ -77,6 +77,9 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
   const [dragId, setDragId] = useState<string | null>(null);
   const [wpDrag, setWpDrag] = useState<{ wireId: string; idx: number } | null>(null);
+  /** Pending wire-segment drag: on plain click+drag the first move inserts a waypoint
+   *  and starts dragging it. On a click without movement, the wire is just selected. */
+  const [segPending, setSegPending] = useState<{ wireId: string; idx: number; sx: number; sy: number } | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
