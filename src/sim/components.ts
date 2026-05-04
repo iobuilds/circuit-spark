@@ -105,12 +105,12 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
     ], available: false,
   },
   dht11: {
-    kind: "dht11", label: "DHT11", category: "Sensors", width: 80, height: 100,
+    kind: "dht11", label: "DHT11", category: "Sensors", width: 160, height: 90,
     pins: [
-      { id: "VCC",  label: "VCC",  x: 16, y: 98 },
-      { id: "DATA", label: "DATA", x: 40, y: 98 },
-      { id: "GND",  label: "GND",  x: 64, y: 98 },
-    ], available: false,
+      { id: "VCC",  label: "VCC",  x: 10, y: 28 },
+      { id: "DATA", label: "DATA", x: 10, y: 50 },
+      { id: "GND",  label: "GND",  x: 10, y: 72 },
+    ], available: true,
   },
   ultrasonic: {
     kind: "ultrasonic", label: "HC-SR04", category: "Sensors", width: 140, height: 70,
