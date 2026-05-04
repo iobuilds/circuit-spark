@@ -28,6 +28,7 @@ export function IdeMenubar({ onCompile, onUpload }: Props) {
   const [prefsOpen, setPrefsOpen] = useState(false);
   const [fileMgrOpen, setFileMgrOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const { isAdmin } = useIsAdmin();
 
   const addFile = useIdeStore((s) => s.addFile);
   const importFile = useIdeStore((s) => s.importFile);
