@@ -280,59 +280,74 @@ function PinNode({
 function LedSvg({ color, on, size = 1, burned = false }: { color: string; on: boolean; size?: number; burned?: boolean }) {
   const c = LED_COLORS[color] ?? LED_COLORS.red;
   const s = Math.max(0.5, Math.min(2.5, size));
-  // Dome bulb sits between the two leads at x=20 / x=40 (pin positions, anchored by the parent).
-  // Geometry mirrors the reference dome-LED icon: rounded top, flat collar, two stub leads.
-  const bodyOff = "oklch(0.78 0.02 240)";   // light grey dome when off
-  const bodyOn = c.on;
-  const fill = burned ? "oklch(0.22 0.01 30)" : on ? bodyOn : bodyOff;
-  const stroke = burned ? "oklch(0.12 0.01 30)" : "oklch(0.18 0.01 240)";
+  // Reference: translucent dome bulb (blue/red…) with two bent metal leads —
+  // one short (cathode side, flat edge), one long bent outward (anode).
+  // 60×80 box; pins anchored at A=(20,78), K=(40,78).
+  const tint = burned ? "oklch(0.20 0.01 30)" : c.on;
+  const tintLight = burned ? "oklch(0.30 0.01 30)" : c.off;
+  const stroke = burned ? "oklch(0.12 0.01 30)" : "oklch(0.30 0.06 240 / 0.55)";
   const rays = on && !burned;
+  const leadColor = "oklch(0.55 0.01 250)";
+  const leadDark = "oklch(0.35 0.01 250)";
 
   return (
     <g>
-      {/* leads anchored to pin positions */}
-      <line x1={20} y1={62} x2={20} y2={78} stroke="oklch(0.78 0.02 240)" strokeWidth={1.5} />
-      <line x1={40} y1={62} x2={40} y2={78} stroke="oklch(0.78 0.02 240)" strokeWidth={1.5} />
-      {/* collar / base plate */}
-      <rect x={12} y={50} width={36} height={6} rx={1.5}
-        fill={burned ? "oklch(0.18 0.01 30)" : "oklch(0.45 0.02 240)"}
-        stroke={stroke} strokeWidth={1} />
-      <line x1={16} y1={56} x2={16} y2={62} stroke={stroke} strokeWidth={1} />
-      <line x1={44} y1={56} x2={44} y2={62} stroke={stroke} strokeWidth={1} />
+      {/* Bent leads — left lead bends slightly outward, right lead is straight (flat side cathode). */}
+      <path d="M 20 78 Q 18 70 14 64 L 14 56" stroke={leadColor} strokeWidth={2.4} fill="none" strokeLinecap="round" />
+      <path d="M 20 78 Q 18 70 14 64 L 14 56" stroke={leadDark} strokeWidth={1} fill="none" strokeLinecap="round" opacity={0.5} />
+      <line x1={40} y1={78} x2={40} y2={56} stroke={leadColor} strokeWidth={2.4} strokeLinecap="round" />
+      <line x1={40} y1={78} x2={40} y2={56} stroke={leadDark} strokeWidth={1} strokeLinecap="round" opacity={0.5} />
+
       <g transform={`translate(${30 * (1 - s)} ${28 * (1 - s)}) scale(${s})`}>
-        {/* dome: rounded top + flat bottom — `path` produces the silhouette in the icon */}
+        {/* Bulb body — bulbous round dome with slight neck and a flat cathode edge. */}
+        <defs>
+          <radialGradient id={`led-grad-${color}`} cx="35%" cy="30%" r="75%">
+            <stop offset="0%" stopColor={on ? "oklch(1 0.02 240 / 0.95)" : "oklch(0.92 0.02 240 / 0.85)"} />
+            <stop offset="55%" stopColor={on ? tint : tintLight} stopOpacity={0.85} />
+            <stop offset="100%" stopColor={on ? tint : tintLight} stopOpacity={0.95} />
+          </radialGradient>
+        </defs>
+        {/* Bulb silhouette: round top, slight inward neck, flat-cut cathode side on the right. */}
         <path
-          d="M10 50 V28 a20 20 0 0 1 40 0 V50 Z"
-          fill={fill}
+          d="M 12 50
+             V 28
+             C 12 12, 26 4, 30 4
+             C 38 4, 48 12, 48 28
+             V 50
+             L 42 50
+             L 42 48
+             L 18 48
+             L 18 50 Z"
+          fill={`url(#led-grad-${color})`}
           stroke={stroke}
-          strokeWidth={1.5}
+          strokeWidth={1.2}
           className={rays ? c.glow : ""}
         />
-        {/* highlight */}
+        {/* Internal anvil + post (the visible shapes inside a real LED). */}
+        <path d="M 22 48 L 22 30 L 28 22 L 28 18 L 32 18 L 32 30 L 38 38 L 38 48 Z"
+          fill="oklch(0.55 0.02 240 / 0.45)" stroke={stroke} strokeWidth={0.8} />
+        {/* Specular highlight band along the dome */}
         {!burned && (
-          <ellipse cx={22} cy={22} rx={4} ry={9} fill="oklch(1 0 0 / 0.35)" />
+          <ellipse cx={20} cy={20} rx={3.5} ry={9} fill="oklch(1 0 0 / 0.55)" />
         )}
-        {/* tiny inner die (the square chip element visible in the reference) */}
-        <rect x={26} y={42} width={8} height={5} rx={0.5}
-          fill={burned ? "oklch(0.08 0.01 30)" : on ? "oklch(0.95 0.02 90)" : "oklch(0.55 0.02 240)"} />
+        {!burned && (
+          <ellipse cx={26} cy={12} rx={6} ry={2} fill="oklch(1 0 0 / 0.45)" />
+        )}
       </g>
+
       {/* light rays — only when the LED is on and not burned */}
       {rays && (
-        <g stroke={c.on} strokeWidth={1.6} strokeLinecap="round" opacity={0.9}>
-          <line x1={30} y1={-2} x2={30} y2={4} />
+        <g stroke={c.on} strokeWidth={1.6} strokeLinecap="round" opacity={0.85}>
+          <line x1={30} y1={-4} x2={30} y2={2} />
           <line x1={6} y1={4} x2={11} y2={9} />
           <line x1={54} y1={4} x2={49} y2={9} />
-          <line x1={-2} y1={26} x2={5} y2={26} />
-          <line x1={55} y1={26} x2={62} y2={26} />
-          <line x1={6} y1={48} x2={11} y2={43} />
-          <line x1={54} y1={48} x2={49} y2={43} />
+          <line x1={-4} y1={26} x2={4} y2={26} />
+          <line x1={56} y1={26} x2={64} y2={26} />
         </g>
       )}
-      {/* burned: smoke wisps + 'X' */}
       {burned && (
         <g>
           <path d="M22 -2 q4 4 0 8 q-4 4 0 8" stroke="oklch(0.55 0.01 240 / 0.6)" strokeWidth={1.5} fill="none" strokeLinecap="round" />
-          <path d="M34 -2 q4 4 0 8 q-4 4 0 8" stroke="oklch(0.45 0.01 240 / 0.5)" strokeWidth={1.5} fill="none" strokeLinecap="round" />
           <text x={30} y={32} textAnchor="middle" fontSize={14} fontWeight={700}
             fill="oklch(0.7 0.22 25)" fontFamily="monospace">✕</text>
         </g>
