@@ -394,18 +394,9 @@ export const useSimStore = create<SimState>((set, get) => {
     wireHistory: [], wireFuture: [],
     flashByBoard: {}, eepromByBoard: {}, sramByBoard: {}, cpuByBoard: {}, avrModeByBoard: {},
   }),
-  autoSpaceWorkspace: (gap) => set((st) => {
-    let g = gap;
-    if (g == null) {
-      // Read live preference without creating a circular import at module load.
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const ide = require("./ideStore") as typeof import("./ideStore");
-        g = ide.useIdeStore.getState().prefs.minSpacing;
-      } catch { g = 60; }
-    }
-    return { components: autoSpaceComponents(st.components, g ?? 60) };
-  }),
+  autoSpaceWorkspace: (gap = 60) => set((st) => ({
+    components: autoSpaceComponents(st.components, gap),
+  })),
   loadProject: (p) => {
     // Ensure a board exists for templates that wire to the legacy "board" id
     // without including a board component in their components[] array.
