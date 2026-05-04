@@ -1810,6 +1810,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
             components={components}
             net={net}
             pinStatesByBoard={pinStatesByBoard}
+            pinEventsByBoard={pinEventsByBoard}
             initialX={inspector.x}
             initialY={inspector.y}
             onClose={() => setInspector(null)}
