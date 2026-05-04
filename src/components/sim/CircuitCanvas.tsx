@@ -417,9 +417,30 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
       const snap = (n: number) => Math.round(n / 10) * 10;
       moveComponent(dragId, snap(p.x - dragOffset.x), snap(p.y - dragOffset.y));
     }
-    // Segment drag is intentionally disabled — users add joints via
-    // double-click only. Single click+drag on a segment is a no-op (just
-    // selects the wire) so existing wires don't accumulate stray joints.
+    if (segDrag && !locked) {
+      const snap = (n: number) => Math.round(n / 5) * 5;
+      const dx = snap(p.x - segDrag.start.x);
+      const dy = snap(p.y - segDrag.start.y);
+      const next = segDrag.originalWaypoints.map((pt) => ({ ...pt }));
+      const prevAnchor = segDrag.idx === 0 ? segDrag.points[0] : next[segDrag.idx - 1];
+      const nextAnchor = segDrag.idx === next.length ? segDrag.points[segDrag.points.length - 1] : next[segDrag.idx];
+      if (prevAnchor && nextAnchor) {
+        const horizontal = Math.abs(nextAnchor.x - prevAnchor.x) >= Math.abs(nextAnchor.y - prevAnchor.y);
+        if (segDrag.idx > 0) {
+          next[segDrag.idx - 1] = horizontal
+            ? { ...next[segDrag.idx - 1], y: snap(next[segDrag.idx - 1].y + dy) }
+            : { ...next[segDrag.idx - 1], x: snap(next[segDrag.idx - 1].x + dx) };
+        }
+        if (segDrag.idx < next.length) {
+          next[segDrag.idx] = horizontal
+            ? { ...next[segDrag.idx], y: snap(next[segDrag.idx].y + dy) }
+            : { ...next[segDrag.idx], x: snap(next[segDrag.idx].x + dx) };
+        }
+        useSimStore.setState((st) => ({
+          wires: st.wires.map((w) => (w.id === segDrag.wireId ? { ...w, waypoints: next } : w)),
+        }));
+      }
+    }
     if (wpDrag && !locked) {
       const snap = (n: number) => Math.round(n / 5) * 5;
       updateWireWaypoint(wpDrag.wireId, wpDrag.idx, { x: snap(p.x), y: snap(p.y) });
