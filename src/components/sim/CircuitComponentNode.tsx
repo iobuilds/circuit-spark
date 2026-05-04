@@ -213,6 +213,9 @@ export function CircuitComponentNode({ comp, isPowered, voltage = 0, reversed = 
       )}
 
       {comp.kind === "ds3231" && <Ds3231Svg />}
+      {comp.kind === "oled" && (
+        <Ssd1306Svg addr={Number(comp.props.addr ?? 0x3c) || 0x3c} />
+      )}
       {comp.kind === "dht11" && (
         <Dht11Svg
           temperature={Number(comp.props.temperature ?? 25)}
