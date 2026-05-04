@@ -860,15 +860,18 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                         if (e.button === 2) { e.preventDefault(); removeWire(w.id); return; }
                         if (e.button !== 0) return;
                         e.stopPropagation();
-                        if (locked) {
-                          setSelectedWireId(w.id);
-                          setSelected(null);
-                          return;
-                        }
-                        // Plain click+drag bends the wire; click without movement
-                        // selects it (handled in onMouseUp on the SVG root).
+                        setSelectedWireId(w.id);
+                        setSelected(null);
+                        if (locked) return;
+                        // First edit on an auto-routed wire: bake the auto-route
+                        // into the wire's waypoints so subsequent edits work.
                         const p = clientToSvg(e);
                         pushWireHistory();
+                        if (!hasUserMids) {
+                          useSimStore.setState((st) => ({
+                            wires: st.wires.map((ww) => ww.id === w.id ? { ...ww, waypoints: mids.map((m) => ({ ...m })) } : ww),
+                          }));
+                        }
                         setSegPending({ wireId: w.id, idx: i, sx: p.x, sy: p.y });
                       }}
                       onContextMenu={(e) => { e.preventDefault(); removeWire(w.id); }}
