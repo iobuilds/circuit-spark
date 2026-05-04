@@ -210,6 +210,8 @@ async function runLoop() {
   }
 
   running = false;
+  // Final flush of any leftover partial line on stop.
+  if (serialBuf) { post({ type: "serial", text: serialBuf, kind: "out" }); serialBuf = ""; }
   post({ type: "stopped" });
 }
 
