@@ -4,6 +4,7 @@ import type { CircuitComponent } from "@/sim/types";
 import { useEffect, useMemo, useState } from "react";
 import { useAdminStore } from "@/sim/adminStore";
 import { Ds3231Svg } from "./Ds3231Svg";
+import { Ssd1306Svg } from "./Ssd1306Svg";
 
 interface Props {
   comp: CircuitComponent;
