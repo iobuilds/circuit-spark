@@ -81,6 +81,7 @@ export interface SimState {
   setCode: (c: string) => void;
   addComponent: (kind: ComponentKind, x: number, y: number, customId?: string) => string;
   moveComponent: (id: string, x: number, y: number) => void;
+  rotateComponent: (id: string, deltaDeg?: number) => void;
   removeComponent: (id: string) => void;
   setSelected: (id: string | null) => void;
   setComponentProp: (id: string, key: string, value: number | string | boolean) => void;
