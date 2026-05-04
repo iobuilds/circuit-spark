@@ -68,15 +68,47 @@ interface Props {
 
 export function CompileOutputPanel({ output, progress, compiling, onClose, onErrorClick }: Props) {
   const compileLog = useSimStore((s) => s.compileLog);
-  const [tab, setTab] = useState<"output" | "errors" | "warnings">("output");
+  const [tab, setTab] = useState<"output" | "errors" | "warnings" | "log">("log");
+  const [liveLog, setLiveLog] = useState<LogEntry[]>([]);
+  const lastSigRef = useRef<string>("");
+  const logScrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Append every distinct progress event into the live log.
+  useEffect(() => {
+    if (!progress) return;
+    const sig = `${progress.step}|${progress.percent}|${progress.message}`;
+    if (sig === lastSigRef.current) return;
+    lastSigRef.current = sig;
+    const kind = classifyProgress(progress.step, progress.message);
+    setLiveLog((prev) => [
+      ...prev,
+      { ts: Date.now(), step: progress.step, message: progress.message, kind },
+    ]);
+  }, [progress]);
+
+  // When a brand-new compile starts (compiling flips on), clear the log.
+  useEffect(() => {
+    if (compiling) {
+      setLiveLog([]);
+      lastSigRef.current = "";
+      setTab("log");
+    }
+  }, [compiling]);
+
+  // Auto-scroll to newest entry.
+  useEffect(() => {
+    if (logScrollRef.current) {
+      logScrollRef.current.scrollTop = logScrollRef.current.scrollHeight;
+    }
+  }, [liveLog.length]);
 
   useEffect(() => {
     if (output && output.errors.length > 0) setTab("errors");
     else if (output && (output.warnings?.length ?? 0) > 0 && !output.errors.length) setTab("warnings");
-    else setTab("output");
+    else if (output) setTab("output");
   }, [output]);
 
-  if (!output && !compiling && compileLog.length === 0) return null;
+  if (!output && !compiling && compileLog.length === 0 && liveLog.length === 0) return null;
 
   const warnings = output?.warnings ?? [];
   const fmtKB = (n?: number) => (n === undefined ? "—" : `${(n / 1024).toFixed(1)} KB`);
