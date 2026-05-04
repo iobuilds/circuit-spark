@@ -194,6 +194,9 @@ export function IdeMenubar({ onCompile, onUpload }: Props) {
           <MenubarContent>
             <MenubarItem onClick={() => setBoardMgrOpen(true)}>Board: Boards Manager...</MenubarItem>
             <MenubarItem onClick={() => setLibMgrOpen(true)}>Manage Libraries...</MenubarItem>
+            <MenubarItem onClick={() => { setInstallPrefill([]); setInstallOpen(true); }}>
+              Install Libraries (server)...
+            </MenubarItem>
             <MenubarSeparator />
             <MenubarItem onClick={() => window.dispatchEvent(new CustomEvent("ide:open-serial"))}>
               Serial Monitor
