@@ -227,6 +227,11 @@ export function IdeMenubar({ onCompile, onUpload }: Props) {
 
       <BoardManagerDialog open={boardMgrOpen} onOpenChange={setBoardMgrOpen} />
       <LibraryManagerDialog open={libMgrOpen} onOpenChange={setLibMgrOpen} />
+      <InstallLibrariesDialog
+        open={installOpen}
+        onOpenChange={(v) => { setInstallOpen(v); if (!v) setInstallPrefill([]); }}
+        initialNames={installPrefill}
+      />
       <PreferencesDialog open={prefsOpen} onOpenChange={setPrefsOpen} />
       <FileManagerDialog open={fileMgrOpen} onOpenChange={setFileMgrOpen} />
     </>
