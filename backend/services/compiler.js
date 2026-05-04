@@ -32,13 +32,14 @@ class CompilerService {
 
   async checkLibraries(libraries) {
     if (!libraries || libraries.length === 0) return [];
+    const libBaseName = (name) => String(name || '').split('@')[0].trim();
 
     // Fast path: Redis-backed cache of the installed set, salted by the
     // arduino-cli index version. Skips spawning `lib list` (~300-800ms) every
     // compile and skips re-installing libs we know are already there.
     const cached = await libraryCache.getInstalledSet();
     if (cached) {
-      const missing = libraries.filter(l => !cached.has(l.toLowerCase()));
+      const missing = libraries.filter(l => !cached.has(libBaseName(l).toLowerCase()));
       logger.info(`libcache hit (v=${libraryCache.getIndexVersion()}): ${libraries.length - missing.length}/${libraries.length} already installed`);
       return missing;
     }
@@ -58,7 +59,7 @@ class CompilerService {
             .filter(Boolean);
           await libraryCache.setInstalledSet(installedNames);
           const lower = new Set(installedNames.map(n => n.toLowerCase()));
-          const missing = libraries.filter(l => !lower.has(l.toLowerCase()));
+          const missing = libraries.filter(l => !lower.has(libBaseName(l).toLowerCase()));
           resolve(missing);
         } catch (e) {
           resolve(libraries); // assume missing on parse error

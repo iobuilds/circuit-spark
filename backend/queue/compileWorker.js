@@ -7,7 +7,7 @@ const hashCode = require('../utils/hashCode');
 const logger = require('../utils/logger');
 const config = require('../config');
 const { validatePins } = require('../utils/pinValidator');
-const { detectRequiredLibraries } = require('../utils/includeScanner');
+const { detectRequiredLibraries, resolveLibraryNames } = require('../utils/includeScanner');
 
 fileManager.ensureTempDir();
 
@@ -65,7 +65,7 @@ compileQueue.process(config.MAX_CONCURRENT_JOBS, async (job) => {
 
       await emit('libraries', 40, 'Checking libraries...');
       const detected = detectRequiredLibraries(files);
-      const allLibs = Array.from(new Set([...(libraries || []), ...detected]));
+      const allLibs = resolveLibraryNames(Array.from(new Set([...(libraries || []), ...detected])));
       const missing = await compiler.checkLibraries(allLibs);
       if (missing.length > 0) {
         await emit('install_libs', 50, `Installing ${missing.length} missing libraries: ${missing.join(', ')}`);
