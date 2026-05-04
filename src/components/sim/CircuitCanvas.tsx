@@ -457,8 +457,30 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     };
     const onDown = (e: KeyboardEvent) => {
       if (isTyping(e.target)) return;
-      if (e.code === "Space") { e.preventDefault(); setSpaceHeld(true); return; }
+      if (e.code === "Space") {
+        // If a non-board component is selected, rotate it 90° CW. Otherwise
+        // hold-Space acts as a pan modifier.
+        const sel = useSimStore.getState().selectedId;
+        const comp = sel ? useSimStore.getState().components.find((c) => c.id === sel) : null;
+        if (comp && comp.kind !== "board" && useSimStore.getState().status !== "running" && useSimStore.getState().status !== "paused") {
+          e.preventDefault();
+          useSimStore.getState().rotateComponent(comp.id, 90);
+          return;
+        }
+        e.preventDefault();
+        setSpaceHeld(true);
+        return;
+      }
       if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+      if (e.key === "r" || e.key === "R") {
+        const sel = useSimStore.getState().selectedId;
+        const comp = sel ? useSimStore.getState().components.find((c) => c.id === sel) : null;
+        if (comp && comp.kind !== "board" && useSimStore.getState().status !== "running" && useSimStore.getState().status !== "paused") {
+          e.preventDefault();
+          useSimStore.getState().rotateComponent(comp.id, 90);
+        }
+        return;
+      }
       if (e.key === "+" || e.key === "=") {
         e.preventDefault();
         setZoom((z) => Math.min(4, +(z * 1.18).toFixed(3)));
@@ -558,12 +580,21 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
       if (!p) return null;
       return { x: c.x + p.x, y: c.y + p.y };
     }
+    // Apply this component's rotation around its own center, matching the
+    // CircuitComponentNode <g rotate(...)> transform so wire endpoints follow.
+    const rotatePin = (px: number, py: number, w: number, h: number) => {
+      const angle = ((c?.rotation ?? 0) % 360 + 360) % 360;
+      if (!angle) return { x: px, y: py };
+      const cx = w / 2, cy = h / 2;
+      const rad = (angle * Math.PI) / 180;
+      const dx = px - cx, dy = py - cy;
+      return { x: cx + dx * Math.cos(rad) - dy * Math.sin(rad), y: cy + dx * Math.sin(rad) + dy * Math.cos(rad) };
+    };
     if (c.kind === "custom") {
       const cid = String(c.props.customId ?? "");
       const entry = adminComps.find((a) => a.id === cid);
       const pin = entry?.pins?.find((p) => p.id === pinId);
       if (!pin) return null;
-      // Honor per-instance pin overrides set via the "Move pins" tool.
       let px = pin.x, py = pin.y;
       const rawOv = c.props.pinOverrides;
       if (typeof rawOv === "string" && rawOv) {
@@ -575,12 +606,14 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
           }
         } catch { /* ignore malformed overrides */ }
       }
-      return { x: c.x + px, y: c.y + py };
+      const r = rotatePin(px, py, entry?.width ?? 80, entry?.height ?? 60);
+      return { x: c.x + r.x, y: c.y + r.y };
     }
     const def = COMPONENT_DEFS[c.kind];
     const pin = def.pins.find((p) => p.id === pinId);
     if (!pin) return null;
-    return { x: c.x + pin.x, y: c.y + pin.y };
+    const r = rotatePin(pin.x, pin.y, def.width, def.height);
+    return { x: c.x + r.x, y: c.y + r.y };
   }
 
   const drawingFromPos = drawingFrom ? endpointPos(drawingFrom.componentId, drawingFrom.pinId) : null;

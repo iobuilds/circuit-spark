@@ -299,4 +299,63 @@ void loop() {
       },
     ],
   },
+
+  // 7 ── DS3231 RTC · read & print time
+  {
+    id: "ex-ds3231-rtc",
+    name: "7 · DS3231 RTC Clock",
+    description:
+      "Reads time from a DS3231 over I²C (A4 = SDA, A5 = SCL) and prints it every second on the Serial Monitor.",
+    boardId: "uno",
+    code: `// DS3231 RTC — print time every second over Serial.
+// Wiring (Arduino Uno):
+//   DS3231 VCC -> 5V
+//   DS3231 GND -> GND
+//   DS3231 SDA -> A4
+//   DS3231 SCL -> A5
+#include <Wire.h>
+
+#define DS3231_ADDR 0x68
+
+static uint8_t bcd2dec(uint8_t b) { return (b >> 4) * 10 + (b & 0x0F); }
+
+void setup() {
+  Wire.begin();
+  Serial.begin(9600);
+  Serial.println("DS3231 RTC ready");
+}
+
+void loop() {
+  // Point to register 0x00 (seconds), then read 7 time/date bytes.
+  Wire.beginTransmission(DS3231_ADDR);
+  Wire.write((uint8_t)0x00);
+  Wire.endTransmission();
+  Wire.requestFrom(DS3231_ADDR, 7);
+
+  uint8_t s  = bcd2dec(Wire.read() & 0x7F);
+  uint8_t mi = bcd2dec(Wire.read() & 0x7F);
+  uint8_t h  = bcd2dec(Wire.read() & 0x3F);
+  Wire.read();                                 // weekday (skip)
+  uint8_t d  = bcd2dec(Wire.read() & 0x3F);
+  uint8_t mo = bcd2dec(Wire.read() & 0x1F);
+  uint16_t y = 2000 + bcd2dec(Wire.read());
+
+  char buf[40];
+  snprintf(buf, sizeof(buf), "%04u-%02u-%02u %02u:%02u:%02u",
+           y, mo, d, h, mi, s);
+  Serial.println(buf);
+  delay(1000);
+}
+`,
+    components: [
+      BOARD("uno1", 40, 40),
+      { id: "rtc1", kind: "ds3231", x: 540, y: 380, rotation: 0, props: {} },
+    ],
+    wires: [
+      { id: "w1", from: { componentId: "uno1", pinId: "5V"   }, to: { componentId: "rtc1", pinId: "VCC" } },
+      { id: "w2", from: { componentId: "uno1", pinId: "GND1" }, to: { componentId: "rtc1", pinId: "GND" } },
+      { id: "w3", from: { componentId: "uno1", pinId: "A4"   }, to: { componentId: "rtc1", pinId: "SDA" } },
+      { id: "w4", from: { componentId: "uno1", pinId: "A5"   }, to: { componentId: "rtc1", pinId: "SCL" } },
+    ],
+  },
 ];

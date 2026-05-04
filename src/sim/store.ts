@@ -81,6 +81,7 @@ export interface SimState {
   setCode: (c: string) => void;
   addComponent: (kind: ComponentKind, x: number, y: number, customId?: string) => string;
   moveComponent: (id: string, x: number, y: number) => void;
+  rotateComponent: (id: string, deltaDeg?: number) => void;
   removeComponent: (id: string) => void;
   setSelected: (id: string | null) => void;
   setComponentProp: (id: string, key: string, value: number | string | boolean) => void;
@@ -203,6 +204,15 @@ export const useSimStore = create<SimState>((set, get) => {
   },
   moveComponent: (id, x, y) => set((s) => ({
     components: s.components.map((c) => (c.id === id ? { ...c, x, y } : c)),
+  })),
+  rotateComponent: (id, deltaDeg = 90) => set((s) => ({
+    components: s.components.map((c) => {
+      if (c.id !== id) return c;
+      const next = (((c.rotation ?? 0) + deltaDeg) % 360 + 360) % 360;
+      // Snap to 0/90/180/270 for predictable wiring.
+      const snapped = (Math.round(next / 90) * 90) % 360 as 0 | 90 | 180 | 270;
+      return { ...c, rotation: snapped };
+    }),
   })),
   removeComponent: (id) => set((s) => ({
     components: s.components.filter((c) => c.id !== id),
