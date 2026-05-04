@@ -1138,6 +1138,18 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                       pushWireHistory();
                       setWpDrag({ wireId: w.id, idx: i });
                     }}
+                    onDoubleClick={(e) => {
+                      if (locked) return;
+                      e.stopPropagation();
+                      pushWireHistory();
+                      useSimStore.setState((st) => ({
+                        wires: st.wires.map((ww) =>
+                          ww.id === w.id
+                            ? { ...ww, waypoints: (ww.waypoints ?? []).filter((_, idx) => idx !== i) }
+                            : ww,
+                        ),
+                      }));
+                    }}
                     onContextMenu={(e) => { e.preventDefault(); removeWire(w.id); }}
                   />
                 ))}
