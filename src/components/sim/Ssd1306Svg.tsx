@@ -42,16 +42,18 @@ export function Ssd1306Svg({ addr }: Props) {
     return d;
   }, [frame]);
 
-  // Component bounds 140×100. The bundled SVG art is 672×669; the visible
-  // black display window inside the art is at x=33, y=116, w=602, h=318
-  // (source units). We map that to the 128×64 framebuffer below.
+  // Component bounds 140×140 (matches SVG art aspect ~1:1, no horizontal squash).
+  // The bundled SVG art is 672×669; the visible black display window inside
+  // the art is at x=33, y=116, w=602, h=318 (source units). The inner active
+  // OLED glass (after the bezel) is at offset (25,25) inside that — so the
+  // 128×64 framebuffer maps to (33+25, 116+25, 602-50, 318-50) in source units.
   const ART_W = 672;
   const ART_H = 669;
-  const SCREEN = { x: 33, y: 116, w: 602, h: 318 };
+  const SCREEN = { x: 33 + 25, y: 116 + 25, w: 602 - 50, h: 318 - 50 };
 
-  // Scale factors from source SVG units → component-local 140×100.
+  // Scale factors from source SVG units → component-local 140×140.
   const sx = 140 / ART_W;
-  const sy = 100 / ART_H;
+  const sy = 140 / ART_H;
   const screenX = SCREEN.x * sx;
   const screenY = SCREEN.y * sy;
   const screenW = SCREEN.w * sx;
@@ -61,17 +63,17 @@ export function Ssd1306Svg({ addr }: Props) {
 
   return (
     <g>
-      {/* Photoreal board art */}
+      {/* Photoreal board art — preserve aspect ratio so the board doesn't warp */}
       <image
         href={oledBoardUrl}
         x={0}
         y={0}
         width={140}
-        height={100}
-        preserveAspectRatio="none"
+        height={140}
+        preserveAspectRatio="xMidYMid meet"
       />
 
-      {/* Live pixel overlay aligned to the black display window */}
+      {/* Live pixel overlay aligned to the active OLED glass area */}
       <svg
         x={screenX}
         y={screenY}
@@ -81,7 +83,6 @@ export function Ssd1306Svg({ addr }: Props) {
         preserveAspectRatio="none"
         shapeRendering="crispEdges"
       >
-        {/* Soft black backdrop so the display reads as off when panel is off */}
         <rect x={0} y={0} width={frame?.w ?? 128} height={frame?.h ?? 64} fill="oklch(0.04 0.005 250)" />
         {frame && frame.on && litPath && (
           <path
