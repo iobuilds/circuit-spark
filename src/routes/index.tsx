@@ -256,13 +256,20 @@ function SimulatorPage() {
         const stillMissing = missingHeadersFromResult(result);
         const stillPackages = [...new Set(stillMissing.map(packageForHeader).filter((p): p is string => !!p))];
         if (stillPackages.length > 0) {
-          toast.error(`${s.displayName}: missing ${stillPackages.join(", ")}`, {
-            action: {
-              label: "Install",
-              onClick: () =>
-                window.dispatchEvent(new CustomEvent("ide:install-libraries", { detail: { names: stillPackages } })),
-            },
-          });
+          toast.error(
+            `${s.displayName}: missing ${stillPackages.join(", ")}`,
+            isAdmin
+              ? {
+                  action: {
+                    label: "Install",
+                    onClick: () =>
+                      window.dispatchEvent(
+                        new CustomEvent("ide:install-libraries", { detail: { names: stillPackages } }),
+                      ),
+                  },
+                }
+              : { description: "Ask an administrator to install these libraries on the server." },
+          );
         } else {
           toast.error(`${s.displayName}: ${result.errors[0]?.message ?? "compile failed"}`);
         }
