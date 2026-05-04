@@ -415,9 +415,14 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
           <TabsContent value="installed" className="flex-1 flex flex-col min-h-0 m-0">
             <ScrollArea className="flex-1 min-h-0">
               <div className="px-6 py-3 space-y-2">
-                {installedRows.length === 0 && (
+                {syncingInstalled && (
+                  <div className="py-3 text-center text-muted-foreground text-sm inline-flex w-full items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Syncing VPS libraries…
+                  </div>
+                )}
+                {installedRows.length === 0 && !syncingInstalled && (
                   <div className="py-16 text-center text-muted-foreground text-sm">
-                    No libraries installed yet. Switch to <span className="font-medium">All Libraries</span> to add one.
+                    No VPS libraries installed yet. Switch to <span className="font-medium">All Libraries</span> to add one.
                   </div>
                 )}
                 {installedRows.map((lib) => (
@@ -430,10 +435,7 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
                     versionChoice={lib.latestVersion}
                     onVersionChange={() => {}}
                     onInstall={() => {}}
-                    onRemove={() => {
-                      removeLib(lib.id);
-                      toast.success(`${lib.name} removed`);
-                    }}
+                    onRemove={() => void startRemove({ id: lib.id, name: lib.name })}
                   />
                 ))}
               </div>
