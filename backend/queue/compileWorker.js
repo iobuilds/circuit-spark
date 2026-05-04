@@ -102,12 +102,23 @@ compileQueue.process(config.MAX_CONCURRENT_JOBS, async (job) => {
       let result = await runCompile();
 
       const missingHeaders = missingHeadersFromCompilerOutput(`${result.stderr}\n${result.stdout}\n${JSON.stringify(result.errors || [])}`);
-      const retryLibs = resolveLibraryNames(resolveHeadersToLibraries(missingHeaders))
-        .filter(lib => !allLibs.some(existing => existing.split('@')[0].toLowerCase() === lib.split('@')[0].toLowerCase()));
+      const retryLibs = resolveLibraryNames(resolveHeadersToLibraries(missingHeaders));
       if (!result.success && retryLibs.length > 0) {
         await emit('install_libs', 75, `Auto-installing libraries for missing headers: ${retryLibs.join(', ')}`);
-        await compiler.installLibraries(retryLibs);
-        allLibs = [...allLibs, ...retryLibs];
+        try {
+          await compiler.installLibraries(retryLibs);
+        } catch (installErr) {
+          await emit('install_libs', 100, `Library auto-install failed ✗`);
+          return {
+            success: false, stdout: result.stdout || '', stderr: installErr.message,
+            errors: [{ file: 'libraries', line: 0, col: 0, message: installErr.message, severity: 'error' }],
+            warnings: result.warnings || [], binary: null, binaryType: null, binarySize: 0,
+            flashUsed: 0, flashTotal: 0, flashPercent: 0,
+            ramUsed: 0, ramTotal: 0, ramPercent: 0,
+            duration: Date.now() - startTime, fromCache: false,
+          };
+        }
+        allLibs = resolveLibraryNames([...allLibs, ...retryLibs]);
         await emit('compile', 85, 'Retrying compile with auto-installed libraries...');
         result = await runCompile();
       }
