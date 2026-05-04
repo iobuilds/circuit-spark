@@ -258,7 +258,7 @@ function RegistersTab({ sram }: { sram: Uint8Array }) {
           </div>
         ))}
       </div>
-    </ScrollArea>
+    </div>
   );
 }
 
