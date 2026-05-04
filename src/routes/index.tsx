@@ -504,10 +504,35 @@ function SimulatorPage() {
                 <PanelRightClose className="h-4 w-4" />
               </Button>
             </div>
-            <div className="flex-1 min-h-0 flex">
+            <div className="flex-1 min-h-0 flex relative">
               {showExplorer && <ProjectFileExplorer />}
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 relative">
                 <CodeEditor />
+                {/* Floating library actions — top-right of code editor */}
+                <div className="absolute top-2 right-3 z-10 flex items-center gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-7 px-2.5 shadow-md backdrop-blur-sm bg-card/90 hover:bg-card border border-border"
+                    onClick={() => setLibMgrOpen(true)}
+                    title="Manage libraries for this project"
+                  >
+                    <Library className="h-3.5 w-3.5 mr-1.5" />
+                    Libraries
+                  </Button>
+                  {isAdmin && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2.5 shadow-md backdrop-blur-sm bg-card/90"
+                      onClick={() => setInstallLibsOpen(true)}
+                      title="Install libraries on the compile server (admin)"
+                    >
+                      <Download className="h-3.5 w-3.5 mr-1.5" />
+                      Install
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
             {(compileOutput || compiling) && (
