@@ -377,6 +377,16 @@ function ComponentIcon({ kind }: { kind: ComponentKind }) {
           <line x1={18} y1={11} x2={18} y2={14} stroke="currentColor" strokeWidth={1.2} />
         </svg>
       );
+      );
+    case "water-level":
+      return (
+        <svg viewBox="0 0 36 36" className={cls}>
+          <path d="M14 4 H22 V14 H26 V32 H10 V14 H14 Z" fill="oklch(0.50 0.20 25)" stroke="currentColor" strokeWidth={0.6} />
+          <g stroke="oklch(0.92 0.04 25)" strokeWidth={0.7}>
+            {[12,15,18,21].map(x => <line key={x} x1={x} y1={18} x2={x} y2={30} />)}
+          </g>
+        </svg>
+      );
     default:
       return (
         <svg viewBox="0 0 36 36" className={cls}>
