@@ -62,6 +62,17 @@ export interface SimState {
   speed: number;
   compileLog: { kind: "info" | "warn" | "error"; text: string }[];
 
+  /** Per-board parsed flash image (Intel HEX → bytes), keyed by board component id. */
+  flashByBoard: Record<string, Uint8Array>;
+  /** Per-board EEPROM image (1 KB on ATmega328P). Updated by avr8js worker. */
+  eepromByBoard: Record<string, Uint8Array>;
+  /** Per-board live SRAM snapshot from avr8js (sampled by the worker). */
+  sramByBoard: Record<string, Uint8Array>;
+  /** Per-board emulator state — PC, SP, cycles. Updated by avr8js worker. */
+  cpuByBoard: Record<string, { pc: number; sp: number; cycles: number; sreg: number }>;
+  /** Whether avr8js mode is active for a given board (true after a successful compile). */
+  avrModeByBoard: Record<string, boolean>;
+
   // ui
   theme: "dark" | "light";
 
