@@ -285,8 +285,8 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
   }
 
   const statusLabel = useMemo(() => {
-    if (online === null) return "Connecting to Arduino library index…";
-    if (online) return "Live · Arduino library index";
+    if (online === null) return "Loading library index…";
+    if (online) return "Live · Arduino Library Manager";
     return "Offline · curated catalog";
   }, [online]);
 
