@@ -9,6 +9,16 @@ type WorkerOut =
   | { type: "stopped"; reason?: string }
   | { type: "serial"; text: string; kind: "out" | "sys" }
   | { type: "pin-states"; pins: Record<number, PinState>; ms: number }
+  | { type: "loaded"; flashSize: number }
+  | {
+      type: "snapshot";
+      pc: number;
+      sp: number;
+      cycles: number;
+      sreg: number;
+      sramSlice: Uint8Array;
+      eeprom: Uint8Array;
+    }
   | { type: "error"; message: string };
 
 /**
@@ -21,12 +31,18 @@ type WorkerOut =
 export function useSimController() {
   /** Map of boardComponentId → worker. */
   const workersRef = useRef<Map<string, Worker>>(new Map());
+  /** Boards whose active worker is the avr8js emulator (i.e. real .hex). */
+  const avrBoardsRef = useRef<Set<string>>(new Set());
   const setStatus = useSimStore((s) => s.setStatus);
   const setBoardStatus = useSimStore((s) => s.setBoardStatus);
   const appendSerial = useSimStore((s) => s.appendSerial);
   const setPinStates = useSimStore((s) => s.setPinStates);
   const setSimTime = useSimStore((s) => s.setSimTime);
   const setCompileLog = useSimStore((s) => s.setCompileLog);
+  const setBoardEeprom = useSimStore((s) => s.setBoardEeprom);
+  const setBoardSram = useSimStore((s) => s.setBoardSram);
+  const setBoardCpu = useSimStore((s) => s.setBoardCpu);
+  const setBoardAvrMode = useSimStore((s) => s.setBoardAvrMode);
 
   // Cleanup all workers on unmount.
   useEffect(() => {
@@ -37,10 +53,7 @@ export function useSimController() {
     };
   }, []);
 
-  function getOrCreate(boardId: string): Worker {
-    const existing = workersRef.current.get(boardId);
-    if (existing) return existing;
-    const w = new Worker(new URL("./sim.worker.ts", import.meta.url), { type: "module" });
+  function attachHandlers(boardId: string, w: Worker) {
     w.onmessage = (ev: MessageEvent<WorkerOut>) => {
       const m = ev.data;
       switch (m.type) {
@@ -67,13 +80,41 @@ export function useSimController() {
           setPinStates(m.pins, boardId);
           setSimTime(m.ms);
           break;
+        case "loaded":
+          appendSerial({ ts: Date.now(), text: `── avr8js loaded ${m.flashSize} bytes ──`, kind: "sys" }, boardId);
+          break;
+        case "snapshot":
+          setBoardSram(boardId, m.sramSlice);
+          setBoardEeprom(boardId, m.eeprom);
+          setBoardCpu(boardId, { pc: m.pc, sp: m.sp, cycles: m.cycles, sreg: m.sreg });
+          break;
         case "error":
           setBoardStatus(boardId, "error");
           appendSerial({ ts: Date.now(), text: `Runtime error: ${m.message}`, kind: "sys" }, boardId);
           break;
       }
     };
+  }
+
+  function getOrCreate(boardId: string): Worker {
+    const existing = workersRef.current.get(boardId);
+    if (existing) return existing;
+    const w = new Worker(new URL("./sim.worker.ts", import.meta.url), { type: "module" });
+    attachHandlers(boardId, w);
     workersRef.current.set(boardId, w);
+    avrBoardsRef.current.delete(boardId);
+    setBoardAvrMode(boardId, false);
+    return w;
+  }
+
+  function createAvrWorker(boardId: string): Worker {
+    const existing = workersRef.current.get(boardId);
+    if (existing) { existing.terminate(); workersRef.current.delete(boardId); }
+    const w = new Worker(new URL("./avr.worker.ts", import.meta.url), { type: "module" });
+    attachHandlers(boardId, w);
+    workersRef.current.set(boardId, w);
+    avrBoardsRef.current.add(boardId);
+    setBoardAvrMode(boardId, true);
     return w;
   }
 
@@ -96,6 +137,40 @@ export function useSimController() {
       getOrCreate(resolveBoardId(boardId)).postMessage({ type: "compile", code }),
     start: (code: string, speed: number, boardId?: string) => {
       const id = resolveBoardId(boardId);
+      const flash = useSimStore.getState().flashByBoard[id];
+      // If we have a compiled .hex for this board, run avr8js cycle-accurate
+      // emulation against the real binary. Otherwise fall back to the
+      // JS-translation runtime in sim.worker.ts.
+      if (flash && flash.length > 0) {
+        const w = createAvrWorker(id);
+        useSimStore.getState().setPinStates({}, id);
+        // Convert flash bytes back to a HEX-like base64 string is overkill —
+        // the worker accepts raw HEX OR base64 of HEX. We send the bytes via
+        // a special message and the worker rebuilds an in-memory image.
+        // Easiest: pass the bytes directly through the existing parser path
+        // by constructing a minimal HEX string in the worker. We instead
+        // forward the original base64 .hex stashed alongside flash.
+        const hex = useSimStore.getState().flashByBoard[id];
+        // Convert Uint8Array → ":" Intel HEX string in 16-byte rows.
+        let hexStr = "";
+        for (let a = 0; a < hex.length; a += 16) {
+          const len = Math.min(16, hex.length - a);
+          let sum = len + ((a >> 8) & 0xff) + (a & 0xff) + 0x00;
+          let line = `:${len.toString(16).padStart(2, "0").toUpperCase()}${a.toString(16).padStart(4, "0").toUpperCase()}00`;
+          for (let i = 0; i < len; i++) {
+            const b = hex[a + i];
+            line += b.toString(16).padStart(2, "0").toUpperCase();
+            sum += b;
+          }
+          const cs = ((-sum) & 0xff).toString(16).padStart(2, "0").toUpperCase();
+          hexStr += line + cs + "\n";
+        }
+        hexStr += ":00000001FF\n";
+        w.postMessage({ type: "load-hex", hex: hexStr });
+        w.postMessage({ type: "start", speed });
+        void code;
+        return;
+      }
       // Replace the worker on every start so a re-run picks up new code even
       // if the previous program is still in its loop. Otherwise sim.worker
       // sees `running=true` and only sets stopRequested without restarting.

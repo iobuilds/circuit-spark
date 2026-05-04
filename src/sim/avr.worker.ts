@@ -27,6 +27,7 @@ import {
   adcConfig,
   eepromConfig,
   PinState as AvrPinState,
+  avrInstruction,
 } from "avr8js";
 import { parseIntelHex } from "./intelHex";
 import { ARDUINO_TO_AVR } from "./atmega328p";
@@ -72,7 +73,15 @@ let lastSnapshot = 0;
 function loadHex(hex: string) {
   try {
     const parsed = parseIntelHex(hex);
-    cpu = new CPU(new Uint16Array(parsed.data.buffer.slice(0)));
+    // CPU expects a Uint16Array of program memory. Ensure even byte length.
+    const bytes = parsed.data.length % 2 === 0
+      ? parsed.data
+      : (() => { const b = new Uint8Array(parsed.data.length + 1); b.set(parsed.data); return b; })();
+    const program = new Uint16Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 2);
+    // Pad to 32KB (16384 words) so flash reads beyond program don't fail.
+    const flash = new Uint16Array(0x4000);
+    flash.set(program.slice(0, 0x4000));
+    cpu = new CPU(flash);
 
     portB = new AVRIOPort(cpu, portBConfig);
     portC = new AVRIOPort(cpu, portCConfig);
@@ -150,16 +159,8 @@ async function runLoop() {
     const target = cpu.cycles + chunk;
     try {
       while (cpu.cycles < target && !stopRequested && !paused) {
-        // avrInstruction is included via CPU.tick? In avr8js, you call
-        // avrInstruction(cpu) per step. But CPU also has a built-in `tick()`
-        // for peripherals after each instruction.
-        const { avrInstruction, avrInterrupt } = await import("avr8js");
         avrInstruction(cpu);
         cpu.tick();
-        // Check pending interrupts via cpu.nextInterrupt is internal; relies
-        // on AVR8js's built-in handling already in instruction()/tick().
-        void avrInterrupt;
-        // (Avoiding unused-var lint via the void above.)
       }
     } catch (e) {
       post({ type: "error", message: (e as Error).message });
