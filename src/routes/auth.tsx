@@ -16,6 +16,16 @@ type Notice =
   | { kind: "unverified"; email: string }
   | null;
 
+async function isAdminUser(userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("role", "admin")
+    .maybeSingle();
+  return !error && !!data;
+}
+
 function AuthPage() {
   const nav = useNavigate();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -24,9 +34,14 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
 
-  // If user is already signed in & verified, bounce to app.
+  async function goAfterAuth(userId: string) {
+    const admin = await isAdminUser(userId);
+    nav({ to: admin ? "/admin" : "/" });
+  }
+
+  // If user is already signed in & verified, bounce to the right place.
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(async ({ data }) => {
       const u = data.user;
       if (!u) return;
       const confirmed = (u as { email_confirmed_at?: string; confirmed_at?: string }).email_confirmed_at
@@ -34,10 +49,11 @@ function AuthPage() {
       if (u.email && !confirmed) {
         setNotice({ kind: "unverified", email: u.email });
       } else {
-        nav({ to: "/" });
+        await goAfterAuth(u.id);
       }
     });
-  }, [nav]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -68,7 +84,7 @@ function AuthPage() {
           setNotice({ kind: "unverified", email });
           return;
         }
-        nav({ to: "/" });
+        if (u) await goAfterAuth(u.id);
       }
     } catch (err) {
       toast.error((err as Error).message);
@@ -84,7 +100,8 @@ function AuthPage() {
     });
     if (result.error) { toast.error(String(result.error)); return; }
     if (result.redirected) return;
-    nav({ to: "/" });
+    const { data } = await supabase.auth.getUser();
+    if (data.user) await goAfterAuth(data.user.id);
   }
 
   async function resend() {
@@ -116,7 +133,7 @@ function AuthPage() {
         || (u as { email_confirmed_at?: string; confirmed_at?: string }).confirmed_at);
       if (u && confirmed) {
         toast.success("Email verified");
-        nav({ to: "/" });
+        await goAfterAuth(u.id);
       } else {
         toast.message("Still pending — please click the link in your email.");
       }
