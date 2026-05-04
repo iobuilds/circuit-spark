@@ -1069,6 +1069,45 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                 )}
               </div>
             )}
+            {sel?.kind === "button" && (
+              <div className="flex items-center gap-2 rounded-md border border-border bg-card/95 backdrop-blur px-2 py-1 text-xs shadow">
+                <span className="text-muted-foreground">Cap color</span>
+                <div className="flex items-center gap-1">
+                  {(["red", "green", "blue", "yellow", "white", "black", "orange"] as const).map((col) => {
+                    const sw: Record<string, string> = {
+                      red: "oklch(0.7 0.20 25)", green: "oklch(0.72 0.20 145)",
+                      blue: "oklch(0.7 0.20 245)", yellow: "oklch(0.85 0.18 90)",
+                      white: "oklch(0.95 0.01 0)", black: "oklch(0.25 0.01 0)",
+                      orange: "oklch(0.78 0.20 55)",
+                    };
+                    return (
+                      <button
+                        key={col}
+                        onClick={() => setComponentProp(selectedId, "color", col)}
+                        className={[
+                          "w-5 h-5 rounded-full border transition",
+                          String(sel.props.color || "red") === col ? "ring-2 ring-primary border-primary" : "border-border",
+                        ].join(" ")}
+                        style={{ background: sw[col] }}
+                        title={col}
+                      />
+                    );
+                  })}
+                </div>
+                <span className="text-muted-foreground ml-2">Size</span>
+                <input
+                  type="range"
+                  min={0.6}
+                  max={2}
+                  step={0.1}
+                  value={Number(sel.props.size ?? 1)}
+                  onChange={(e) => setComponentProp(selectedId, "size", Number(e.target.value))}
+                  className="w-20 accent-primary"
+                  title="Button size"
+                />
+                <span className="text-muted-foreground font-mono">{Number(sel.props.size ?? 1).toFixed(1)}×</span>
+              </div>
+            )}
             {sel?.kind === "battery" && (
               <div className="flex items-center gap-2 rounded-md border border-border bg-card/95 backdrop-blur px-2 py-1 text-xs shadow">
                 <span className="text-muted-foreground">Cells</span>

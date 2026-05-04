@@ -164,6 +164,7 @@ export const useSimStore = create<SimState>((set, get) => {
     const id = nid("c");
     const props: Record<string, number | string | boolean> = {};
     if (kind === "led") { props.color = "red"; props.size = 1; props.mode = "auto"; }
+    if (kind === "button") { props.color = "red"; props.size = 1; }
     if (kind === "resistor") { props.ohms = 330; }
     if (kind === "potentiometer") { props.value = 512; }
     if (kind === "battery") { props.cells = 1; }
