@@ -37,6 +37,7 @@ export function useSimController() {
   const setBoardStatus = useSimStore((s) => s.setBoardStatus);
   const appendSerial = useSimStore((s) => s.appendSerial);
   const setPinStates = useSimStore((s) => s.setPinStates);
+  const appendPinEvents = useSimStore((s) => s.appendPinEvents);
   const setSimTime = useSimStore((s) => s.setSimTime);
   const setCompileLog = useSimStore((s) => s.setCompileLog);
   const setBoardEeprom = useSimStore((s) => s.setBoardEeprom);
