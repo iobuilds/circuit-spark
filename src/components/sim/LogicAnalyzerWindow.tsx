@@ -359,24 +359,21 @@ export function LogicAnalyzerWindow({
         <div className="flex-1" />
         <div className="flex items-center gap-1 text-xs">
           <span className="text-muted-foreground">Span</span>
-          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setSpanMs((s) => Math.max(0.05, s / 2))}><ZoomIn className="h-3.5 w-3.5" /></Button>
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { ensurePausedCapture(); setSpanMs((s) => Math.max(MIN_SPAN_MS, s / 2)); }}><ZoomIn className="h-3.5 w-3.5" /></Button>
           <span className="font-mono w-16 text-center tabular-nums">
             {spanMs >= 1000 ? `${(spanMs / 1000).toFixed(2)}s` : spanMs >= 1 ? `${spanMs.toFixed(1)}ms` : `${(spanMs * 1000).toFixed(0)}µs`}
           </span>
-          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setSpanMs((s) => Math.min(60_000, s * 2))}><ZoomOut className="h-3.5 w-3.5" /></Button>
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { ensurePausedCapture(); setSpanMs((s) => Math.min(MAX_SPAN_MS, s * 2)); }}><ZoomOut className="h-3.5 w-3.5" /></Button>
         </div>
         <Button
           size="sm"
           variant={paused ? "default" : "outline"}
           className="h-7"
-          onClick={() => {
-            if (paused) { setPaused(false); setFrozenEnd(null); setPanMs(0); }
-            else { setPaused(true); setFrozenEnd(liveEnd); }
-          }}
+          onClick={togglePause}
         >
           {paused ? <><Play className="h-3 w-3 mr-1" />Run</> : <><Pause className="h-3 w-3 mr-1" />Pause</>}
         </Button>
-        <Button size="sm" variant="outline" className="h-7" onClick={() => { setPanMs(0); setFrozenEnd(null); }}>
+        <Button size="sm" variant="outline" className="h-7" onClick={resumeLive}>
           Live
         </Button>
         <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={onClose} title="Close">
@@ -410,7 +407,7 @@ export function LogicAnalyzerWindow({
               <option key={p} value={p}>{ARDUINO_PIN_LABELS[p] ?? `Pin ${p}`}</option>
             ))}
         </select>
-        <span className="text-muted-foreground ml-4">Tip: scroll to zoom · drag to pan · Shift+scroll to pan</span>
+        <span className="text-muted-foreground ml-4">Scroll or +/- freezes capture for zoom · drag waveform to pan · Live resumes realtime</span>
       </div>
 
       {/* Plot area */}
