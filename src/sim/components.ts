@@ -173,6 +173,14 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
     kind: "custom", label: "Custom", category: "Basic", width: 80, height: 60,
     pins: [], available: false,
   },
+  "water-level": {
+    kind: "water-level", label: "Water Level Sensor", category: "Sensors", width: 80, height: 200,
+    pins: [
+      { id: "S",   label: "Signal", x: 22, y: 4 },
+      { id: "VCC", label: "VCC",    x: 40, y: 4 },
+      { id: "GND", label: "GND",    x: 58, y: 4 },
+    ], available: true,
+  },
   // Board placeholder. Pins are resolved dynamically from the boardId stored
   // in component props (Uno uses uno-pins, others use generic header pins).
   board: {
