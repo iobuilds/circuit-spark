@@ -127,7 +127,10 @@ function loadHex(hex: string) {
      *  bytes are register writes (auto-incrementing pointer). */
     let twiTxBuf: number[] = [];
     twi.eventHandler = {
-      start: () => { twiTxBuf = []; },
+      start: () => {
+        twiTxBuf = [];
+        twi.completeStart();
+      },
       stop: () => {
         // Master STOP after a write transaction: commit the buffered bytes.
         if (twiSlaveAddr === DS3231_ADDR && twiSlaveWrite && twiTxBuf.length) {
@@ -135,6 +138,7 @@ function loadHex(hex: string) {
         }
         twiSlaveAddr = -1;
         twiTxBuf = [];
+        twi.completeStop();
       },
       connectToSlave: (addr, write) => {
         twiSlaveAddr = addr;
