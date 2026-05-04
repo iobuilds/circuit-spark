@@ -614,7 +614,13 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         onDragOver={onSvgDragOver}
         onDrop={onSvgDrop}
         onMouseMove={onMouseMove}
-        onMouseUp={() => { setDragId(null); setPanning(false); setWpDrag(null); }}
+        onMouseUp={(e) => {
+          setDragId(null);
+          setPanning(false);
+          setWpDrag(null);
+          // Click without movement → just select the wire
+          if (segPending) { setSelectedWireId(segPending.wireId); setSelected(null); setSegPending(null); }
+        }}
         onWheel={onWheel}
         onMouseDown={(e) => {
           // Only react to clicks on the empty SVG background.
