@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { X, GripVertical, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Wire, CircuitComponent, PinState } from "@/sim/types";
