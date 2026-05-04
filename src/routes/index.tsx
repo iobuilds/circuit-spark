@@ -190,10 +190,34 @@ function SimulatorPage() {
         );
       }
       setCompileProgress({ step: `Board ${i + 1}/${sketches.length} · ${s.displayName}`, percent: 0, message: `Compiling ${s.displayName}...` });
-      const result = await compileSketch(
+      let result = await compileSketch(
         { board: s.boardId, files: s.files, libraries: resolved.libraryIds },
         (p) => setCompileProgress({ ...p, step: `Board ${i + 1}/${sketches.length} · ${s.displayName}`, message: `[${s.displayName}] ${p.message ?? ""}` }),
       );
+
+      // Self-heal: if compile failed because a header file wasn't found, ask
+      // the backend to install the matching Library Manager package(s) and
+      // retry once. Covers cases where the backend cache thinks a library is
+      // installed but it isn't, or the user typed an #include for a library
+      // we know about but couldn't auto-resolve from the catalog.
+      if (!result.success) {
+        const missing = missingHeadersFromResult(result);
+        const packages = [...new Set(missing.map(packageForHeader).filter((p): p is string => !!p))];
+        if (packages.length > 0) {
+          toast.info(`Installing missing ${packages.length === 1 ? "library" : "libraries"}: ${packages.join(", ")}`);
+          try {
+            await Promise.all(packages.map((p) => installLibrary(p)));
+            setCompileProgress({ step: `Board ${i + 1}/${sketches.length} · ${s.displayName}`, percent: 0, message: `Retrying ${s.displayName}...` });
+            result = await compileSketch(
+              { board: s.boardId, files: s.files, libraries: [...resolved.libraryIds, ...packages] },
+              (p) => setCompileProgress({ ...p, step: `Board ${i + 1}/${sketches.length} · ${s.displayName}`, message: `[${s.displayName}] ${p.message ?? ""}` }),
+            );
+          } catch (e) {
+            console.warn("auto library install failed:", e);
+          }
+        }
+      }
+
       lastResult = result;
       if (!result.success) {
         allOk = false;
