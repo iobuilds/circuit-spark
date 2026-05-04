@@ -380,23 +380,40 @@ function ResistorSvg({ ohms }: { ohms: number }) {
   );
 }
 
-function ButtonSvg({ compId }: { compId: string }) {
-  // The button is interactive: while pressed it pulls its B pin to whatever its A pin is.
-  // Implementation detail: we mark "pressed" state on the component props.
+function ButtonSvg({ compId, color = "red", size = 1 }: { compId: string; color?: string; size?: number }) {
+  // 2-pin push button. Pressed = pins A and B shorted.
   const pressed = useSimStore((s) => Boolean(s.components.find((c) => c.id === compId)?.props.pressed));
   const setProp = useSimStore((s) => s.setComponentProp);
+  const colorMap: Record<string, { cap: string; capDark: string; ring: string }> = {
+    red:    { cap: "oklch(0.7 0.20 25)",  capDark: "oklch(0.55 0.18 25)",  ring: "oklch(0.3 0.10 25)" },
+    green:  { cap: "oklch(0.72 0.20 145)", capDark: "oklch(0.55 0.18 145)", ring: "oklch(0.3 0.10 145)" },
+    blue:   { cap: "oklch(0.7 0.20 245)",  capDark: "oklch(0.55 0.18 245)", ring: "oklch(0.3 0.10 245)" },
+    yellow: { cap: "oklch(0.85 0.18 90)",  capDark: "oklch(0.7 0.16 90)",   ring: "oklch(0.4 0.10 90)" },
+    white:  { cap: "oklch(0.95 0.01 0)",   capDark: "oklch(0.8 0.01 0)",    ring: "oklch(0.4 0 0)" },
+    black:  { cap: "oklch(0.25 0.01 0)",   capDark: "oklch(0.15 0.01 0)",   ring: "oklch(0.05 0 0)" },
+    orange: { cap: "oklch(0.78 0.20 55)",  capDark: "oklch(0.6 0.18 55)",   ring: "oklch(0.3 0.10 55)" },
+  };
+  const c = colorMap[color] ?? colorMap.red;
+  const s = Math.max(0.5, Math.min(2, size));
+  const cx = 35;
+  const cy = 35;
+  const baseR = 18 * s;
+  const capR = (pressed ? 12 : 14) * s;
   return (
     <g
       onMouseDown={(e) => { e.stopPropagation(); setProp(compId, "pressed", true); }}
       onMouseUp={() => setProp(compId, "pressed", false)}
       onMouseLeave={() => setProp(compId, "pressed", false)}
     >
-      <rect x={4} y={10} width={62} height={50} rx={6}
-        fill="oklch(0.32 0.02 250)" stroke="oklch(0.18 0.01 250)" />
-      <circle cx={35} cy={35} r={pressed ? 14 : 16}
-        fill={pressed ? "oklch(0.55 0.18 25)" : "oklch(0.7 0.20 25)"}
-        stroke="oklch(0.3 0.10 25)" />
-      <circle cx={31} cy={31} r={4} fill="oklch(1 0 0 / 0.3)" />
+      {/* Pin leads */}
+      <line x1={4} y1={35} x2={cx - baseR + 2} y2={35} stroke="oklch(0.7 0.02 250)" strokeWidth={2} />
+      <line x1={66} y1={35} x2={cx + baseR - 2} y2={35} stroke="oklch(0.7 0.02 250)" strokeWidth={2} />
+      {/* Body */}
+      <circle cx={cx} cy={cy} r={baseR} fill="oklch(0.32 0.02 250)" stroke="oklch(0.18 0.01 250)" />
+      <circle cx={cx} cy={cy} r={baseR - 3} fill="oklch(0.26 0.02 250)" />
+      {/* Cap */}
+      <circle cx={cx} cy={cy} r={capR} fill={pressed ? c.capDark : c.cap} stroke={c.ring} strokeWidth={1.2} />
+      <circle cx={cx - 3} cy={cy - 3} r={capR * 0.28} fill="oklch(1 0 0 / 0.35)" />
     </g>
   );
 }
