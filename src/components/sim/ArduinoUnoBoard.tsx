@@ -128,9 +128,36 @@ export function ArduinoUnoBoard({ x, y, highlightPin, onPinClick, onPinHover, on
         </g>
       )}
 
-      {/* Interactive pin hit-targets — colored by type to match the admin editor.
-          A small visible dot is drawn, with a larger transparent hit-circle on
-          top to keep wiring/clicking forgiving. */}
+      {/* ATmega328P IC click target. Opens the live register / memory inspector. */}
+      {onChipClick && (
+        <g
+          className="cursor-pointer group"
+          onMouseDown={(e) => { e.stopPropagation(); onChipClick(e); }}
+        >
+          <title>Inspect ATmega328P (registers, SRAM, flash, EEPROM)</title>
+          <rect
+            x={360} y={300}
+            width={240} height={120}
+            rx={8}
+            fill="transparent"
+            stroke="oklch(0.7 0.18 245 / 0)"
+            strokeWidth={2}
+            className="group-hover:stroke-[oklch(0.7_0.18_245_/_0.9)] transition-all"
+          />
+          <text
+            x={480} y={295}
+            textAnchor="middle"
+            fontSize={14}
+            fontWeight={700}
+            fill="oklch(0.7 0.18 245)"
+            className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+          >
+            🔍 Inspect MCU
+          </text>
+        </g>
+      )}
+
+
       {pins.map((pin) => {
         const isOutput = pin.number !== undefined && pinStates[pin.number]?.digital === 1;
         const isHi = highlightPin === pin.id;
