@@ -347,7 +347,29 @@ export const useSimStore = create<SimState>((set, get) => {
       ? { pinStatesByBoard: next, pinStates: p }
       : { pinStatesByBoard: next };
   }),
-  appendSerial: (line, boardId) => set((st) => {
+  appendPinEvents: (boardId, events) => {
+    if (!events.length) return;
+    const PER_PIN_LIMIT = 4096; // ring buffer cap per pin
+    set((st) => {
+      const prevForBoard = st.pinEventsByBoard[boardId] ?? {};
+      const nextForBoard: Record<number, PinEvent[]> = { ...prevForBoard };
+      // Group incoming events by pin to amortize array copies.
+      const byPin = new Map<number, PinEvent[]>();
+      for (const ev of events) {
+        const list = byPin.get(ev.pin);
+        if (list) list.push(ev); else byPin.set(ev.pin, [ev]);
+      }
+      for (const [pin, evs] of byPin) {
+        const merged = [...(nextForBoard[pin] ?? []), ...evs];
+        nextForBoard[pin] = merged.length > PER_PIN_LIMIT
+          ? merged.slice(merged.length - PER_PIN_LIMIT)
+          : merged;
+      }
+      return {
+        pinEventsByBoard: { ...st.pinEventsByBoard, [boardId]: nextForBoard },
+      };
+    });
+  },
     if (!boardId) return { serial: [...st.serial, line].slice(-500) };
     const prev = st.serialByBoard[boardId] ?? [];
     const updated = [...prev, line].slice(-500);
