@@ -185,9 +185,15 @@ function SimulatorPage() {
       // resolve them). New libs get added to the user's IDE library list.
       const resolved = resolveRequiredLibraries(s.files);
       if (resolved.added.length > 0) {
+        const names = resolved.added.map((a) => a.name).join(", ");
         toast.info(
-          `Installing ${resolved.added.length} required ${resolved.added.length === 1 ? "library" : "libraries"}: ${resolved.added.map((a) => a.name).join(", ")}`,
+          `Installing ${resolved.added.length} required ${resolved.added.length === 1 ? "library" : "libraries"}: ${names}`,
         );
+        setCompileProgress({
+          step: `Board ${i + 1}/${sketches.length} · ${s.displayName}`,
+          percent: 0,
+          message: `Auto-installing libraries: ${names}`,
+        });
       }
       setCompileProgress({ step: `Board ${i + 1}/${sketches.length} · ${s.displayName}`, percent: 0, message: `Compiling ${s.displayName}...` });
       let result = await compileSketch(
