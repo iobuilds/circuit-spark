@@ -184,15 +184,19 @@ function SimulatorPage() {
       // make sure they're installed (and shipped to the backend so it can
       // resolve them). New libs get added to the user's IDE library list.
       const resolved = resolveRequiredLibraries(s.files);
+      const stepLabel0 = `Board ${i + 1}/${sketches.length} · ${s.displayName}`;
       if (resolved.added.length > 0) {
+        const names = resolved.added.map((a) => a.name).join(", ");
         toast.info(
-          `Installing ${resolved.added.length} required ${resolved.added.length === 1 ? "library" : "libraries"}: ${resolved.added.map((a) => a.name).join(", ")}`,
+          `Installing ${resolved.added.length} required ${resolved.added.length === 1 ? "library" : "libraries"}: ${names}`,
         );
+        setCompileProgress({ step: stepLabel0, percent: 0, message: `Auto-installing libraries: ${names}` });
+        await new Promise((r) => setTimeout(r, 30));
       }
-      setCompileProgress({ step: `Board ${i + 1}/${sketches.length} · ${s.displayName}`, percent: 0, message: `Compiling ${s.displayName}...` });
+      setCompileProgress({ step: stepLabel0, percent: 0, message: `Compiling ${s.displayName}...` });
       let result = await compileSketch(
         { board: s.boardId, files: s.files, libraries: resolved.libraryIds },
-        (p) => setCompileProgress({ ...p, step: `Board ${i + 1}/${sketches.length} · ${s.displayName}`, message: `[${s.displayName}] ${p.message ?? ""}` }),
+        (p) => setCompileProgress({ ...p, step: stepLabel0, message: `[${s.displayName}] ${p.message ?? ""}` }),
       );
 
       // Self-heal: if compile failed because a header file wasn't found, ask
@@ -202,18 +206,30 @@ function SimulatorPage() {
       // we know about but couldn't auto-resolve from the catalog.
       if (!result.success) {
         const missing = missingHeadersFromResult(result);
+        const stepLabel = `Board ${i + 1}/${sketches.length} · ${s.displayName}`;
+        const tick = () => new Promise((r) => setTimeout(r, 30));
+        if (missing.length > 0) {
+          setCompileProgress({ step: stepLabel, percent: 70, message: `Missing headers detected: ${missing.join(", ")}` });
+          await tick();
+        }
         const packages = [...new Set(missing.map(packageForHeader).filter((p): p is string => !!p))];
         if (packages.length > 0) {
           toast.info(`Installing missing ${packages.length === 1 ? "library" : "libraries"}: ${packages.join(", ")}`);
+          setCompileProgress({ step: stepLabel, percent: 75, message: `Auto-installing libraries: ${packages.join(", ")}` });
+          await tick();
           try {
             await Promise.all(packages.map((p) => installLibrary(p)));
-            setCompileProgress({ step: `Board ${i + 1}/${sketches.length} · ${s.displayName}`, percent: 0, message: `Retrying ${s.displayName}...` });
+            setCompileProgress({ step: stepLabel, percent: 80, message: `Installed: ${packages.join(", ")} ✓` });
+            await tick();
+            setCompileProgress({ step: stepLabel, percent: 85, message: `Retrying compile for ${s.displayName}...` });
+            await tick();
             result = await compileSketch(
               { board: s.boardId, files: s.files, libraries: [...resolved.libraryIds, ...packages] },
-              (p) => setCompileProgress({ ...p, step: `Board ${i + 1}/${sketches.length} · ${s.displayName}`, message: `[${s.displayName}] ${p.message ?? ""}` }),
+              (p) => setCompileProgress({ ...p, step: stepLabel, message: `[${s.displayName}] ${p.message ?? ""}` }),
             );
           } catch (e) {
             console.warn("auto library install failed:", e);
+            setCompileProgress({ step: stepLabel, percent: 100, message: `Library install failed: ${(e as Error).message} ✗` });
           }
         }
       }
