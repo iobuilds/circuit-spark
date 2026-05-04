@@ -566,6 +566,10 @@ function SimulatorPage() {
       </div>
 
       <Toaster />
+      <LibraryManagerDialog open={libMgrOpen} onOpenChange={setLibMgrOpen} />
+      {isAdmin && (
+        <InstallLibrariesDialog open={installLibsOpen} onOpenChange={setInstallLibsOpen} />
+      )}
     </div>
   );
 }
