@@ -237,7 +237,7 @@ function SimulatorPage() {
             setCompileProgress({ step: stepLabel, percent: 85, message: `Retrying compile for ${s.displayName}...` });
             await tick();
             result = await compileSketch(
-              { board: s.boardId, files: s.files, libraries: [...resolved.libraryIds, ...packages] },
+              { board: s.boardId, files: s.files, libraries: [...new Set([...resolved.libraryIds, ...packages])] },
               (p) => setCompileProgress({ ...p, step: stepLabel, message: `[${s.displayName}] ${p.message ?? ""}` }),
             );
           } catch (e) {
