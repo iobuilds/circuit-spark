@@ -2,7 +2,7 @@ import {
   Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarSeparator,
   MenubarShortcut, MenubarSub, MenubarSubContent, MenubarSubTrigger, MenubarTrigger,
 } from "@/components/ui/menubar";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useIdeStore } from "@/sim/ideStore";
 import { useSimStore } from "@/sim/store";
 import { TEMPLATES } from "@/sim/templates";
