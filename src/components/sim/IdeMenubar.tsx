@@ -12,6 +12,7 @@ import { LibraryManagerDialog } from "./LibraryManagerDialog";
 import { InstallLibrariesDialog } from "./InstallLibrariesDialog";
 import { PreferencesDialog } from "./PreferencesDialog";
 import { FileManagerDialog } from "./FileManagerDialog";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { toast } from "sonner";
 
 interface Props {
