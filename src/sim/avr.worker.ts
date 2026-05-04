@@ -199,6 +199,13 @@ async function runLoop() {
       });
     }
 
+    // Flush serial buffer if it's been idle for a moment (sketches that
+    // print without trailing newline still appear in the monitor).
+    if (serialBuf && performance.now() - lastSerialFlush > 50) {
+      post({ type: "serial", text: serialBuf, kind: "out" });
+      serialBuf = "";
+    }
+
     // Yield so the worker stays responsive to messages.
     await new Promise((r) => setTimeout(r, 0));
   }
