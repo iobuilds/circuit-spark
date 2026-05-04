@@ -243,6 +243,7 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
         headers: result.headers ?? [],
         custom: true,
       });
+      await syncInstalledFromBackend(false);
       toast.success(`${result.name} installed from ZIP`);
     } catch (err) {
       clearInterval(tick);
@@ -350,8 +351,12 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
                 </span>
               )}
               <span className="mx-1">·</span>
-              <span>{installed.length} installed</span>
+              <span>{installed.length} installed on VPS</span>
               <div className="flex-1" />
+              <Button size="sm" variant="outline" onClick={() => syncInstalledFromBackend(true)} disabled={syncingInstalled}>
+                {syncingInstalled ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <PackageCheck className="h-3.5 w-3.5 mr-1.5" />}
+                Sync VPS
+              </Button>
               <input
                 ref={fileRef}
                 type="file"
@@ -379,8 +384,7 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
                     onRemove={() => {
                       const match = installed.find((l) => l.id === lib.id || l.name === lib.name);
                       if (match) {
-                        removeLib(match.id);
-                        toast.success(`${lib.name} removed`);
+                        void startRemove({ id: match.id, name: match.name ?? lib.name });
                       }
                     }}
                   />
