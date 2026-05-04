@@ -78,9 +78,8 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
   const [dragId, setDragId] = useState<string | null>(null);
   const [wpDrag, setWpDrag] = useState<{ wireId: string; idx: number } | null>(null);
-  /** Pending wire-segment drag: on plain click+drag the first move inserts a waypoint
-   *  and starts dragging it. On a click without movement, the wire is just selected. */
-  const [segPending, setSegPending] = useState<{ wireId: string; idx: number; sx: number; sy: number } | null>(null);
+  /** Dragging a wire segment moves that segment's existing bend handles.
+   *  New joints are only created by double-clicking a segment. */
   const [segDrag, setSegDrag] = useState<{
     wireId: string;
     idx: number;
