@@ -969,7 +969,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
             const segPts = [a, ...mids, b];
             const hasUserMids = userMids.length > 0;
             const isWireSel = selectedWireId === w.id;
-            const stroke = w.color || "var(--color-wire)";
+            const stroke = w.color || autoWireColor(w) || "var(--color-wire)";
             const sw = w.thickness ?? 7;
             return (
               <g key={w.id}>
