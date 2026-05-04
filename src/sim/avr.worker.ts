@@ -79,6 +79,13 @@ let serialBuf = "";
 let lastSerialFlush = 0;
 const ds3231 = createDs3231State();
 
+/** Rolling buffer of pin transitions captured since the last `pin-states`
+ *  emission. Populated by AVRIOPort.addListener hooks installed at load time.
+ *  `t` is in **virtual milliseconds** (cpu.cycles / F_CPU * 1000) so the
+ *  Signal Inspector can render real µs-resolution waveforms. */
+const pinEventBuf: { pin: number; t: number; d: 0 | 1 }[] = [];
+const lastPinLevel: Record<number, 0 | 1> = {};
+
 function loadHex(hex: string) {
   try {
     const parsed = parseIntelHex(hex);
