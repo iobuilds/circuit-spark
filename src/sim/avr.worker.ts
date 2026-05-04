@@ -415,6 +415,7 @@ async function runLoop() {
           bitmap, on: st.on, invert: st.invert, contrast: st.contrast,
         }, [bitmap.buffer]);
       }
+    }
 
     // Note: we deliberately do NOT idle-flush partial lines. Sketches that
     // print without trailing newlines still get their data delivered when
