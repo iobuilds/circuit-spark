@@ -133,7 +133,6 @@ function loadHex(hex: string) {
         // Master STOP after a write transaction: commit the buffered bytes.
         if (twiSlaveAddr === DS3231_ADDR && twiSlaveWrite && twiTxBuf.length) {
           handleI2cWrite(ds3231, twiTxBuf);
-          post({ type: "ds3231-update", regs: ds3231Snapshot(ds3231) });
         }
         twiSlaveAddr = -1;
         twiTxBuf = [];
