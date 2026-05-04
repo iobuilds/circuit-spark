@@ -127,15 +127,18 @@ function loadHex(hex: string) {
      *  bytes are register writes (auto-incrementing pointer). */
     let twiTxBuf: number[] = [];
     twi.eventHandler = {
-      start: () => {
+      start: (repeated) => {
         twiTxBuf = [];
+        // eslint-disable-next-line no-console
+        console.log("[twi] start repeated=", repeated);
         twi.completeStart();
       },
       stop: () => {
-        // Master STOP after a write transaction: commit the buffered bytes.
         if (twiSlaveAddr === DS3231_ADDR && twiSlaveWrite && twiTxBuf.length) {
           handleI2cWrite(ds3231, twiTxBuf);
         }
+        // eslint-disable-next-line no-console
+        console.log("[twi] stop addr=", twiSlaveAddr.toString(16), "buf=", twiTxBuf);
         twiSlaveAddr = -1;
         twiTxBuf = [];
         twi.completeStop();
@@ -144,22 +147,24 @@ function loadHex(hex: string) {
         twiSlaveAddr = addr;
         twiSlaveWrite = write;
         twiTxBuf = [];
-        // Always ACK addressing for our virtual slave.
+        // eslint-disable-next-line no-console
+        console.log("[twi] connect addr=0x" + addr.toString(16), "write=", write);
         twi.completeConnect(addr === DS3231_ADDR);
       },
       writeByte: (value) => {
         if (twiSlaveAddr === DS3231_ADDR) twiTxBuf.push(value & 0xff);
+        // eslint-disable-next-line no-console
+        console.log("[twi] write 0x" + value.toString(16));
         twi.completeWrite(twiSlaveAddr === DS3231_ADDR);
       },
       readByte: (ack) => {
+        let b = 0xff;
         if (twiSlaveAddr === DS3231_ADDR) {
-          const [b] = handleI2cRead(ds3231, 1);
-          twi.completeRead(b ?? 0xff);
-        } else {
-          twi.completeRead(0xff);
+          [b] = handleI2cRead(ds3231, 1);
         }
-        // ack is just an indication the master will ACK or NACK; nothing to do.
-        void ack;
+        // eslint-disable-next-line no-console
+        console.log("[twi] read -> 0x" + b.toString(16), "ack=", ack);
+        twi.completeRead(b);
       },
     };
 
