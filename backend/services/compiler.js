@@ -114,8 +114,23 @@ class CompilerService {
       return arr.some(l => (l.library?.name || '').toLowerCase() === target);
     } catch (e) {
       logger.warn(`verify lib list parse error: ${e.message}`);
-      return false;
     }
+
+    const sketchbookLibs = path.join(process.env.HOME || '/root', 'Arduino', 'libraries');
+    try {
+      const entries = await fs.readdir(sketchbookLibs, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const props = path.join(sketchbookLibs, entry.name, 'library.properties');
+        try {
+          const text = await fs.readFile(props, 'utf8');
+          const name = text.match(/^name=(.+)$/m)?.[1]?.trim().toLowerCase();
+          if (name === target) return true;
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    return false;
   }
 
   // Self-healing index refresh. arduino-cli sometimes returns non-zero when an
