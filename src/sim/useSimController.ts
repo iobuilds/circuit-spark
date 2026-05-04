@@ -19,6 +19,7 @@ type WorkerOut =
       sramSlice: Uint8Array;
       eeprom: Uint8Array;
     }
+  | { type: "oled-frame"; addr: number; w: number; h: number; bitmap: Uint8Array; on: boolean; invert: boolean; contrast: number }
   | { type: "error"; message: string };
 
 /**
@@ -89,6 +90,11 @@ export function useSimController() {
           setBoardSram(boardId, m.sramSlice);
           setBoardEeprom(boardId, m.eeprom);
           setBoardCpu(boardId, { pc: m.pc, sp: m.sp, cycles: m.cycles, sreg: m.sreg });
+          break;
+        case "oled-frame":
+          useSimStore.getState().setOledFrame(boardId, m.addr, {
+            w: m.w, h: m.h, bitmap: m.bitmap, on: m.on, invert: m.invert, contrast: m.contrast,
+          });
           break;
         case "error":
           setBoardStatus(boardId, "error");

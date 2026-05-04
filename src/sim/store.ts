@@ -78,6 +78,8 @@ export interface SimState {
   cpuByBoard: Record<string, { pc: number; sp: number; cycles: number; sreg: number }>;
   /** Whether avr8js mode is active for a given board (true after a successful compile). */
   avrModeByBoard: Record<string, boolean>;
+  /** Per-board OLED framebuffers, keyed by `${boardId}:${addr}`. */
+  oledFrames: Record<string, { w: number; h: number; bitmap: Uint8Array; on: boolean; invert: boolean; contrast: number; rev: number }>;
 
   // ui
   theme: "dark" | "light";
@@ -130,6 +132,7 @@ export interface SimState {
   setBoardAvrMode: (boardId: string, on: boolean) => void;
   setActiveSimBoard: (id: string | null) => void;
   setBoardStatus: (id: string, s: SimStatus) => void;
+  setOledFrame: (boardId: string, addr: number, frame: { w: number; h: number; bitmap: Uint8Array; on: boolean; invert: boolean; contrast: number }) => void;
 
   toggleTheme: () => void;
   resetWorkspace: () => void;
@@ -189,6 +192,7 @@ export const useSimStore = create<SimState>((set, get) => {
   sramByBoard: {},
   cpuByBoard: {},
   avrModeByBoard: {},
+  oledFrames: {},
 
   theme: "dark",
 
@@ -396,6 +400,11 @@ export const useSimStore = create<SimState>((set, get) => {
   setBoardSram: (boardId, sram) => set((st) => ({ sramByBoard: { ...st.sramByBoard, [boardId]: sram } })),
   setBoardCpu: (boardId, cpu) => set((st) => ({ cpuByBoard: { ...st.cpuByBoard, [boardId]: cpu } })),
   setBoardAvrMode: (boardId, on) => set((st) => ({ avrModeByBoard: { ...st.avrModeByBoard, [boardId]: on } })),
+  setOledFrame: (boardId, addr, frame) => set((st) => {
+    const key = `${boardId}:${addr}`;
+    const prev = st.oledFrames[key];
+    return { oledFrames: { ...st.oledFrames, [key]: { ...frame, rev: (prev?.rev ?? 0) + 1 } } };
+  }),
   setActiveSimBoard: (id) => set((st) => ({
     activeSimBoardId: id,
     serial: id ? (st.serialByBoard[id] ?? []) : [],

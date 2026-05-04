@@ -37,6 +37,15 @@ import {
   handleI2cRead,
   handleI2cWrite,
 } from "./ds3231";
+import {
+  createSsd1306State,
+  SSD1306_ADDRS,
+  SSD1306_W,
+  SSD1306_H,
+  ssd1306HandleI2cRead,
+  ssd1306HandleI2cWrite,
+  ssd1306Render,
+} from "./ssd1306";
 
 type InMsg =
   | { type: "load-hex"; hex: string }
@@ -55,6 +64,7 @@ type OutMsg =
   | { type: "serial"; text: string; kind: "out" | "sys" }
   | { type: "pin-states"; pins: Record<number, { mode: "INPUT" | "OUTPUT" | "INPUT_PULLUP"; digital: 0 | 1; analog: number }>; ms: number; events?: { pin: number; t: number; d: 0 | 1 }[] }
   | { type: "snapshot"; pc: number; sp: number; cycles: number; sreg: number; sramSlice: Uint8Array; eeprom: Uint8Array }
+  | { type: "oled-frame"; addr: number; w: number; h: number; bitmap: Uint8Array; on: boolean; invert: boolean; contrast: number }
   | { type: "error"; message: string };
 
 const post = (m: OutMsg, transfer?: Transferable[]) =>
@@ -78,6 +88,12 @@ let lastSnapshot = 0;
 let serialBuf = "";
 let lastSerialFlush = 0;
 const ds3231 = createDs3231State();
+// Map of I2C address → SSD1306 emulator. We allow both 0x3C and 0x3D so
+// sketches using either Adafruit_SSD1306 default work out of the box.
+const oleds = new Map<number, ReturnType<typeof createSsd1306State>>();
+for (const a of SSD1306_ADDRS) oleds.set(a, createSsd1306State());
+const lastOledDirty = new Map<number, number>();
+let lastOledEmit = 0;
 
 /** Rolling buffer of pin transitions captured since the last `pin-states`
  *  emission. Populated by AVRIOPort.addListener hooks installed at load time.
@@ -250,6 +266,8 @@ function loadHex(hex: string) {
      *  First byte is interpreted as the DS3231 register pointer; subsequent
      *  bytes are register writes (auto-incrementing pointer). */
     let twiTxBuf: number[] = [];
+    const isKnownSlave = (addr: number) =>
+      addr === DS3231_ADDR || oleds.has(addr);
     twi.eventHandler = {
       start: (repeated) => {
         twiTxBuf = [];
@@ -257,8 +275,12 @@ function loadHex(hex: string) {
         twi.completeStart();
       },
       stop: () => {
-        if (twiSlaveAddr === DS3231_ADDR && twiSlaveWrite && twiTxBuf.length) {
-          handleI2cWrite(ds3231, twiTxBuf);
+        if (twiSlaveWrite && twiTxBuf.length) {
+          if (twiSlaveAddr === DS3231_ADDR) {
+            handleI2cWrite(ds3231, twiTxBuf);
+          } else if (oleds.has(twiSlaveAddr)) {
+            ssd1306HandleI2cWrite(oleds.get(twiSlaveAddr)!, twiTxBuf);
+          }
         }
         emitStop();
         twiSlaveAddr = -1;
@@ -269,20 +291,23 @@ function loadHex(hex: string) {
         twiSlaveAddr = addr;
         twiSlaveWrite = write;
         twiTxBuf = [];
-        // Address byte: 7-bit addr << 1 | R/W. Slave ACKs if recognized.
+        const ack = isKnownSlave(addr);
         const addrByte = ((addr & 0x7f) << 1) | (write ? 0 : 1);
-        emitByte(addrByte, addr === DS3231_ADDR);
-        twi.completeConnect(addr === DS3231_ADDR);
+        emitByte(addrByte, ack);
+        twi.completeConnect(ack);
       },
       writeByte: (value) => {
-        if (twiSlaveAddr === DS3231_ADDR) twiTxBuf.push(value & 0xff);
-        emitByte(value & 0xff, twiSlaveAddr === DS3231_ADDR);
-        twi.completeWrite(twiSlaveAddr === DS3231_ADDR);
+        const ack = isKnownSlave(twiSlaveAddr);
+        if (ack) twiTxBuf.push(value & 0xff);
+        emitByte(value & 0xff, ack);
+        twi.completeWrite(ack);
       },
       readByte: (ack) => {
         let b = 0xff;
         if (twiSlaveAddr === DS3231_ADDR) {
           [b] = handleI2cRead(ds3231, 1);
+        } else if (oleds.has(twiSlaveAddr)) {
+          [b] = ssd1306HandleI2cRead(oleds.get(twiSlaveAddr)!, 1);
         }
         emitByte(b, ack);
         twi.completeRead(b);
@@ -377,6 +402,19 @@ async function runLoop() {
         sramSlice: sram,
         eeprom: ee,
       });
+    }
+    // OLED framebuffer: emit at ~30 Hz, only for displays that have changed.
+    if (now - lastOledEmit > 33) {
+      lastOledEmit = now;
+      for (const [addr, st] of oleds) {
+        if (st.dirty === lastOledDirty.get(addr)) continue;
+        lastOledDirty.set(addr, st.dirty);
+        const bitmap = ssd1306Render(st);
+        post({
+          type: "oled-frame", addr, w: SSD1306_W, h: SSD1306_H,
+          bitmap, on: st.on, invert: st.invert, contrast: st.contrast,
+        }, [bitmap.buffer]);
+      }
     }
 
     // Note: we deliberately do NOT idle-flush partial lines. Sketches that
