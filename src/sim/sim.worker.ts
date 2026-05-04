@@ -261,7 +261,10 @@ const __rt = {
     const prev = p.digital;
     p.digital = next;
     p.analog = next ? 1023 : 0;
-    if (prev !== next) maybeFireInterrupt(pin, prev, next);
+    if (prev !== next) {
+      pushPinEvent(pin, next);
+      maybeFireInterrupt(pin, prev, next);
+    }
     emitPins();
   },
   digitalRead: (pin: number): number => {
@@ -275,7 +278,10 @@ const __rt = {
     const next: 0 | 1 = v > 0 ? 1 : 0;
     const prev = p.digital;
     p.digital = next;
-    if (prev !== next) maybeFireInterrupt(pin, prev, next);
+    if (prev !== next) {
+      pushPinEvent(pin, next);
+      maybeFireInterrupt(pin, prev, next);
+    }
     emitPins();
   },
   analogRead: (pin: number): number => {
