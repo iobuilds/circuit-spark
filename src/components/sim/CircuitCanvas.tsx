@@ -244,6 +244,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   // Get all per-board pin states for cross-board propagation. We subscribe via
   // a selector so the effect re-runs when any board's pins change.
   const pinStatesByBoard = useSimStore((s) => s.pinStatesByBoard);
+  const pinEventsByBoard = useSimStore((s) => s.pinEventsByBoard);
 
   // Push input states (pot/button/sensors + cross-board GPIO) to each board's worker.
   useEffect(() => {
