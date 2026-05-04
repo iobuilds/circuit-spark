@@ -163,7 +163,24 @@ function SimulatorPage() {
         break;
       }
     }
-    if (allOk && lastResult) setCompileOutput(lastResult);
+    if (allOk && lastResult) {
+      setCompileOutput(lastResult);
+      // Parse the .hex from the last successful compile and stash flash bytes
+      // per board so the chip inspector can show real program contents.
+      try {
+        if (lastResult.binary) {
+          const { parseIntelHex } = await import("@/sim/intelHex");
+          const parsed = parseIntelHex(lastResult.binary);
+          const targetIds = onlyBoardCompIds && onlyBoardCompIds.length
+            ? onlyBoardCompIds
+            : useSimStore.getState().components.filter((c) => c.kind === "board").map((c) => c.id);
+          const setFlash = useSimStore.getState().setBoardFlash;
+          targetIds.forEach((id) => setFlash(id, parsed.data));
+        }
+      } catch (e) {
+        console.warn("HEX parse failed:", e);
+      }
+    }
     setCompiling(false);
     setCompileProgress(null);
     if (allOk && lastResult) {
