@@ -142,17 +142,10 @@ class CompilerService {
       // Retry once after a fresh index refresh — covers stale/missing index
       // files (the rp2040 warning the user is seeing) and transient network blips.
       if (result.code !== 0) {
-        const errText = (result.stderr + result.stdout).toLowerCase();
-        const recoverable =
-          errText.includes('index') ||
-          errText.includes('not found') ||
-          errText.includes('no such file') ||
-          errText.includes('temporary') ||
-          errText.includes('timeout') ||
-          errText.includes('network');
-        if (recoverable) {
+        const errText = result.stderr + result.stdout;
+        if (isRecoverableCliIssue(errText)) {
           logger.warn(`Install of ${lib} failed (${result.code}); refreshing index and retrying...`);
-          await this.updateIndex();
+          await this.repairCliIndexes();
           result = await tryInstall(lib);
         }
       }
@@ -169,11 +162,18 @@ class CompilerService {
         const verified = await this._verifyLibraryInstalled(lib);
         if (!verified) {
           logger.error(`Drift detected: ${lib} reported installed but not visible to arduino-cli`);
-          await libraryCache.invalidate();
-          failed.push({ lib, error: `install reported success but library not found by arduino-cli (drift); cache invalidated` });
+          await this.repairCliIndexes();
+          result = await tryInstall(lib);
+          const verifiedAfterRepair = result.code === 0 && await this._verifyLibraryInstalled(lib);
+          if (!verifiedAfterRepair) {
+            failed.push({ lib, error: `install reported success but library not found by arduino-cli after automatic index repair` });
+          } else {
+            logger.info(`Installed library after index repair: ${lib} (verified)`);
+            await libraryCache.markInstalled(baseLibraryName(lib));
+          }
         } else {
           logger.info(`Installed library: ${lib} (verified)`);
-          await libraryCache.markInstalled(lib);
+          await libraryCache.markInstalled(baseLibraryName(lib));
         }
       }
     }
