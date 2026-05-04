@@ -91,10 +91,10 @@ function loadHex(hex: string) {
 
     new AVRSPI(cpu, spiConfig, F_CPU);
     new AVRTWI(cpu, twiConfig, F_CPU);
-    new AVRADC(cpu, { ...adcConfig, mux: atmega328Channels });
+    new AVRADC(cpu, adcConfig);
 
     eepromBackend = new EEPROMMemoryBackend(1024);
-    new AVREEPROM(cpu, eepromConfig, eepromBackend);
+    new AVREEPROM(cpu, eepromBackend, eepromConfig);
 
     post({ type: "loaded", flashSize: parsed.size });
   } catch (e) {
