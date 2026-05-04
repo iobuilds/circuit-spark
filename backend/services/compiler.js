@@ -12,6 +12,13 @@ function baseLibraryName(name) {
   return String(name || '').split('@')[0].trim();
 }
 
+function normalizeCliLibraryList(parsed) {
+  if (Array.isArray(parsed)) return parsed;
+  if (Array.isArray(parsed?.installed_libraries)) return parsed.installed_libraries;
+  if (Array.isArray(parsed?.libraries)) return parsed.libraries;
+  return [];
+}
+
 function isRecoverableCliIssue(text) {
   const blob = String(text || '').toLowerCase();
   return blob.includes('index') ||
@@ -68,7 +75,7 @@ class CompilerService {
       proc.stdout.on('data', d => out += d);
       proc.on('close', async () => {
         try {
-          const installed = JSON.parse(out || '[]');
+          const installed = normalizeCliLibraryList(JSON.parse(out || '[]'));
           const installedNames = installed
             .map(l => l.library?.name)
             .filter(Boolean);
@@ -106,7 +113,7 @@ class CompilerService {
     const target = String(libName).split('@')[0].trim().toLowerCase();
     const res = await this._run(['lib', 'list', '--format', 'json'], { timeoutMs: 30000 });
     try {
-      const arr = JSON.parse(res.stdout || '[]');
+      const arr = normalizeCliLibraryList(JSON.parse(res.stdout || '[]'));
       if (arr.some(l => (l.library?.name || '').toLowerCase() === target)) return true;
     } catch (e) {
       logger.warn(`verify lib list parse error: ${e.message}`);
