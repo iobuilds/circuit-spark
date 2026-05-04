@@ -34,9 +34,9 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
   button: {
     kind: "button", label: "Push Button", category: "Basic", width: 70, height: 70,
     pins: [
-      { id: "A", label: "Pin A", x: 8, y: 35 },
-      { id: "B", label: "Pin B", x: 62, y: 35 },
-    ], available: false,
+      { id: "A", label: "Pin A", x: 4, y: 35 },
+      { id: "B", label: "Pin B", x: 66, y: 35 },
+    ], available: true,
   },
   potentiometer: {
     kind: "potentiometer", label: "Potentiometer", category: "Basic", width: 90, height: 90,
