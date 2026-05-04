@@ -86,6 +86,7 @@ export function SignalInspector({
 }: Props) {
   const [pos, setPos] = useState({ x: initialX, y: initialY });
   const dragRef = useRef<{ ox: number; oy: number; px: number; py: number } | null>(null);
+  const [maximized, setMaximized] = useState(false);
 
   // ── Logic-analyser controls ─────────────────────────────────────────
   const [edge, setEdge] = useState<TriggerEdge>("either");
