@@ -3,8 +3,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { useIdeStore } from "@/sim/ideStore";
+import { useSimStore } from "@/sim/store";
 import { HAS_BACKEND, API_BASE } from "@/sim/compileApi";
+import { toast } from "sonner";
 
 interface Props {
   open: boolean;
