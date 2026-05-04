@@ -162,9 +162,10 @@ export function SignalInspector({
     return pinEventsByBoard[sig.boardCompId]?.[sig.pinNum] ?? [];
   }, [pinEventsByBoard, sig.boardCompId, sig.pinNum]);
 
-  /** Most recent event timestamp seen so far (in virtual ms). Falls back to
-   *  the last event in the buffer to act as our "now" cursor. */
-  const tNow = allEvents.length ? allEvents[allEvents.length - 1].t : 0;
+  /** Live virtual sim time. Advances every snapshot from the worker so the
+   *  scope window keeps scrolling even when the inspected pin is idle. */
+  const simTimeMs = useSimStore((s) => s.simTimeMs);
+  const tNow = Math.max(simTimeMs, allEvents.length ? allEvents[allEvents.length - 1].t : 0);
 
   /** Find the most-recent edge that satisfies the trigger config. */
   const triggerT: number | null = useMemo(() => {
