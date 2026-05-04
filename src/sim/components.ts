@@ -71,14 +71,15 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
     ], available: false,
   },
   oled: {
-    kind: "oled", label: "OLED 0.96\" 128x64", category: "Displays", width: 140, height: 100,
+    kind: "oled", label: "OLED 0.96\" 128x64", category: "Displays", width: 140, height: 140,
     pins: [
       // Header at the bottom edge, matching common 4-pin I2C SSD1306 breakouts.
-      // Order on the board (left→right): GND, VCC, SCL, SDA.
-      { id: "GND", label: "GND", x: 49, y: 100 },
-      { id: "VCC", label: "VCC", x: 65, y: 100 },
-      { id: "SCL", label: "SCL", x: 81, y: 100 },
-      { id: "SDA", label: "SDA", x: 97, y: 100 },
+      // SVG art is 672×669; pins live near (185,616), (267,616), (349,616), (431,616)
+      // with screw header pad area. Mapped into 140×140 component coords below.
+      { id: "GND", label: "GND", x: 39, y: 134 },
+      { id: "VCC", label: "VCC", x: 56, y: 134 },
+      { id: "SCL", label: "SCL", x: 73, y: 134 },
+      { id: "SDA", label: "SDA", x: 90, y: 134 },
     ], available: true,
   },
   "7seg": {
