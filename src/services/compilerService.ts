@@ -167,6 +167,11 @@ export async function installLibrary(name: string, version?: string) {
   return r.json();
 }
 
+export async function uninstallLibrary(name: string) {
+  const r = await fetch(`${API_URL}/api/libraries/${encodeURIComponent(name)}`, { method: "DELETE" });
+  return r.json();
+}
+
 export interface InstallProgressEvent {
   type: "start" | "install_start" | "install_done" | "install_error" | "finish" | "result" | "fatal";
   name?: string;
