@@ -3,6 +3,7 @@ import type {
   BoardId,
   CircuitComponent,
   ComponentKind,
+  PinEvent,
   PinState,
   SerialLine,
   SimStatus,
