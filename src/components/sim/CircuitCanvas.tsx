@@ -432,10 +432,55 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
 
   function onWheel(e: React.WheelEvent) {
     e.preventDefault();
+    // Ctrl/Cmd+wheel OR plain wheel both zoom around the cursor (Tinkercad-style).
+    const svg = svgRef.current;
+    if (!svg) return;
+    const r = svg.getBoundingClientRect();
+    const mx = (e.clientX - r.left) / zoom - pan.x;
+    const my = (e.clientY - r.top) / zoom - pan.y;
     const delta = -e.deltaY * 0.0015;
-    // Lower bound effectively unlimited (0.05 = 5%). Upper bound stays at 4×.
-    setZoom((z) => Math.max(0.05, Math.min(4, z * (1 + delta))));
+    const nz = Math.max(0.05, Math.min(4, zoom * (1 + delta)));
+    // Keep the point under the cursor stationary in canvas space.
+    const npx = (e.clientX - r.left) / nz - mx;
+    const npy = (e.clientY - r.top) / nz - my;
+    setZoom(nz);
+    setPan({ x: npx, y: npy });
   }
+
+  // Hold Space to temporarily pan; +/- and 0 to zoom/reset (when not typing).
+  const [spaceHeld, setSpaceHeld] = useState(false);
+  useEffect(() => {
+    const isTyping = (t: EventTarget | null) => {
+      const el = t as HTMLElement | null;
+      const tag = el?.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || el?.isContentEditable;
+    };
+    const onDown = (e: KeyboardEvent) => {
+      if (isTyping(e.target)) return;
+      if (e.code === "Space") { e.preventDefault(); setSpaceHeld(true); return; }
+      if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+      if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        setZoom((z) => Math.min(4, +(z * 1.18).toFixed(3)));
+      } else if (e.key === "-" || e.key === "_") {
+        e.preventDefault();
+        setZoom((z) => Math.max(0.05, +(z * 0.85).toFixed(3)));
+      } else if (e.key === "0") {
+        e.preventDefault();
+        setZoom(1); setPan({ x: 0, y: 0 });
+      } else if (e.key === "f" || e.key === "F") {
+        e.preventDefault();
+        fitToScreen();
+      }
+    };
+    const onUp = (e: KeyboardEvent) => { if (e.code === "Space") setSpaceHeld(false); };
+    window.addEventListener("keydown", onDown);
+    window.addEventListener("keyup", onUp);
+    return () => {
+      window.removeEventListener("keydown", onDown);
+      window.removeEventListener("keyup", onUp);
+    };
+  }, []);
 
   /** Zoom-to-fit: center & scale all placed components into the viewport. */
   function fitToScreen() {
