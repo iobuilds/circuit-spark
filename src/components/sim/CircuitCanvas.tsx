@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { AddItemDialog } from "./AddItemDialog";
 import { SensorControlsPanel } from "./SensorControlsPanel";
 import { ChipInspectorDialog } from "./ChipInspectorDialog";
+import { SignalInspector } from "./SignalInspector";
 
 
 interface Props {
