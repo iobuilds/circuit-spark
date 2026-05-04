@@ -7,7 +7,7 @@ import { CircuitComponentNode } from "./CircuitComponentNode";
 import { findUnoPin, UNO_HEIGHT, UNO_WIDTH } from "@/sim/uno-pins";
 import { buildNetGraph, evaluateInputs, isLedPowered, isLedBurning, computeLoadVoltage } from "@/sim/netlist";
 import { toast } from "sonner";
-import type { BoardId, ComponentKind } from "@/sim/types";
+import type { BoardId, ComponentKind, Wire } from "@/sim/types";
 import { useAdminStore } from "@/sim/adminStore";
 import { useIdeStore } from "@/sim/ideStore";
 import { CornerDownLeft, Lock, Plus, Trash2, X, Undo2, Redo2, Wand2, Share2, Move, RotateCcw, Hand, MousePointer2, Cable } from "lucide-react";
