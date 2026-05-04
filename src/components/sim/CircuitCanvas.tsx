@@ -78,9 +78,15 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
   const [dragId, setDragId] = useState<string | null>(null);
   const [wpDrag, setWpDrag] = useState<{ wireId: string; idx: number } | null>(null);
-  /** Pending wire-segment drag: on plain click+drag the first move inserts a waypoint
-   *  and starts dragging it. On a click without movement, the wire is just selected. */
-  const [segPending, setSegPending] = useState<{ wireId: string; idx: number; sx: number; sy: number } | null>(null);
+  /** Dragging a wire segment moves that segment's existing bend handles.
+   *  New joints are only created by double-clicking a segment. */
+  const [segDrag, setSegDrag] = useState<{
+    wireId: string;
+    idx: number;
+    start: { x: number; y: number };
+    originalWaypoints: { x: number; y: number }[];
+    points: { x: number; y: number }[];
+  } | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -410,9 +416,30 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
       const snap = (n: number) => Math.round(n / 10) * 10;
       moveComponent(dragId, snap(p.x - dragOffset.x), snap(p.y - dragOffset.y));
     }
-    // Segment drag is intentionally disabled — users add joints via
-    // double-click only. Single click+drag on a segment is a no-op (just
-    // selects the wire) so existing wires don't accumulate stray joints.
+    if (segDrag && !locked) {
+      const snap = (n: number) => Math.round(n / 5) * 5;
+      const dx = snap(p.x - segDrag.start.x);
+      const dy = snap(p.y - segDrag.start.y);
+      const next = segDrag.originalWaypoints.map((pt) => ({ ...pt }));
+      const prevAnchor = segDrag.idx === 0 ? segDrag.points[0] : next[segDrag.idx - 1];
+      const nextAnchor = segDrag.idx === next.length ? segDrag.points[segDrag.points.length - 1] : next[segDrag.idx];
+      if (prevAnchor && nextAnchor) {
+        const horizontal = Math.abs(nextAnchor.x - prevAnchor.x) >= Math.abs(nextAnchor.y - prevAnchor.y);
+        if (segDrag.idx > 0) {
+          next[segDrag.idx - 1] = horizontal
+            ? { ...next[segDrag.idx - 1], y: snap(next[segDrag.idx - 1].y + dy) }
+            : { ...next[segDrag.idx - 1], x: snap(next[segDrag.idx - 1].x + dx) };
+        }
+        if (segDrag.idx < next.length) {
+          next[segDrag.idx] = horizontal
+            ? { ...next[segDrag.idx], y: snap(next[segDrag.idx].y + dy) }
+            : { ...next[segDrag.idx], x: snap(next[segDrag.idx].x + dx) };
+        }
+        useSimStore.setState((st) => ({
+          wires: st.wires.map((w) => (w.id === segDrag.wireId ? { ...w, waypoints: next } : w)),
+        }));
+      }
+    }
     if (wpDrag && !locked) {
       const snap = (n: number) => Math.round(n / 5) * 5;
       updateWireWaypoint(wpDrag.wireId, wpDrag.idx, { x: snap(p.x), y: snap(p.y) });
@@ -690,8 +717,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
           setDragId(null);
           setPanning(false);
           setWpDrag(null);
-          // Click without movement → just select the wire
-          if (segPending) { setSelectedWireId(segPending.wireId); setSelected(null); setSegPending(null); }
+          setSegDrag(null);
         }}
         onWheel={onWheel}
         onMouseDown={(e) => {
@@ -928,11 +954,25 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                       fill="none"
                       className="cursor-pointer"
                       onMouseDown={(e) => {
+                        if (locked) return;
                         if (e.button === 2) { e.preventDefault(); removeWire(w.id); return; }
                         if (e.button !== 0) return;
                         e.stopPropagation();
                         setSelectedWireId(w.id);
                         setSelected(null);
+                        pushWireHistory();
+                        if (!hasUserMids) {
+                          useSimStore.setState((st) => ({
+                            wires: st.wires.map((ww) => ww.id === w.id ? { ...ww, waypoints: mids.map((m) => ({ ...m })) } : ww),
+                          }));
+                        }
+                        setSegDrag({
+                          wireId: w.id,
+                          idx: i,
+                          start: clientToSvg(e),
+                          originalWaypoints: mids.map((m) => ({ ...m })),
+                          points: segPts.map((m) => ({ ...m })),
+                        });
                       }}
                       onDoubleClick={(e) => {
                         if (locked) return;
