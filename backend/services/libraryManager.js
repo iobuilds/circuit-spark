@@ -150,6 +150,8 @@ module.exports = {
     onProgress?.({ type: 'finish', total, message: 'All done' });
     return { success: results.every((r) => r.ok), results };
   },
+
+  async installFromZip(zipPath) {
     return new Promise((resolve, reject) => {
       logger.info(`Installing library from zip: ${zipPath}`);
       const proc = spawn(config.ARDUINO_CLI_PATH, ['lib', 'install', '--zip-path', zipPath]);
