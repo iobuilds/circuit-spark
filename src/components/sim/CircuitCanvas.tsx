@@ -968,15 +968,8 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                         if (locked) {
                           if (e.button !== 0) return;
                           e.stopPropagation();
-                          const p = clientToSvg(e);
-                          // Anchor the panel near the click in screen space.
-                          const rect = svgRef.current?.getBoundingClientRect();
-                          const sx = (rect?.left ?? 0) + (e.clientX - (rect?.left ?? 0));
-                          const sy = (rect?.top ?? 0) + (e.clientY - (rect?.top ?? 0));
-                          setInspector({ wireId: w.id, x: sx + 12, y: sy + 12 });
+                          setInspector({ wireId: w.id, x: e.clientX + 12, y: e.clientY + 12 });
                           setSelectedWireId(w.id);
-                          // Suppress unused-var lint for `p`
-                          void p;
                           return;
                         }
                         if (e.button === 2) { e.preventDefault(); removeWire(w.id); return; }
