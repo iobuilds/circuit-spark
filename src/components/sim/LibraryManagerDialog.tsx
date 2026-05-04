@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CheckCircle2, ExternalLink, Library, Loader2, Trash2, Upload, Wifi, WifiOff, PackageCheck, FolderOpen } from "lucide-react";
 import { LIBRARY_PACKAGES } from "@/sim/ideCatalog";
 import { ProjectLibrariesTab } from "./ProjectLibrariesTab";
-import { useIdeStore } from "@/sim/ideStore";
+import { useIdeStore, type InstalledLibrary } from "@/sim/ideStore";
 import { uploadZipLibrary } from "@/sim/compileApi";
 import { getInstalledLibraries, installLibrary, uninstallLibrary } from "@/services/compilerService";
 import {
@@ -87,6 +87,7 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
   const installed = useIdeStore((s) => s.installedLibraries);
   const installLib = useIdeStore((s) => s.installLibrary);
   const removeLib = useIdeStore((s) => s.removeLibrary);
+  const setInstalledLibraries = useIdeStore((s) => s.setInstalledLibraries);
   const hydrate = useIdeStore((s) => s.hydrate);
   const loaded = useIdeStore((s) => s.loaded);
 
@@ -98,6 +99,7 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
   const [type, setType] = useState<string>("All");
   const [results, setResults] = useState<ArduinoLibraryEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [syncingInstalled, setSyncingInstalled] = useState(false);
   const [online, setOnline] = useState<boolean | null>(null); // null = unknown, true = live, false = fallback
   const [total, setTotal] = useState<number | null>(null);
   const [progress, setProgress] = useState<Record<string, number>>({});
