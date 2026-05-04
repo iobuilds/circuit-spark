@@ -116,7 +116,50 @@ function loadHex(hex: string) {
     };
 
     new AVRSPI(cpu, spiConfig, F_CPU);
-    new AVRTWI(cpu, twiConfig, F_CPU);
+
+    // I2C / TWI: bridge the AVR TWI peripheral to our DS3231 emulator so
+    // sketches reading 0x68 see real BCD time fields instead of 0xFF garbage.
+    const twi = new AVRTWI(cpu, twiConfig, F_CPU);
+    let twiSlaveAddr = -1;
+    let twiSlaveWrite = false;
+    /** Bytes written by the master in the current transaction.
+     *  First byte is interpreted as the DS3231 register pointer; subsequent
+     *  bytes are register writes (auto-incrementing pointer). */
+    let twiTxBuf: number[] = [];
+    twi.eventHandler = {
+      start: () => { twiTxBuf = []; },
+      stop: () => {
+        // Master STOP after a write transaction: commit the buffered bytes.
+        if (twiSlaveAddr === DS3231_ADDR && twiSlaveWrite && twiTxBuf.length) {
+          handleI2cWrite(ds3231, twiTxBuf);
+          post({ type: "ds3231-update", regs: ds3231Snapshot(ds3231) });
+        }
+        twiSlaveAddr = -1;
+        twiTxBuf = [];
+      },
+      connectToSlave: (addr, write) => {
+        twiSlaveAddr = addr;
+        twiSlaveWrite = write;
+        twiTxBuf = [];
+        // Always ACK addressing for our virtual slave.
+        twi.completeConnect(addr === DS3231_ADDR);
+      },
+      writeByte: (value) => {
+        if (twiSlaveAddr === DS3231_ADDR) twiTxBuf.push(value & 0xff);
+        twi.completeWrite(twiSlaveAddr === DS3231_ADDR);
+      },
+      readByte: (ack) => {
+        if (twiSlaveAddr === DS3231_ADDR) {
+          const [b] = handleI2cRead(ds3231, 1);
+          twi.completeRead(b ?? 0xff);
+        } else {
+          twi.completeRead(0xff);
+        }
+        // ack is just an indication the master will ACK or NACK; nothing to do.
+        void ack;
+      },
+    };
+
     new AVRADC(cpu, adcConfig);
 
     eepromBackend = new EEPROMMemoryBackend(1024);
