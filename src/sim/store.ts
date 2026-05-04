@@ -132,6 +132,7 @@ export interface SimState {
   setBoardAvrMode: (boardId: string, on: boolean) => void;
   setActiveSimBoard: (id: string | null) => void;
   setBoardStatus: (id: string, s: SimStatus) => void;
+  setOledFrame: (boardId: string, addr: number, frame: { w: number; h: number; bitmap: Uint8Array; on: boolean; invert: boolean; contrast: number }) => void;
 
   toggleTheme: () => void;
   resetWorkspace: () => void;
