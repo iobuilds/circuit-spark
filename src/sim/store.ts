@@ -195,6 +195,8 @@ export const useSimStore = create<SimState>((set, get) => {
     if (kind === "potentiometer") { props.value = 512; }
     if (kind === "battery") { props.cells = 1; }
     if (kind === "motor") { props.propColor = "blue"; }
+    if (kind === "dht11") { props.temperature = 25; props.humidity = 60; }
+    if (kind === "water-level") { props.level = 0; }
     if (kind === "custom" && customId) { props.customId = customId; }
     if (kind === "board") {
       // customId is reused as the BoardId for boards (e.g. "uno", "mega").
