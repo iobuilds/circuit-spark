@@ -11,7 +11,7 @@ import { CompileOutputPanel } from "@/components/sim/CompileOutputPanel";
 import { PinStateTable } from "@/components/sim/PinStateTable";
 import { BoardSimTabs } from "@/components/sim/BoardSimTabs";
 import { Button } from "@/components/ui/button";
-import { Code2, FileText, FolderTree, PanelRightClose, PanelRightOpen, LogOut, PanelBottomClose, PanelBottomOpen, Trash2 } from "lucide-react";
+import { Code2, FileText, FolderTree, PanelRightClose, PanelRightOpen, LogOut, PanelBottomClose, PanelBottomOpen, Trash2, Library, Download } from "lucide-react";
 import { useSimController } from "@/sim/useSimController";
 import { useSimStore } from "@/sim/store";
 import { useIdeStore, type SourceFile } from "@/sim/ideStore";
@@ -19,6 +19,9 @@ import { compileSketch, type CompileResult, type CompileProgress } from "@/sim/c
 import { resolveRequiredLibraries } from "@/sim/autoInstallLibs";
 import { LIBRARY_PACKAGES } from "@/sim/ideCatalog";
 import { installLibrary } from "@/services/compilerService";
+import { LibraryManagerDialog } from "@/components/sim/LibraryManagerDialog";
+import { InstallLibrariesDialog } from "@/components/sim/InstallLibrariesDialog";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { toast } from "sonner";
 
 // Map a missing-header filename like "U8g2lib.h" to the Arduino Library
@@ -112,6 +115,9 @@ function SimulatorPage() {
   const [showEditor, setShowEditor] = useState(true);
   const [showExplorer, setShowExplorer] = useState(true);
   const [showBottomPanels, setShowBottomPanels] = useState(true);
+  const [libMgrOpen, setLibMgrOpen] = useState(false);
+  const [installLibsOpen, setInstallLibsOpen] = useState(false);
+  const { isAdmin } = useIsAdmin();
   const inputCacheRef = useRef<Record<number, { d?: 0 | 1; a?: number }>>({});
 
   useEffect(() => { if (!ideLoaded) ideHydrate(); }, [ideLoaded, ideHydrate]);
@@ -250,13 +256,20 @@ function SimulatorPage() {
         const stillMissing = missingHeadersFromResult(result);
         const stillPackages = [...new Set(stillMissing.map(packageForHeader).filter((p): p is string => !!p))];
         if (stillPackages.length > 0) {
-          toast.error(`${s.displayName}: missing ${stillPackages.join(", ")}`, {
-            action: {
-              label: "Install",
-              onClick: () =>
-                window.dispatchEvent(new CustomEvent("ide:install-libraries", { detail: { names: stillPackages } })),
-            },
-          });
+          toast.error(
+            `${s.displayName}: missing ${stillPackages.join(", ")}`,
+            isAdmin
+              ? {
+                  action: {
+                    label: "Install",
+                    onClick: () =>
+                      window.dispatchEvent(
+                        new CustomEvent("ide:install-libraries", { detail: { names: stillPackages } }),
+                      ),
+                  },
+                }
+              : { description: "Ask an administrator to install these libraries on the server." },
+          );
         } else {
           toast.error(`${s.displayName}: ${result.errors[0]?.message ?? "compile failed"}`);
         }
@@ -498,10 +511,35 @@ function SimulatorPage() {
                 <PanelRightClose className="h-4 w-4" />
               </Button>
             </div>
-            <div className="flex-1 min-h-0 flex">
+            <div className="flex-1 min-h-0 flex relative">
               {showExplorer && <ProjectFileExplorer />}
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 relative">
                 <CodeEditor />
+                {/* Floating library actions — top-right of code editor */}
+                <div className="absolute top-2 right-3 z-10 flex items-center gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-7 px-2.5 shadow-md backdrop-blur-sm bg-card/90 hover:bg-card border border-border"
+                    onClick={() => setLibMgrOpen(true)}
+                    title="Manage libraries for this project"
+                  >
+                    <Library className="h-3.5 w-3.5 mr-1.5" />
+                    Libraries
+                  </Button>
+                  {isAdmin && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2.5 shadow-md backdrop-blur-sm bg-card/90"
+                      onClick={() => setInstallLibsOpen(true)}
+                      title="Install libraries on the compile server (admin)"
+                    >
+                      <Download className="h-3.5 w-3.5 mr-1.5" />
+                      Install
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
             {(compileOutput || compiling) && (
@@ -535,6 +573,10 @@ function SimulatorPage() {
       </div>
 
       <Toaster />
+      <LibraryManagerDialog open={libMgrOpen} onOpenChange={setLibMgrOpen} />
+      {isAdmin && (
+        <InstallLibrariesDialog open={installLibsOpen} onOpenChange={setInstallLibsOpen} />
+      )}
     </div>
   );
 }

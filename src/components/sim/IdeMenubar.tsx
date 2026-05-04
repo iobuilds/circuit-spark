@@ -12,6 +12,7 @@ import { LibraryManagerDialog } from "./LibraryManagerDialog";
 import { InstallLibrariesDialog } from "./InstallLibrariesDialog";
 import { PreferencesDialog } from "./PreferencesDialog";
 import { FileManagerDialog } from "./FileManagerDialog";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { toast } from "sonner";
 
 interface Props {
@@ -27,6 +28,7 @@ export function IdeMenubar({ onCompile, onUpload }: Props) {
   const [prefsOpen, setPrefsOpen] = useState(false);
   const [fileMgrOpen, setFileMgrOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const { isAdmin } = useIsAdmin();
 
   const addFile = useIdeStore((s) => s.addFile);
   const importFile = useIdeStore((s) => s.importFile);
@@ -44,13 +46,17 @@ export function IdeMenubar({ onCompile, onUpload }: Props) {
   //   window.dispatchEvent(new CustomEvent("ide:install-libraries", { detail: { names: ["U8g2"] } }))
   useEffect(() => {
     const handler = (e: Event) => {
+      if (!isAdmin) {
+        toast.error("Library install is restricted to administrators");
+        return;
+      }
       const detail = (e as CustomEvent<{ names?: string[] }>).detail;
       setInstallPrefill(Array.isArray(detail?.names) ? detail!.names! : []);
       setInstallOpen(true);
     };
     window.addEventListener("ide:install-libraries", handler);
     return () => window.removeEventListener("ide:install-libraries", handler);
-  }, []);
+  }, [isAdmin]);
 
   function handleNewSketch() {
     addFile(`sketch_${Date.now().toString(36)}.ino`, "ino", "void setup() {\n\n}\n\nvoid loop() {\n\n}\n");
@@ -194,9 +200,11 @@ export function IdeMenubar({ onCompile, onUpload }: Props) {
           <MenubarContent>
             <MenubarItem onClick={() => setBoardMgrOpen(true)}>Board: Boards Manager...</MenubarItem>
             <MenubarItem onClick={() => setLibMgrOpen(true)}>Manage Libraries...</MenubarItem>
-            <MenubarItem onClick={() => { setInstallPrefill([]); setInstallOpen(true); }}>
-              Install Libraries (server)...
-            </MenubarItem>
+            {isAdmin && (
+              <MenubarItem onClick={() => { setInstallPrefill([]); setInstallOpen(true); }}>
+                Install Libraries (server)...
+              </MenubarItem>
+            )}
             <MenubarSeparator />
             <MenubarItem onClick={() => window.dispatchEvent(new CustomEvent("ide:open-serial"))}>
               Serial Monitor
