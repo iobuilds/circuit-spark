@@ -1,5 +1,6 @@
 const { spawn } = require('child_process');
 const path = require('path');
+const fs = require('fs/promises');
 const boardsConfig = require('../config/boards');
 const fileManager = require('./fileManager');
 const errorParser = require('../utils/errorParser');
@@ -181,6 +182,16 @@ class CompilerService {
       const msg = failed.map(f => `${f.lib}: ${f.error}`).join('; ');
       throw new Error(`Library install failed — ${msg}`);
     }
+  }
+
+  async repairCliIndexes() {
+    const arduinoHome = path.join(process.env.HOME || '/root', '.arduino15');
+    const staleIndexes = ['package_rp2040_index.json', 'package_rp2040_index.json.sig'];
+    for (const file of staleIndexes) {
+      try { await fs.rm(path.join(arduinoHome, file), { force: true }); } catch (_) {}
+    }
+    await libraryCache.invalidate();
+    await this.updateIndex();
   }
 
   async compile({ workDir, board, jobId, onOutput }) {
