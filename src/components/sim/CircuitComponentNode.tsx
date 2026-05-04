@@ -205,6 +205,16 @@ export function CircuitComponentNode({ comp, isPowered, voltage = 0, reversed = 
       )}
 
       {comp.kind === "ds3231" && <Ds3231Svg />}
+      {comp.kind === "dht11" && (
+        <Dht11Svg
+          temperature={Number(comp.props.temperature ?? 25)}
+          humidity={Number(comp.props.humidity ?? 60)}
+          powered={isPowered}
+        />
+      )}
+      {comp.kind === "water-level" && (
+        <WaterLevelSvg level={Math.max(0, Math.min(1023, Number(comp.props.level ?? 0)))} />
+      )}
 
       {/* Custom component visual: inline the admin SVG markup. */}
       {comp.kind === "custom" && (
