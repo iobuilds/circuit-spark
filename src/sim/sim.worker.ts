@@ -518,6 +518,7 @@ self.addEventListener("message", (ev: MessageEvent<InMsg>) => {
       if (msg.analog !== undefined) p.analog = msg.analog;
       // Reads only mean something on input pins; but ISRs fire on edges.
       if (msg.digital !== undefined && prev !== msg.digital) {
+        pushPinEvent(msg.pin, msg.digital);
         maybeFireInterrupt(msg.pin, prev, msg.digital);
       }
       break;
