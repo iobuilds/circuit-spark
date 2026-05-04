@@ -69,6 +69,8 @@ let stopRequested = false;
 let speed = 1;
 let lastPinEmit = 0;
 let lastSnapshot = 0;
+let serialBuf = "";
+let lastSerialFlush = 0;
 
 function loadHex(hex: string) {
   try {
