@@ -428,8 +428,12 @@ export function SignalInspector({
                 : `${stats.duty.toFixed(0)}% duty · ${stats.edges} edges`}
             </span>
           </div>
-          {/* Digital trace */}
-          <div className="rounded border border-border/60 bg-background/60 px-1 py-1">
+          {/* Digital trace — click to open full Logic Analyzer */}
+          <div
+            className="rounded border border-border/60 bg-background/60 px-1 py-1 cursor-zoom-in hover:border-primary/60 transition-colors"
+            onClick={() => setMaximized(true)}
+            title="Click to open full Logic Analyzer"
+          >
             <div className="flex items-center gap-1">
               <span className="font-mono text-[9px] w-5 text-success">D</span>
               <svg width={plotW} height={plotH} className="block">
