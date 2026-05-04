@@ -832,11 +832,17 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
               const sy = (b.y + pin.y + pan.y) * zoom;
               setHovered({ id: pin.id, label: pin.label, kind: pin.kind, number: pin.number, sx, sy, boardCompId: b.id });
             };
+            const isBoardLocked = !!b.props.locked;
+            const showLock = hoveredBoardId === b.id || isBoardLocked;
+            const bw = bid === "uno" ? UNO_WIDTH : 360;
             return (
               <g
                 key={b.id}
+                onMouseEnter={() => setHoveredBoardId(b.id)}
+                onMouseLeave={() => setHoveredBoardId((cur) => (cur === b.id ? null : cur))}
                 onMouseDown={(e) => {
                   if (locked) return;
+                  if (isBoardLocked) return;
                   if (e.button !== 0) return;
                   e.stopPropagation();
                   setSelected(b.id);
@@ -846,7 +852,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                   // Make this board the active simulation target.
                   setBoard(bid);
                 }}
-                style={{ cursor: locked ? "default" : "grab" }}
+                style={{ cursor: locked ? "default" : isBoardLocked ? "not-allowed" : "grab" }}
               >
                 {/* Invisible hit target rendered BEFORE the board art so clicks anywhere on
                     the board reliably select/drag it. Pins (rendered after) stay on top. */}
