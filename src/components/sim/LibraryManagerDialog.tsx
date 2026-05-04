@@ -84,7 +84,7 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
 
   useEffect(() => { if (!loaded) hydrate(); }, [loaded, hydrate]);
 
-  const [tab, setTab] = useState<"all" | "installed">("all");
+  const [tab, setTab] = useState<"all" | "installed" | "project">("all");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("All");
   const [type, setType] = useState<string>("All");
