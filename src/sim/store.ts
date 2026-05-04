@@ -418,10 +418,20 @@ export const useSimStore = create<SimState>((set, get) => {
         ]
       : p.components;
 
+    // Auto-space components against the user's preferred minimum gap so
+    // example projects always render with clean separation regardless of
+    // the source coordinates.
+    let gap = 60;
+    try {
+      const mod = (globalThis as unknown as { __ideMinSpacing?: number });
+      if (typeof mod.__ideMinSpacing === "number") gap = mod.__ideMinSpacing;
+    } catch { /* fall back */ }
+    const spaced = autoSpaceComponents(components, gap);
+
     // Reset multi-board runtime state so old data doesn't leak between projects.
     set({
       code: p.code,
-      components,
+      components: spaced,
       wires: p.wires,
       boardId: p.boardId,
       selectedId: null,
