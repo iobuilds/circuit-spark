@@ -1,8 +1,38 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSimStore } from "@/sim/store";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, XCircle, Loader2, AlertTriangle } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, AlertTriangle, Package, Download } from "lucide-react";
+
+interface LogEntry {
+  ts: number;
+  step: string;
+  message: string;
+  kind: "info" | "install" | "header" | "retry" | "success" | "error";
+}
+
+function classifyProgress(step: string, message: string): LogEntry["kind"] {
+  const m = (message || "").toLowerCase();
+  const s = (step || "").toLowerCase();
+  if (s.includes("install") || m.includes("installing") || m.includes("auto-install")) return "install";
+  if (m.includes("missing header") || m.includes("no such file")) return "header";
+  if (m.includes("retry")) return "retry";
+  if (m.includes("✓") || m.includes("success")) return "success";
+  if (m.includes("✗") || m.includes("fail")) return "error";
+  return "info";
+}
+
+// Pull library names out of messages like:
+//   "Auto-installing libraries for missing headers: U8g2, Adafruit GFX Library"
+//   "Installing 2 missing libraries: U8g2, Adafruit BusIO"
+function extractLibsFromMessage(message: string): string[] {
+  const m = message.match(/libraries?[^:]*:\s*(.+)$/i);
+  if (!m) return [];
+  return m[1]
+    .split(/[,;]/)
+    .map((s) => s.trim().replace(/[.✓✗]+$/, ""))
+    .filter(Boolean);
+}
 
 export interface CompileOutput {
   success: boolean;
