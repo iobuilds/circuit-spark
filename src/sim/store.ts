@@ -343,6 +343,11 @@ export const useSimStore = create<SimState>((set, get) => {
   setSimTime: (ms) => set({ simTimeMs: ms }),
   setSpeed: (n) => set({ speed: n }),
   setCompileLog: (l) => set({ compileLog: l }),
+  setBoardFlash: (boardId, flash) => set((st) => ({ flashByBoard: { ...st.flashByBoard, [boardId]: flash } })),
+  setBoardEeprom: (boardId, ee) => set((st) => ({ eepromByBoard: { ...st.eepromByBoard, [boardId]: ee } })),
+  setBoardSram: (boardId, sram) => set((st) => ({ sramByBoard: { ...st.sramByBoard, [boardId]: sram } })),
+  setBoardCpu: (boardId, cpu) => set((st) => ({ cpuByBoard: { ...st.cpuByBoard, [boardId]: cpu } })),
+  setBoardAvrMode: (boardId, on) => set((st) => ({ avrModeByBoard: { ...st.avrModeByBoard, [boardId]: on } })),
   setActiveSimBoard: (id) => set((st) => ({
     activeSimBoardId: id,
     serial: id ? (st.serialByBoard[id] ?? []) : [],
