@@ -944,6 +944,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
               onSelect={() => setSelected(c.id)}
               onDragStart={(e) => {
                 if (locked) return;
+                if (c.props.locked) return;
                 const p = clientToSvg(e);
                 setDragId(c.id);
                 setDragOffset({ x: p.x - c.x, y: p.y - c.y });
