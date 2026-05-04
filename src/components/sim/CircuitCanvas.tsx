@@ -709,6 +709,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                     highlightPin={drawingFrom?.componentId === b.id ? drawingFrom.pinId : undefined}
                     onPinClick={(pinId) => handleBoardPinClick(b.id, pinId)}
                     onPinHover={hoverHandler}
+                    onChipClick={() => setChipInspectorBoardId(b.id)}
                   />
                 ) : (
                   <GenericBoard
