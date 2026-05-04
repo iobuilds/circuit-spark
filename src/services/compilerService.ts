@@ -167,6 +167,74 @@ export async function installLibrary(name: string, version?: string) {
   return r.json();
 }
 
+export interface InstallProgressEvent {
+  type: "start" | "install_start" | "install_done" | "install_error" | "finish" | "result" | "fatal";
+  name?: string;
+  index?: number;
+  total?: number;
+  message?: string;
+  error?: string;
+  success?: boolean;
+  results?: { name: string; ok: boolean; error?: string }[];
+}
+
+export async function installLibrariesBatch(names: string[]) {
+  const r = await fetch(`${API_URL}/api/libraries/install-batch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ names }),
+  });
+  return r.json() as Promise<{ success: boolean; results: { name: string; ok: boolean; error?: string }[] }>;
+}
+
+/**
+ * Streaming variant — calls onEvent for every progress step delivered by the
+ * backend (Server-Sent Events). Resolves with the final `result` event.
+ */
+export async function installLibrariesStream(
+  names: string[],
+  onEvent: (e: InstallProgressEvent) => void,
+  signal?: AbortSignal,
+): Promise<InstallProgressEvent | null> {
+  const res = await fetch(`${API_URL}/api/libraries/install-batch/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+    body: JSON.stringify({ names }),
+    signal,
+  });
+  if (!res.ok || !res.body) {
+    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+    onEvent({ type: "fatal", error: err.error || `HTTP ${res.status}` });
+    return null;
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let final: InstallProgressEvent | null = null;
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() ?? "";
+    for (const part of parts) {
+      const line = part.split("\n").find((l) => l.startsWith("data: "));
+      if (!line) continue;
+      try {
+        const evt = JSON.parse(line.slice(6)) as InstallProgressEvent;
+        onEvent(evt);
+        if (evt.type === "result" || evt.type === "fatal") final = evt;
+      } catch { /* ignore malformed */ }
+    }
+  }
+  return final;
+}
+
+export async function repairLibraryIndexes() {
+  const r = await fetch(`${API_URL}/api/libraries/repair`, { method: "POST" });
+  return r.json();
+}
+
 export async function uploadZipLibrary(file: File) {
   const form = new FormData();
   form.append("zipfile", file);

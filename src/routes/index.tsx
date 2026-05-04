@@ -245,7 +245,21 @@ function SimulatorPage() {
       if (!result.success) {
         allOk = false;
         setCompileOutput(result);
-        toast.error(`${s.displayName}: ${result.errors[0]?.message ?? "compile failed"}`);
+        // If the failure was caused by missing headers, surface a toast with
+        // an action that opens the Install Libraries dialog pre-filled.
+        const stillMissing = missingHeadersFromResult(result);
+        const stillPackages = [...new Set(stillMissing.map(packageForHeader).filter((p): p is string => !!p))];
+        if (stillPackages.length > 0) {
+          toast.error(`${s.displayName}: missing ${stillPackages.join(", ")}`, {
+            action: {
+              label: "Install",
+              onClick: () =>
+                window.dispatchEvent(new CustomEvent("ide:install-libraries", { detail: { names: stillPackages } })),
+            },
+          });
+        } else {
+          toast.error(`${s.displayName}: ${result.errors[0]?.message ?? "compile failed"}`);
+        }
         break;
       }
     }

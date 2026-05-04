@@ -37,7 +37,15 @@ async function repairCliIndexes() {
   await runCli(['lib', 'update-index']);
 }
 
+// Public wrapper so routes can trigger the index repair.
+async function repair() {
+  await repairCliIndexes();
+  return { success: true };
+}
+
 module.exports = {
+  repair,
+
   async search(query, topic) {
     return new Promise((resolve) => {
       const args = ['lib', 'search', query, '--format', 'json'];
@@ -109,6 +117,38 @@ module.exports = {
 
     await libraryCache.markInstalled(baseLibraryName(name));
     return { success: true, name, version };
+  },
+
+  /**
+   * Install many libraries sequentially. Calls onProgress(event) after every
+   * step so an SSE/WebSocket layer can stream progress to the UI.
+   * Resolves with { success, results: [{ name, ok, error? }, ...] }.
+   *
+   * @param {string[]} names
+   * @param {(e:{type:string,name?:string,index?:number,total?:number,message?:string,error?:string})=>void} [onProgress]
+   */
+  async installBatch(names, onProgress) {
+    const list = (Array.isArray(names) ? names : [])
+      .map((n) => String(n || '').trim())
+      .filter(Boolean);
+    const total = list.length;
+    const results = [];
+    onProgress?.({ type: 'start', total });
+    for (let i = 0; i < list.length; i++) {
+      const name = list[i];
+      const [base, version] = name.split('@');
+      onProgress?.({ type: 'install_start', name: base, index: i, total, message: `Installing ${name}...` });
+      try {
+        await this.install(base, version);
+        results.push({ name: base, ok: true });
+        onProgress?.({ type: 'install_done', name: base, index: i, total, message: `Installed ${base} ✓` });
+      } catch (e) {
+        results.push({ name: base, ok: false, error: e.message });
+        onProgress?.({ type: 'install_error', name: base, index: i, total, error: e.message, message: `Failed: ${base} — ${e.message}` });
+      }
+    }
+    onProgress?.({ type: 'finish', total, message: 'All done' });
+    return { success: results.every((r) => r.ok), results };
   },
 
   async installFromZip(zipPath) {

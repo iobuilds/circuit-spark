@@ -2,13 +2,14 @@ import {
   Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarSeparator,
   MenubarShortcut, MenubarSub, MenubarSubContent, MenubarSubTrigger, MenubarTrigger,
 } from "@/components/ui/menubar";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useIdeStore } from "@/sim/ideStore";
 import { useSimStore } from "@/sim/store";
 import { TEMPLATES } from "@/sim/templates";
 import { LIBRARY_PACKAGES } from "@/sim/ideCatalog";
 import { BoardManagerDialog } from "./BoardManagerDialog";
 import { LibraryManagerDialog } from "./LibraryManagerDialog";
+import { InstallLibrariesDialog } from "./InstallLibrariesDialog";
 import { PreferencesDialog } from "./PreferencesDialog";
 import { FileManagerDialog } from "./FileManagerDialog";
 import { toast } from "sonner";
@@ -21,6 +22,8 @@ interface Props {
 export function IdeMenubar({ onCompile, onUpload }: Props) {
   const [boardMgrOpen, setBoardMgrOpen] = useState(false);
   const [libMgrOpen, setLibMgrOpen] = useState(false);
+  const [installOpen, setInstallOpen] = useState(false);
+  const [installPrefill, setInstallPrefill] = useState<string[]>([]);
   const [prefsOpen, setPrefsOpen] = useState(false);
   const [fileMgrOpen, setFileMgrOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -35,6 +38,19 @@ export function IdeMenubar({ onCompile, onUpload }: Props) {
   const components = useSimStore((s) => s.components);
   const wires = useSimStore((s) => s.wires);
   const boardId = useSimStore((s) => s.boardId);
+
+  // Allow other parts of the app (e.g. compile-failure handler) to open the
+  // install dialog pre-filled with library names via a custom DOM event:
+  //   window.dispatchEvent(new CustomEvent("ide:install-libraries", { detail: { names: ["U8g2"] } }))
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ names?: string[] }>).detail;
+      setInstallPrefill(Array.isArray(detail?.names) ? detail!.names! : []);
+      setInstallOpen(true);
+    };
+    window.addEventListener("ide:install-libraries", handler);
+    return () => window.removeEventListener("ide:install-libraries", handler);
+  }, []);
 
   function handleNewSketch() {
     addFile(`sketch_${Date.now().toString(36)}.ino`, "ino", "void setup() {\n\n}\n\nvoid loop() {\n\n}\n");
@@ -178,6 +194,9 @@ export function IdeMenubar({ onCompile, onUpload }: Props) {
           <MenubarContent>
             <MenubarItem onClick={() => setBoardMgrOpen(true)}>Board: Boards Manager...</MenubarItem>
             <MenubarItem onClick={() => setLibMgrOpen(true)}>Manage Libraries...</MenubarItem>
+            <MenubarItem onClick={() => { setInstallPrefill([]); setInstallOpen(true); }}>
+              Install Libraries (server)...
+            </MenubarItem>
             <MenubarSeparator />
             <MenubarItem onClick={() => window.dispatchEvent(new CustomEvent("ide:open-serial"))}>
               Serial Monitor
@@ -208,6 +227,11 @@ export function IdeMenubar({ onCompile, onUpload }: Props) {
 
       <BoardManagerDialog open={boardMgrOpen} onOpenChange={setBoardMgrOpen} />
       <LibraryManagerDialog open={libMgrOpen} onOpenChange={setLibMgrOpen} />
+      <InstallLibrariesDialog
+        open={installOpen}
+        onOpenChange={(v) => { setInstallOpen(v); if (!v) setInstallPrefill([]); }}
+        initialNames={installPrefill}
+      />
       <PreferencesDialog open={prefsOpen} onOpenChange={setPrefsOpen} />
       <FileManagerDialog open={fileMgrOpen} onOpenChange={setFileMgrOpen} />
     </>
