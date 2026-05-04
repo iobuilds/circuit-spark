@@ -292,13 +292,16 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as "all" | "installed")} className="flex-1 flex flex-col min-h-0">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "all" | "installed" | "project")} className="flex-1 flex flex-col min-h-0">
           <div className="px-6 pt-3 border-b">
             <TabsList>
               <TabsTrigger value="all">All Libraries</TabsTrigger>
               <TabsTrigger value="installed" className="gap-1.5">
                 <PackageCheck className="h-3.5 w-3.5" /> Installed
                 <Badge variant="secondary" className="ml-1 text-[10px]">{installed.length}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="project" className="gap-1.5">
+                <FolderOpen className="h-3.5 w-3.5" /> This Project
               </TabsTrigger>
             </TabsList>
           </div>
