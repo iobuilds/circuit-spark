@@ -2,6 +2,40 @@ const { spawn } = require('child_process');
 const config = require('../config');
 const logger = require('../utils/logger');
 const fs = require('fs');
+const fsp = require('fs/promises');
+const path = require('path');
+const libraryCache = require('./libraryCache');
+
+function baseLibraryName(name) {
+  return String(name || '').split('@')[0].trim();
+}
+
+function isRecoverableCliIssue(text) {
+  const blob = String(text || '').toLowerCase();
+  return blob.includes('index') || blob.includes('no such file') || blob.includes('not found') || blob.includes('initializing instance');
+}
+
+function runCli(args, timeoutMs = 180000) {
+  return new Promise((resolve) => {
+    const proc = spawn(config.ARDUINO_CLI_PATH, args, { env: { ...process.env, HOME: process.env.HOME || '/root' } });
+    let stdout = '', stderr = '';
+    const timer = setTimeout(() => { try { proc.kill('SIGKILL'); } catch (_) {} }, timeoutMs);
+    proc.stdout.on('data', d => stdout += d.toString());
+    proc.stderr.on('data', d => stderr += d.toString());
+    proc.on('close', (code) => { clearTimeout(timer); resolve({ code: code ?? -1, stdout, stderr }); });
+    proc.on('error', (e) => { clearTimeout(timer); resolve({ code: -1, stdout: '', stderr: e.message }); });
+  });
+}
+
+async function repairCliIndexes() {
+  const arduinoHome = path.join(process.env.HOME || '/root', '.arduino15');
+  for (const file of ['package_rp2040_index.json', 'package_rp2040_index.json.sig']) {
+    try { await fsp.rm(path.join(arduinoHome, file), { force: true }); } catch (_) {}
+  }
+  await libraryCache.invalidate();
+  await runCli(['core', 'update-index']);
+  await runCli(['lib', 'update-index']);
+}
 
 module.exports = {
   async search(query, topic) {
