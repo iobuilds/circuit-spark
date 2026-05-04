@@ -158,6 +158,91 @@ function loadHex(hex: string) {
 
     // I2C / TWI: bridge the AVR TWI peripheral to our DS3231 emulator so
     // sketches reading 0x68 see real BCD time fields instead of 0xFF garbage.
+    //
+    // The avr8js TWI peripheral handles I2C entirely through the TWCR/TWDR
+    // registers — it does NOT toggle PC4/PC5 (A4/A5 = SDA/SCL) via AVRIOPort.
+    // That means our port-level edge logger never sees any I2C activity, and
+    // the Signal Inspector shows a flat HIGH line. To make the logic-analyzer
+    // useful we synthesize realistic I2C waveforms here: each TWI event
+    // (START / STOP / connect / write / read) emits the corresponding
+    // sequence of SDA + SCL bit transitions at standard-mode timing
+    // (100 kHz → 10 µs per bit). The events are pushed straight into
+    // pinEventBuf so the inspector renders true bit-banged waveforms.
+    const SDA_PIN = 18; // PC4 / A4
+    const SCL_PIN = 19; // PC5 / A5
+    const I2C_BIT_US = 10; // 100 kHz standard mode (10 µs / bit)
+    /** Cursor in virtual µs for the next I2C bit edge. Always advanced past
+     *  cpu.cycles so successive transactions don't overlap. */
+    let i2cCursorUs = 0;
+    /** Last emitted level on each line (start both HIGH = bus idle). */
+    let sdaLast: 0 | 1 = 1;
+    let sclLast: 0 | 1 = 1;
+    lastPinLevel[SDA_PIN] = 1;
+    lastPinLevel[SCL_PIN] = 1;
+    const nowUs = () => (cpu ? (cpu.cycles / F_CPU) * 1e6 : 0);
+    const emitI2c = (pin: number, tUs: number, d: 0 | 1) => {
+      const tMs = tUs / 1000;
+      pinEventBuf.push({ pin, t: tMs, d });
+      lastPinLevel[pin] = d;
+      if (pinEventBuf.length > 8192) pinEventBuf.splice(0, pinEventBuf.length - 8192);
+    };
+    const setSda = (d: 0 | 1, tUs: number) => {
+      if (sdaLast === d) return;
+      sdaLast = d;
+      emitI2c(SDA_PIN, tUs, d);
+    };
+    const setScl = (d: 0 | 1, tUs: number) => {
+      if (sclLast === d) return;
+      sclLast = d;
+      emitI2c(SCL_PIN, tUs, d);
+    };
+    const advance = () => {
+      i2cCursorUs = Math.max(i2cCursorUs + I2C_BIT_US, nowUs());
+    };
+    const startCursor = () => {
+      i2cCursorUs = Math.max(i2cCursorUs, nowUs());
+    };
+    /** Emit a single I2C byte (8 data bits MSB-first + 1 ACK bit). SCL pulses
+     *  for each bit; SDA is set during the SCL-low half then sampled on rise. */
+    const emitByte = (value: number, ack: boolean) => {
+      for (let i = 7; i >= 0; i--) {
+        const bit = ((value >> i) & 1) as 0 | 1;
+        // SCL low → set SDA
+        setScl(0, i2cCursorUs);
+        setSda(bit, i2cCursorUs + 1);
+        advance();
+        // SCL high (data sampled by slave)
+        setScl(1, i2cCursorUs);
+        advance();
+      }
+      // ACK / NACK bit (master or slave drives SDA low for ACK).
+      setScl(0, i2cCursorUs);
+      setSda(ack ? 0 : 1, i2cCursorUs + 1);
+      advance();
+      setScl(1, i2cCursorUs);
+      advance();
+    };
+    const emitStart = (repeated: boolean) => {
+      startCursor();
+      if (repeated) {
+        // Repeated START: SCL high, SDA falls.
+        setScl(1, i2cCursorUs); advance();
+        setSda(1, i2cCursorUs); advance();
+        setSda(0, i2cCursorUs); advance();
+      } else {
+        // Bus idle (both high), then SDA falls while SCL high.
+        setSda(1, i2cCursorUs); setScl(1, i2cCursorUs); advance();
+        setSda(0, i2cCursorUs); advance();
+      }
+      setScl(0, i2cCursorUs); advance();
+    };
+    const emitStop = () => {
+      startCursor();
+      setScl(0, i2cCursorUs); setSda(0, i2cCursorUs + 1); advance();
+      setScl(1, i2cCursorUs); advance();
+      setSda(1, i2cCursorUs); advance(); // STOP: SDA rises while SCL high
+    };
+
     const twi = new AVRTWI(cpu, twiConfig, F_CPU);
     let twiSlaveAddr = -1;
     let twiSlaveWrite = false;
@@ -168,16 +253,14 @@ function loadHex(hex: string) {
     twi.eventHandler = {
       start: (repeated) => {
         twiTxBuf = [];
-        // eslint-disable-next-line no-console
-        console.log("[twi] start repeated=", repeated);
+        emitStart(repeated);
         twi.completeStart();
       },
       stop: () => {
         if (twiSlaveAddr === DS3231_ADDR && twiSlaveWrite && twiTxBuf.length) {
           handleI2cWrite(ds3231, twiTxBuf);
         }
-        // eslint-disable-next-line no-console
-        console.log("[twi] stop addr=", twiSlaveAddr.toString(16), "buf=", twiTxBuf);
+        emitStop();
         twiSlaveAddr = -1;
         twiTxBuf = [];
         twi.completeStop();
@@ -186,14 +269,14 @@ function loadHex(hex: string) {
         twiSlaveAddr = addr;
         twiSlaveWrite = write;
         twiTxBuf = [];
-        // eslint-disable-next-line no-console
-        console.log("[twi] connect addr=0x" + addr.toString(16), "write=", write);
+        // Address byte: 7-bit addr << 1 | R/W. Slave ACKs if recognized.
+        const addrByte = ((addr & 0x7f) << 1) | (write ? 0 : 1);
+        emitByte(addrByte, addr === DS3231_ADDR);
         twi.completeConnect(addr === DS3231_ADDR);
       },
       writeByte: (value) => {
         if (twiSlaveAddr === DS3231_ADDR) twiTxBuf.push(value & 0xff);
-        // eslint-disable-next-line no-console
-        console.log("[twi] write 0x" + value.toString(16));
+        emitByte(value & 0xff, twiSlaveAddr === DS3231_ADDR);
         twi.completeWrite(twiSlaveAddr === DS3231_ADDR);
       },
       readByte: (ack) => {
@@ -201,8 +284,7 @@ function loadHex(hex: string) {
         if (twiSlaveAddr === DS3231_ADDR) {
           [b] = handleI2cRead(ds3231, 1);
         }
-        // eslint-disable-next-line no-console
-        console.log("[twi] read -> 0x" + b.toString(16), "ack=", ack);
+        emitByte(b, ack);
         twi.completeRead(b);
       },
     };
