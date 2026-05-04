@@ -86,6 +86,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const [zoom, setZoom] = useState(1);
   const [panning, setPanning] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [chipInspectorBoardId, setChipInspectorBoardId] = useState<string | null>(null);
   const [hovered, setHovered] = useState<HoveredPin | null>(null);
   const [selectedWireId, setSelectedWireId] = useState<string | null>(null);
   const [pinEditMode, setPinEditMode] = useState(false);
