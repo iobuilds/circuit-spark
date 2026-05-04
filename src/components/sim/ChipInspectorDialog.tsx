@@ -335,33 +335,37 @@ function MemoryHexView({
 }
 
 // -------------------- Flash --------------------
-function FlashTab({ pcWords, cycles }: { pcWords: number; cycles: number }) {
+function FlashTab({ pcWords, cycles, flash }: { pcWords: number; cycles: number; flash?: Uint8Array }) {
+  const size = flash?.length ?? 0;
   return (
-    <ScrollArea className="h-full">
-      <div className="p-4 space-y-3">
-        <div className="grid grid-cols-3 gap-3">
-          <Stat label="Flash size" value="32 KB" sub="16,384 words × 16-bit" />
-          <Stat
-            label="Program counter"
-            value={`0x${pcWords.toString(16).toUpperCase().padStart(4, "0")}`}
-            sub="word address (estimated)"
-          />
-          <Stat label="Cycles executed" value={cycles.toLocaleString()} sub="@ 16 MHz" />
-        </div>
-        <div className="text-xs text-muted-foreground border-l-2 border-primary pl-3 py-1">
-          Flash hex view requires the compiled .hex from Arduino CLI. Compile your sketch
-          to populate this region. The program counter is currently estimated from elapsed
-          simulation time — connect the avr8js execution path for cycle-accurate values.
-        </div>
+    <div className="h-full flex flex-col">
+      <div className="p-4 grid grid-cols-3 gap-3">
+        <Stat label="Flash size" value={size ? `${size} B` : "32 KB"} sub="ATmega328P max 32 KB" />
+        <Stat
+          label="Program counter"
+          value={`0x${pcWords.toString(16).toUpperCase().padStart(4, "0")}`}
+          sub="word address"
+        />
+        <Stat label="Cycles executed" value={cycles.toLocaleString()} sub="@ 16 MHz" />
       </div>
-    </ScrollArea>
+      <div className="flex-1 overflow-hidden">
+        {flash && flash.length > 0 ? (
+          <MemoryHexView data={flash} startAddr={0} length={Math.min(flash.length, 0x4000)} label={`Flash (program · ${flash.length} bytes)`} />
+        ) : (
+          <div className="text-xs text-muted-foreground border-l-2 border-primary pl-3 py-1 mx-4">
+            Compile a sketch to populate flash. Once compiled, the .hex bytes appear here and the simulator switches to avr8js cycle-accurate execution.
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
 // -------------------- EEPROM --------------------
-function EepromTab() {
-  const eeprom = useMemo(() => new Uint8Array(1024), []);
-  return <MemoryHexView data={eeprom} startAddr={0} length={1024} label="EEPROM (1 KB)" />;
+function EepromTab({ eeprom }: { eeprom?: Uint8Array }) {
+  const empty = useMemo(() => new Uint8Array(1024), []);
+  const data = eeprom ?? empty;
+  return <MemoryHexView data={data} startAddr={0} length={1024} label="EEPROM (1 KB)" />;
 }
 
 // -------------------- CPU / Stack --------------------
