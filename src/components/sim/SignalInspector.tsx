@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { X, GripVertical, Activity } from "lucide-react";
+import { X, GripVertical, Activity, Pause, Play, ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { Wire, CircuitComponent, PinState } from "@/sim/types";
+import type { Wire, CircuitComponent, PinState, PinEvent } from "@/sim/types";
 import type { NetGraph } from "@/sim/netlist";
 import { findUnoPin } from "@/sim/uno-pins";
 
@@ -10,6 +10,8 @@ interface Props {
   components: CircuitComponent[];
   net: NetGraph;
   pinStatesByBoard: Record<string, Record<number, PinState>>;
+  /** Per-board, per-pin rolling event log used to draw real waveforms. */
+  pinEventsByBoard: Record<string, Record<number, PinEvent[]>>;
   initialX: number;
   initialY: number;
   onClose: () => void;
@@ -43,7 +45,6 @@ function resolveEndpoint(
     if (ep.pinId.startsWith("GND")) return { label: `${ep.componentId}.GND`, netLabel, kind: "rail-low", voltsFixed: 0 };
   }
 
-  // For non-board endpoints, infer from netLabel.
   if (netLabel) {
     if (netLabel === "5V" || netLabel === "VIN") return { label: `${ep.componentId}.${ep.pinId}`, netLabel, kind: "rail-high", voltsFixed: 5 };
     if (netLabel === "3V3") return { label: `${ep.componentId}.${ep.pinId}`, netLabel, kind: "rail-high", voltsFixed: 3.3 };
@@ -69,17 +70,31 @@ function resolveEndpoint(
   return { label: `${ep.componentId}.${ep.pinId}`, netLabel, kind: "unknown" };
 }
 
+type TriggerEdge = "rising" | "falling" | "either" | "off";
+
 export function SignalInspector({
   wire,
   components,
   net,
   pinStatesByBoard,
+  pinEventsByBoard,
   initialX,
   initialY,
   onClose,
 }: Props) {
   const [pos, setPos] = useState({ x: initialX, y: initialY });
   const dragRef = useRef<{ ox: number; oy: number; px: number; py: number } | null>(null);
+
+  // ── Logic-analyser controls ─────────────────────────────────────────
+  const [edge, setEdge] = useState<TriggerEdge>("either");
+  /** Analog level threshold (0..1023). When the analog trace crosses this in
+   *  the chosen edge direction the scope holds the trigger position. */
+  const [level, setLevel] = useState(512);
+  /** Span of the displayed window in virtual milliseconds. User-zoomable. */
+  const [spanMs, setSpanMs] = useState(50);
+  /** When true, freeze the display at the most recent triggered window. */
+  const [hold, setHold] = useState(false);
+  const heldWindowRef = useRef<{ start: number; end: number } | null>(null);
 
   useEffect(() => {
     function onMove(e: MouseEvent) {
@@ -95,12 +110,8 @@ export function SignalInspector({
   const fromR = resolveEndpoint(wire.from, components, net);
   const toR = resolveEndpoint(wire.to, components, net);
 
-  // Find the most informative side (a GPIO endpoint with a board) to show signal details.
-  // If both sides resolve to the same net (they must, because the wire is in that net),
-  // pick whichever has board pinState.
   const findBoardSignal = (r: Resolved): { ps?: PinState; pinNum?: number; boardCompId?: string } => {
     if (r.kind !== "gpio" || r.pinNum === undefined) return {};
-    // Prefer explicit boardCompId; otherwise scan all boards to find any with this pin.
     if (r.boardCompId) {
       return { ps: pinStatesByBoard[r.boardCompId]?.[r.pinNum], pinNum: r.pinNum, boardCompId: r.boardCompId };
     }
@@ -120,11 +131,7 @@ export function SignalInspector({
   let levelClass = "text-muted-foreground";
   if (sig.ps) {
     const isHigh = sig.ps.digital === 1;
-    if (sig.ps.mode === "OUTPUT") {
-      voltage = isHigh ? "~5.0 V" : "~0.0 V";
-    } else {
-      voltage = isHigh ? "~5.0 V" : "~0.0 V";
-    }
+    voltage = isHigh ? "~5.0 V" : "~0.0 V";
     levelText = isHigh ? "HIGH" : "LOW";
     levelClass = isHigh ? "text-success" : "text-muted-foreground";
   } else if (fromR.voltsFixed !== undefined || toR.voltsFixed !== undefined) {
@@ -136,85 +143,142 @@ export function SignalInspector({
 
   const netLabel = fromR.netLabel ?? toR.netLabel ?? "—";
 
-  // ── Logic-analyser waveform ─────────────────────────────────────────────
-  // Rolling buffer of recent samples driven off a 50 ms tick. Keeps last ~6 s
-  // (120 samples). Tracks both digital (0/1) and analog (0..1023).
-  const BUF = 120;
-  type Sample = { t: number; d: 0 | 1; a: number };
-  const bufRef = useRef<Sample[]>([]);
+  // ── Real waveform from pinEventsByBoard ─────────────────────────────
+  // Resubscribe on a fast interval so the SVG repaints even when no new
+  // events have arrived (so the "now" cursor keeps moving on idle lines).
   const [, force] = useState(0);
-
-  // Decide what numbers we're plotting on each tick.
-  const currentDigital: 0 | 1 = sig.ps
-    ? sig.ps.digital
-    : ((fromR.voltsFixed ?? toR.voltsFixed ?? 0) >= 2.5 ? 1 : 0);
-  const currentAnalog: number = sig.ps
-    ? sig.ps.analog
-    : ((fromR.voltsFixed ?? toR.voltsFixed ?? 0) >= 2.5 ? 1023 : 0);
-
-  // Clear buffer when the inspected wire changes.
-  useEffect(() => { bufRef.current = []; }, [wire.id]);
-
   useEffect(() => {
-    const id = window.setInterval(() => {
-      const buf = bufRef.current;
-      buf.push({ t: performance.now(), d: currentDigital, a: currentAnalog });
-      if (buf.length > BUF) buf.splice(0, buf.length - BUF);
-      force((n) => (n + 1) & 0xffff);
-    }, 50);
+    const id = window.setInterval(() => force((n) => (n + 1) & 0xffff), 33);
     return () => window.clearInterval(id);
-  }, [currentDigital, currentAnalog]);
+  }, []);
 
-  // Compute simple frequency / duty from the digital trace (last second).
+  // Reset hold window when the inspected wire or trigger config changes.
+  useEffect(() => { heldWindowRef.current = null; }, [wire.id, edge, level, spanMs, hold]);
+
+  /** All events for the resolved board+pin, oldest→newest. */
+  const allEvents: PinEvent[] = useMemo(() => {
+    if (!sig.boardCompId || sig.pinNum === undefined) return [];
+    return pinEventsByBoard[sig.boardCompId]?.[sig.pinNum] ?? [];
+  }, [pinEventsByBoard, sig.boardCompId, sig.pinNum]);
+
+  /** Most recent event timestamp seen so far (in virtual ms). Falls back to
+   *  the last event in the buffer to act as our "now" cursor. */
+  const tNow = allEvents.length ? allEvents[allEvents.length - 1].t : 0;
+
+  /** Find the most-recent edge that satisfies the trigger config. */
+  const triggerT: number | null = useMemo(() => {
+    if (edge === "off" || allEvents.length < 2) return null;
+    for (let i = allEvents.length - 1; i >= 1; i--) {
+      const cur = allEvents[i];
+      const prev = allEvents[i - 1];
+      const isRise = prev.d === 0 && cur.d === 1;
+      const isFall = prev.d === 1 && cur.d === 0;
+      if (edge === "rising" && isRise) return cur.t;
+      if (edge === "falling" && isFall) return cur.t;
+      if (edge === "either" && (isRise || isFall)) return cur.t;
+    }
+    return null;
+  }, [allEvents, edge]);
+
+  /** Visible time window. With hold, freeze on the last triggered window;
+   *  otherwise track "now". When a trigger is present, center it 25% from
+   *  the left edge so the user sees pre/post context. */
+  const win = useMemo(() => {
+    if (hold && heldWindowRef.current) return heldWindowRef.current;
+    let end: number;
+    let start: number;
+    if (edge !== "off" && triggerT !== null) {
+      const pre = spanMs * 0.25;
+      const post = spanMs * 0.75;
+      start = triggerT - pre;
+      end = triggerT + post;
+    } else {
+      end = tNow;
+      start = end - spanMs;
+    }
+    const w = { start, end };
+    if (hold) heldWindowRef.current = w;
+    return w;
+  }, [hold, triggerT, tNow, spanMs, edge]);
+
+  /** Slice events into the window plus one boundary sample on each side so
+   *  step paths render correctly across the edges. */
+  const visible = useMemo(() => {
+    const out: PinEvent[] = [];
+    let firstBefore: PinEvent | null = null;
+    for (const ev of allEvents) {
+      if (ev.t < win.start) { firstBefore = ev; continue; }
+      if (ev.t > win.end) { out.push(ev); break; }
+      out.push(ev);
+    }
+    if (firstBefore) return [firstBefore, ...out];
+    return out;
+  }, [allEvents, win]);
+
+  // Frequency / duty over the visible window.
   const stats = useMemo(() => {
-    const buf = bufRef.current;
-    if (buf.length < 2) return { freq: 0, duty: currentDigital ? 100 : 0, edges: 0 };
-    const cutoff = performance.now() - 1000;
-    const recent = buf.filter((s) => s.t >= cutoff);
+    if (visible.length < 2) {
+      const d = sig.ps?.digital ?? 0;
+      return { freq: 0, duty: d ? 100 : 0, edges: 0 };
+    }
     let edges = 0;
     let highMs = 0;
     let totalMs = 0;
-    for (let i = 1; i < recent.length; i++) {
-      const dt = recent[i].t - recent[i - 1].t;
+    for (let i = 1; i < visible.length; i++) {
+      const a = Math.max(win.start, visible[i - 1].t);
+      const b = Math.min(win.end, visible[i].t);
+      const dt = Math.max(0, b - a);
       totalMs += dt;
-      if (recent[i - 1].d) highMs += dt;
-      if (recent[i].d !== recent[i - 1].d) edges++;
+      if (visible[i - 1].d) highMs += dt;
+      if (visible[i].d !== visible[i - 1].d) edges++;
     }
-    const freq = edges / 2; // edges per second / 2 = Hz (over ~1s window)
-    const duty = totalMs > 0 ? (highMs / totalMs) * 100 : currentDigital ? 100 : 0;
+    const seconds = (win.end - win.start) / 1000;
+    const freq = seconds > 0 ? edges / 2 / seconds : 0;
+    const duty = totalMs > 0 ? (highMs / totalMs) * 100 : 0;
     return { freq, duty, edges };
-  }, [bufRef.current.length, currentDigital]);
+  }, [visible, win, sig.ps]);
 
-  // Render dimensions for the two stacked SVG plots.
+  // SVG dimensions.
   const plotW = 248;
-  const plotH = 32;
-  const buf = bufRef.current;
-  const xStep = plotW / Math.max(1, BUF - 1);
-  // Digital trace as a step path.
+  const plotH = 36;
+  const xOf = (t: number) => {
+    const w = win.end - win.start;
+    if (w <= 0) return 0;
+    return ((t - win.start) / w) * plotW;
+  };
+
+  // Build digital step path from real events.
   const digitalPath = (() => {
-    if (buf.length === 0) return "";
-    const startIdx = Math.max(0, buf.length - BUF);
-    let d = "";
-    for (let i = startIdx; i < buf.length; i++) {
-      const x = (i - startIdx) * xStep;
-      const y = buf[i].d ? 4 : plotH - 4;
-      d += i === startIdx ? `M ${x} ${y}` : ` H ${x} V ${y}`;
+    if (visible.length === 0) {
+      const d = sig.ps?.digital ?? 0;
+      const y = d ? 4 : plotH - 4;
+      return `M 0 ${y} L ${plotW} ${y}`;
     }
-    return d;
-  })();
-  // Analog trace as a polyline.
-  const analogPath = (() => {
-    if (buf.length === 0) return "";
-    const startIdx = Math.max(0, buf.length - BUF);
-    let d = "";
-    for (let i = startIdx; i < buf.length; i++) {
-      const x = (i - startIdx) * xStep;
-      const v = Math.max(0, Math.min(1023, buf[i].a));
-      const y = plotH - 2 - (v / 1023) * (plotH - 4);
-      d += i === startIdx ? `M ${x} ${y}` : ` L ${x} ${y}`;
+    let path = "";
+    // Prefix: hold the first sample's level from x=0 up to its event time.
+    const first = visible[0];
+    const yFirst = first.d ? 4 : plotH - 4;
+    path += `M 0 ${yFirst}`;
+    for (const ev of visible) {
+      const x = Math.max(0, Math.min(plotW, xOf(ev.t)));
+      const y = ev.d ? 4 : plotH - 4;
+      path += ` H ${x} V ${y}`;
     }
-    return d;
+    // Extend final level to the right edge.
+    path += ` H ${plotW}`;
+    return path;
   })();
+
+  // Trigger marker x position within the plot.
+  const trigX = triggerT !== null && triggerT >= win.start && triggerT <= win.end
+    ? xOf(triggerT) : null;
+
+  // Analog plot: we don't get analog events from the worker, so draw a line
+  // at the current analog value across the window with the trigger level
+  // overlaid as a dashed reference.
+  const currentAnalog = sig.ps?.analog ?? ((fromR.voltsFixed ?? toR.voltsFixed ?? 0) >= 2.5 ? 1023 : 0);
+  const analogY = (v: number) => plotH - 2 - (Math.max(0, Math.min(1023, v)) / 1023) * (plotH - 4);
+  const levelY = analogY(level);
 
   return (
     <div
@@ -280,12 +344,76 @@ export function SignalInspector({
           </>
         )}
 
-        {/* ── Logic-analyser waveform ── */}
+        {/* ── Trigger controls ── */}
         <div className="border-t border-border pt-2 mt-1.5 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Trigger</span>
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm" variant="ghost" className="h-5 w-5 p-0"
+                title={hold ? "Resume" : "Hold"}
+                onClick={() => setHold((h) => !h)}
+              >
+                {hold ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+              </Button>
+              <Button
+                size="sm" variant="ghost" className="h-5 w-5 p-0"
+                title="Zoom in (shorter window)"
+                onClick={() => setSpanMs((s) => Math.max(1, s / 2))}
+              >
+                <ZoomIn className="h-3 w-3" />
+              </Button>
+              <Button
+                size="sm" variant="ghost" className="h-5 w-5 p-0"
+                title="Zoom out (longer window)"
+                onClick={() => setSpanMs((s) => Math.min(10_000, s * 2))}
+              >
+                <ZoomOut className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-4 gap-1">
+            {(["rising", "falling", "either", "off"] as TriggerEdge[]).map((e) => (
+              <button
+                key={e}
+                onClick={() => setEdge(e)}
+                className={`h-6 rounded border text-[10px] font-mono uppercase tracking-wide transition-colors
+                  ${edge === e
+                    ? "border-primary bg-primary/15 text-primary"
+                    : "border-border bg-background/40 text-muted-foreground hover:bg-background/80"}`}
+                title={`Trigger on ${e} edge`}
+              >
+                {e === "rising" ? "↑" : e === "falling" ? "↓" : e === "either" ? "↕" : "—"}
+                <span className="ml-1">{e}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[9px] text-muted-foreground w-10">Level</span>
+            <input
+              type="range" min={0} max={1023} step={1}
+              value={level}
+              onChange={(e) => setLevel(Number(e.target.value))}
+              className="flex-1 accent-primary"
+            />
+            <span className="font-mono text-[10px] tabular-nums w-10 text-right">{level}</span>
+          </div>
+          <div className="flex items-center justify-between font-mono text-[9px] text-muted-foreground">
+            <span>Span: {spanMs >= 1000 ? `${(spanMs / 1000).toFixed(1)}s` : `${spanMs.toFixed(spanMs < 10 ? 1 : 0)}ms`}</span>
+            <span>{hold ? "HOLD" : edge !== "off" && triggerT !== null ? "TRIG'D" : "RUN"}</span>
+          </div>
+        </div>
+
+        {/* ── Real waveform ── */}
+        <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Waveform</span>
             <span className="font-mono text-[10px] text-muted-foreground">
-              {stats.freq > 0 ? `${stats.freq.toFixed(1)} Hz · ${stats.duty.toFixed(0)}% duty` : `${stats.duty.toFixed(0)}% duty`}
+              {stats.freq > 0
+                ? `${stats.freq >= 1000 ? (stats.freq / 1000).toFixed(2) + " kHz" : stats.freq.toFixed(1) + " Hz"} · ${stats.duty.toFixed(0)}% duty`
+                : `${stats.duty.toFixed(0)}% duty · ${stats.edges} edges`}
             </span>
           </div>
           {/* Digital trace */}
@@ -293,11 +421,13 @@ export function SignalInspector({
             <div className="flex items-center gap-1">
               <span className="font-mono text-[9px] w-6 text-success">D</span>
               <svg width={plotW} height={plotH} className="overflow-visible">
-                {/* baseline grid */}
                 <line x1={0} y1={plotH - 4} x2={plotW} y2={plotH - 4} stroke="var(--color-border)" strokeWidth={0.5} strokeDasharray="2 3" />
                 <line x1={0} y1={4} x2={plotW} y2={4} stroke="var(--color-border)" strokeWidth={0.5} strokeDasharray="2 3" />
                 <path d={digitalPath} fill="none" stroke="oklch(0.78 0.22 145)" strokeWidth={1.4} strokeLinejoin="miter" />
-                {/* live cursor */}
+                {trigX !== null && (
+                  <line x1={trigX} y1={0} x2={trigX} y2={plotH} stroke="oklch(0.75 0.2 30)" strokeWidth={0.8} strokeDasharray="2 2" />
+                )}
+                {/* live "now" cursor */}
                 <line x1={plotW - 0.5} y1={0} x2={plotW - 0.5} y2={plotH} stroke="var(--color-primary)" strokeWidth={0.6} opacity={0.5} />
               </svg>
             </div>
@@ -308,7 +438,10 @@ export function SignalInspector({
               <span className="font-mono text-[9px] w-6 text-warning">A</span>
               <svg width={plotW} height={plotH} className="overflow-visible">
                 <line x1={0} y1={plotH / 2} x2={plotW} y2={plotH / 2} stroke="var(--color-border)" strokeWidth={0.5} strokeDasharray="2 3" />
-                <path d={analogPath} fill="none" stroke="oklch(0.78 0.18 60)" strokeWidth={1.2} strokeLinejoin="round" strokeLinecap="round" />
+                {/* trigger level reference */}
+                <line x1={0} y1={levelY} x2={plotW} y2={levelY} stroke="oklch(0.75 0.2 30)" strokeWidth={0.6} strokeDasharray="3 2" />
+                {/* current analog as a flat line (no per-event analog samples yet) */}
+                <line x1={0} y1={analogY(currentAnalog)} x2={plotW} y2={analogY(currentAnalog)} stroke="oklch(0.78 0.18 60)" strokeWidth={1.2} />
                 <line x1={plotW - 0.5} y1={0} x2={plotW - 0.5} y2={plotH} stroke="var(--color-primary)" strokeWidth={0.6} opacity={0.5} />
               </svg>
             </div>

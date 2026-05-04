@@ -8,7 +8,7 @@ type WorkerOut =
   | { type: "started" }
   | { type: "stopped"; reason?: string }
   | { type: "serial"; text: string; kind: "out" | "sys" }
-  | { type: "pin-states"; pins: Record<number, PinState>; ms: number }
+  | { type: "pin-states"; pins: Record<number, PinState>; ms: number; events?: { pin: number; t: number; d: 0 | 1 }[] }
   | { type: "loaded"; flashSize: number }
   | {
       type: "snapshot";
@@ -37,6 +37,7 @@ export function useSimController() {
   const setBoardStatus = useSimStore((s) => s.setBoardStatus);
   const appendSerial = useSimStore((s) => s.appendSerial);
   const setPinStates = useSimStore((s) => s.setPinStates);
+  const appendPinEvents = useSimStore((s) => s.appendPinEvents);
   const setSimTime = useSimStore((s) => s.setSimTime);
   const setCompileLog = useSimStore((s) => s.setCompileLog);
   const setBoardEeprom = useSimStore((s) => s.setBoardEeprom);
@@ -78,6 +79,7 @@ export function useSimController() {
           break;
         case "pin-states":
           setPinStates(m.pins, boardId);
+          if (m.events && m.events.length) appendPinEvents(boardId, m.events);
           setSimTime(m.ms);
           break;
         case "loaded":

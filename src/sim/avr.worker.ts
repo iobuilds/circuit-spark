@@ -53,7 +53,7 @@ type OutMsg =
   | { type: "started" }
   | { type: "stopped"; reason?: string }
   | { type: "serial"; text: string; kind: "out" | "sys" }
-  | { type: "pin-states"; pins: Record<number, { mode: "INPUT" | "OUTPUT" | "INPUT_PULLUP"; digital: 0 | 1; analog: number }>; ms: number }
+  | { type: "pin-states"; pins: Record<number, { mode: "INPUT" | "OUTPUT" | "INPUT_PULLUP"; digital: 0 | 1; analog: number }>; ms: number; events?: { pin: number; t: number; d: 0 | 1 }[] }
   | { type: "snapshot"; pc: number; sp: number; cycles: number; sreg: number; sramSlice: Uint8Array; eeprom: Uint8Array }
   | { type: "error"; message: string };
 
@@ -79,8 +79,17 @@ let serialBuf = "";
 let lastSerialFlush = 0;
 const ds3231 = createDs3231State();
 
+/** Rolling buffer of pin transitions captured since the last `pin-states`
+ *  emission. Populated by AVRIOPort.addListener hooks installed at load time.
+ *  `t` is in **virtual milliseconds** (cpu.cycles / F_CPU * 1000) so the
+ *  Signal Inspector can render real µs-resolution waveforms. */
+const pinEventBuf: { pin: number; t: number; d: 0 | 1 }[] = [];
+const lastPinLevel: Record<number, 0 | 1> = {};
+
 function loadHex(hex: string) {
   try {
+    pinEventBuf.length = 0;
+    for (const k of Object.keys(lastPinLevel)) delete lastPinLevel[Number(k)];
     const parsed = parseIntelHex(hex);
     // CPU expects a Uint16Array of program memory. Ensure even byte length.
     const bytes = parsed.data.length % 2 === 0
@@ -95,6 +104,36 @@ function loadHex(hex: string) {
     portB = new AVRIOPort(cpu, portBConfig);
     portC = new AVRIOPort(cpu, portCConfig);
     portD = new AVRIOPort(cpu, portDConfig);
+
+    // Capture per-bit edges on every port change so the Signal Inspector
+    // can render real I2C / SPI / GPIO waveforms with µs precision (instead
+    // of being aliased away by the 30 ms `pin-states` snapshot interval).
+    const installPortLogger = (port: AVRIOPort, portName: "B" | "C" | "D") => {
+      port.addListener((value, oldValue) => {
+        if (!cpu) return;
+        const tMs = (cpu.cycles / F_CPU) * 1000;
+        const diff = value ^ oldValue;
+        if (diff === 0) return;
+        for (const [pinStr, m] of Object.entries(ARDUINO_TO_AVR)) {
+          if (m.port !== portName) continue;
+          const mask = 1 << m.bit;
+          if ((diff & mask) === 0) continue;
+          const pinNum = Number(pinStr);
+          const ps = port.pinState(m.bit);
+          let level: 0 | 1 = 0;
+          if (ps === AvrPinState.High) level = 1;
+          else if (ps === AvrPinState.InputPullUp) level = 1;
+          if (lastPinLevel[pinNum] === level) continue;
+          lastPinLevel[pinNum] = level;
+          pinEventBuf.push({ pin: pinNum, t: tMs, d: level });
+          // Cap in-worker backlog so a runaway program can't OOM us.
+          if (pinEventBuf.length > 8192) pinEventBuf.splice(0, pinEventBuf.length - 8192);
+        }
+      });
+    };
+    installPortLogger(portB, "B");
+    installPortLogger(portC, "C");
+    installPortLogger(portD, "D");
 
     new AVRTimer(cpu, timer0Config);
     new AVRTimer(cpu, timer1Config);
@@ -240,7 +279,8 @@ async function runLoop() {
     const now = performance.now();
     if (now - lastPinEmit > 30) {
       lastPinEmit = now;
-      post({ type: "pin-states", pins: snapshotPins(), ms });
+      const events = pinEventBuf.splice(0, pinEventBuf.length);
+      post({ type: "pin-states", pins: snapshotPins(), ms, events });
     }
     if (now - lastSnapshot > 100) {
       lastSnapshot = now;

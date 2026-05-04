@@ -3,6 +3,7 @@ import type {
   BoardId,
   CircuitComponent,
   ComponentKind,
+  PinEvent,
   PinState,
   SerialLine,
   SimStatus,
@@ -51,6 +52,10 @@ export interface SimState {
   serialByBoard: Record<string, SerialLine[]>;
   /** Per-board pin states, keyed by board component id. */
   pinStatesByBoard: Record<string, Record<number, PinState>>;
+  /** Per-board logic-analyzer event log: each pin maps to a rolling buffer of
+   *  digital transitions captured by the simulator. Drives the Signal
+   *  Inspector waveform with real microsecond-resolution edges. */
+  pinEventsByBoard: Record<string, Record<number, PinEvent[]>>;
   /** Per-board run/compile status, keyed by board component id. */
   statusByBoard: Record<string, SimStatus>;
   /** Currently focused board for the bottom Pin States / Serial panels. */
@@ -110,6 +115,9 @@ export interface SimState {
 
   setStatus: (s: SimStatus) => void;
   setPinStates: (s: Record<number, PinState>, boardId?: string) => void;
+  /** Append a batch of pin transition events from a worker into the rolling
+   *  per-board / per-pin event log. */
+  appendPinEvents: (boardId: string, events: PinEvent[]) => void;
   appendSerial: (line: SerialLine, boardId?: string) => void;
   clearSerial: (boardId?: string) => void;
   setSimTime: (ms: number) => void;
@@ -170,6 +178,7 @@ export const useSimStore = create<SimState>((set, get) => {
   pinStates: {},
   serialByBoard: {},
   pinStatesByBoard: {},
+  pinEventsByBoard: {},
   statusByBoard: {},
   activeSimBoardId: null,
   simTimeMs: 0,
@@ -338,6 +347,29 @@ export const useSimStore = create<SimState>((set, get) => {
       ? { pinStatesByBoard: next, pinStates: p }
       : { pinStatesByBoard: next };
   }),
+  appendPinEvents: (boardId, events) => {
+    if (!events.length) return;
+    const PER_PIN_LIMIT = 4096; // ring buffer cap per pin
+    set((st) => {
+      const prevForBoard = st.pinEventsByBoard[boardId] ?? {};
+      const nextForBoard: Record<number, PinEvent[]> = { ...prevForBoard };
+      // Group incoming events by pin to amortize array copies.
+      const byPin = new Map<number, PinEvent[]>();
+      for (const ev of events) {
+        const list = byPin.get(ev.pin);
+        if (list) list.push(ev); else byPin.set(ev.pin, [ev]);
+      }
+      for (const [pin, evs] of byPin) {
+        const merged = [...(nextForBoard[pin] ?? []), ...evs];
+        nextForBoard[pin] = merged.length > PER_PIN_LIMIT
+          ? merged.slice(merged.length - PER_PIN_LIMIT)
+          : merged;
+      }
+      return {
+        pinEventsByBoard: { ...st.pinEventsByBoard, [boardId]: nextForBoard },
+      };
+    });
+  },
   appendSerial: (line, boardId) => set((st) => {
     if (!boardId) return { serial: [...st.serial, line].slice(-500) };
     const prev = st.serialByBoard[boardId] ?? [];
@@ -391,7 +423,7 @@ export const useSimStore = create<SimState>((set, get) => {
 
   resetWorkspace: () => set({
     components: [], wires: [], selectedId: null, serial: [], pinStates: {},
-    serialByBoard: {}, pinStatesByBoard: {}, statusByBoard: {}, activeSimBoardId: null,
+    serialByBoard: {}, pinStatesByBoard: {}, pinEventsByBoard: {}, statusByBoard: {}, activeSimBoardId: null,
     simTimeMs: 0, drawingFrom: null, drawingWaypoints: [],
     wireHistory: [], wireFuture: [],
     flashByBoard: {}, eepromByBoard: {}, sramByBoard: {}, cpuByBoard: {}, avrModeByBoard: {},
@@ -441,6 +473,7 @@ export const useSimStore = create<SimState>((set, get) => {
       pinStates: {},
       serialByBoard: {},
       pinStatesByBoard: {},
+      pinEventsByBoard: {},
       statusByBoard: {},
       activeSimBoardId: null,
       wireHistory: [],

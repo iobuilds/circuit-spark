@@ -113,4 +113,17 @@ export interface PinState {
   analog: number;
 }
 
+/** A single observed transition on a logical Arduino pin number.
+ *  `t` is the simulator's virtual time in milliseconds (sub-ms precision).
+ *  `d` is the new digital level after the transition. `a` is the (optional)
+ *  current analog value at that instant (0..1023). Used by the Signal
+ *  Inspector / logic analyzer to draw real waveforms instead of
+ *  poll-sampled flat lines. */
+export interface PinEvent {
+  pin: number;
+  t: number;
+  d: 0 | 1;
+  a?: number;
+}
+
 export type SimStatus = "idle" | "running" | "paused" | "error";
