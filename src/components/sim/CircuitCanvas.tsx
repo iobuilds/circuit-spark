@@ -810,7 +810,10 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
             // Auto-route when the user hasn't customised the path.
             const mids = userMids.length ? userMids : autoRoute(a, b, w.id);
             const d = wirePath(a, b, mids);
-            const segPts = [a, ...userMids, b];
+            // Hit zones must follow the rendered path so users can click the
+            // visible wire (including auto-routed bends) to edit it.
+            const segPts = [a, ...mids, b];
+            const hasUserMids = userMids.length > 0;
             const isWireSel = selectedWireId === w.id;
             const stroke = w.color || "var(--color-wire)";
             const sw = w.thickness ?? 7;
