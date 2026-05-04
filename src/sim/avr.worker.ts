@@ -403,6 +403,18 @@ async function runLoop() {
         eeprom: ee,
       });
     }
+    // OLED framebuffer: emit at ~30 Hz, only for displays that have changed.
+    if (now - lastOledEmit > 33) {
+      lastOledEmit = now;
+      for (const [addr, st] of oleds) {
+        if (st.dirty === lastOledDirty.get(addr)) continue;
+        lastOledDirty.set(addr, st.dirty);
+        const bitmap = ssd1306Render(st);
+        post({
+          type: "oled-frame", addr, w: SSD1306_W, h: SSD1306_H,
+          bitmap, on: st.on, invert: st.invert, contrast: st.contrast,
+        }, [bitmap.buffer]);
+      }
 
     // Note: we deliberately do NOT idle-flush partial lines. Sketches that
     // print without trailing newlines still get their data delivered when
