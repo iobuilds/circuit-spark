@@ -423,6 +423,9 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
               </div>
             </ScrollArea>
           </TabsContent>
+          <TabsContent value="project" className="flex-1 flex flex-col min-h-0 m-0">
+            <ProjectLibrariesTab visible={tab === "project"} />
+          </TabsContent>
         </Tabs>
       </DialogContent>
     </Dialog>
