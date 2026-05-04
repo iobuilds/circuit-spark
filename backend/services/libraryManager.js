@@ -10,6 +10,13 @@ function baseLibraryName(name) {
   return String(name || '').split('@')[0].trim();
 }
 
+function normalizeCliLibraryList(parsed) {
+  if (Array.isArray(parsed)) return parsed;
+  if (Array.isArray(parsed?.installed_libraries)) return parsed.installed_libraries;
+  if (Array.isArray(parsed?.libraries)) return parsed.libraries;
+  return [];
+}
+
 function isRecoverableCliIssue(text) {
   const blob = String(text || '').toLowerCase();
   return blob.includes('index') || blob.includes('no such file') || blob.includes('not found') || blob.includes('initializing instance');
@@ -72,7 +79,7 @@ module.exports = {
       let out = '';
       proc.stdout.on('data', d => out += d);
       proc.on('close', () => {
-        try { resolve(JSON.parse(out) || []); } catch (e) { resolve([]); }
+        try { resolve(normalizeCliLibraryList(JSON.parse(out || '[]'))); } catch (e) { resolve([]); }
       });
       proc.on('error', () => resolve([]));
     });
