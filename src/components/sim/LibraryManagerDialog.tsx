@@ -22,11 +22,17 @@ import {
 import { toast } from "sonner";
 
 interface BackendInstalledLibrary {
-  library?: { name?: string; version?: string; providesIncludes?: string[] };
+  library?: { name?: string; version?: string; providesIncludes?: string[]; provides_includes?: string[] };
   name?: string;
   version?: string;
   providesIncludes?: string[];
   provides_includes?: string[];
+}
+
+interface BackendLibraryListResponse {
+  installed_libraries?: BackendInstalledLibrary[];
+  libraries?: BackendInstalledLibrary[];
+  error?: string;
 }
 
 interface Props {
@@ -99,7 +105,8 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
   async function syncInstalledFromBackend(showToast = false) {
     setSyncingInstalled(true);
     try {
-      const rows = await getInstalledLibraries();
+      const response = await getInstalledLibraries() as BackendInstalledLibrary[] | BackendLibraryListResponse;
+      const rows = Array.isArray(response) ? response : (response.installed_libraries ?? response.libraries ?? []);
       if (!Array.isArray(rows)) throw new Error(rows?.error ?? "Could not load VPS libraries");
       setInstalledLibraries(normalizeBackendLibraries(rows));
       if (showToast) toast.success(`Synced ${rows.length} libraries from VPS`);
