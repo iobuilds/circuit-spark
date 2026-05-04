@@ -410,17 +410,9 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
       const snap = (n: number) => Math.round(n / 10) * 10;
       moveComponent(dragId, snap(p.x - dragOffset.x), snap(p.y - dragOffset.y));
     }
-    if (segPending && !locked && !wpDrag) {
-      const dx = p.x - segPending.sx;
-      const dy = p.y - segPending.sy;
-      if (dx * dx + dy * dy > 9) {
-        const snap = (n: number) => Math.round(n / 5) * 5;
-        const newPoint = { x: snap(p.x), y: snap(p.y) };
-        insertWireWaypoint(segPending.wireId, segPending.idx, newPoint);
-        setWpDrag({ wireId: segPending.wireId, idx: segPending.idx });
-        setSegPending(null);
-      }
-    }
+    // Segment drag is intentionally disabled — users add joints via
+    // double-click only. Single click+drag on a segment is a no-op (just
+    // selects the wire) so existing wires don't accumulate stray joints.
     if (wpDrag && !locked) {
       const snap = (n: number) => Math.round(n / 5) * 5;
       updateWireWaypoint(wpDrag.wireId, wpDrag.idx, { x: snap(p.x), y: snap(p.y) });
