@@ -109,7 +109,7 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
       const rows = Array.isArray(response) ? response : (response.installed_libraries ?? response.libraries ?? []);
       if (!Array.isArray(response) && response.error) throw new Error(response.error);
       setInstalledLibraries(normalizeBackendLibraries(rows));
-      if (showToast) toast.success(`Synced ${rows.length} libraries from VPS`);
+      if (showToast) toast.success(`Synced ${rows.length} installed libraries`);
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -128,6 +128,25 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
+
+    // Show curated catalog instantly so the dialog never feels stuck while
+    // the live index is fetching (the upstream index is ~10MB on cold-start).
+    if (results.length === 0) {
+      const q = query.trim().toLowerCase();
+      const curated = curatedAsArduinoEntries().filter((e) => {
+        if (category !== "All" && e.category !== category) return false;
+        if (type !== "All" && !e.types.includes(type)) return false;
+        if (!q) return true;
+        return (
+          e.name.toLowerCase().includes(q) ||
+          e.author.toLowerCase().includes(q) ||
+          e.sentence.toLowerCase().includes(q) ||
+          e.headers.some((h) => h.toLowerCase().includes(q))
+        );
+      });
+      setResults(curated);
+      setTotal(curated.length);
+    }
 
     const handle = setTimeout(async () => {
       setLoading(true);
@@ -169,6 +188,7 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
       clearTimeout(handle);
       ctrl.abort();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, query, category, type, tab]);
 
   function isInstalled(id: string, name: string) {
@@ -188,7 +208,7 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
       if (!result?.success) throw new Error(result?.error ?? `Failed to install ${lib.name}`);
       setProgress((p) => ({ ...p, [lib.id]: 85 }));
       await syncInstalledFromBackend(false);
-      toast.success(`${lib.name} v${version} installed on VPS`);
+      toast.success(`${lib.name} v${version} installed`);
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -207,7 +227,7 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
       if (!result?.success) throw new Error(result?.error ?? `Failed to remove ${lib.name}`);
       removeLib(lib.id);
       await syncInstalledFromBackend(false);
-      toast.success(`${lib.name} removed from VPS`);
+      toast.success(`${lib.name} removed`);
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -265,8 +285,8 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
   }
 
   const statusLabel = useMemo(() => {
-    if (online === null) return "Connecting to Arduino library index…";
-    if (online) return "Live · Arduino library index";
+    if (online === null) return "Loading library index…";
+    if (online) return "Live · Arduino Library Manager";
     return "Offline · curated catalog";
   }, [online]);
 
@@ -359,11 +379,11 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
                 </span>
               )}
               <span className="mx-1">·</span>
-              <span>{installed.length} installed on VPS</span>
+              <span>{installed.length} installed</span>
               <div className="flex-1" />
               <Button size="sm" variant="outline" onClick={() => syncInstalledFromBackend(true)} disabled={syncingInstalled}>
                 {syncingInstalled ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <PackageCheck className="h-3.5 w-3.5 mr-1.5" />}
-                Sync VPS
+                Refresh
               </Button>
               <input
                 ref={fileRef}
@@ -425,12 +445,12 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
               <div className="px-6 py-3 space-y-2">
                 {syncingInstalled && (
                   <div className="py-3 text-center text-muted-foreground text-sm inline-flex w-full items-center justify-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Syncing VPS libraries…
+                    <Loader2 className="h-4 w-4 animate-spin" /> Loading installed libraries…
                   </div>
                 )}
                 {installedRows.length === 0 && !syncingInstalled && (
                   <div className="py-16 text-center text-muted-foreground text-sm">
-                    No VPS libraries installed yet. Switch to <span className="font-medium">All Libraries</span> to add one.
+                    No libraries installed yet. Switch to <span className="font-medium">All Libraries</span> to add one.
                   </div>
                 )}
                 {installedRows.map((lib) => (
