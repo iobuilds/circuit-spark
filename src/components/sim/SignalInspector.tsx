@@ -284,7 +284,7 @@ export function SignalInspector({
 
   return (
     <div
-      className="fixed z-50 w-[280px] rounded-lg border border-border bg-card/95 backdrop-blur shadow-2xl text-xs select-none"
+      className="fixed z-50 w-[300px] rounded-lg border border-border bg-card/95 backdrop-blur shadow-2xl text-xs select-none"
       style={{ left: pos.x, top: pos.y }}
     >
       <div
