@@ -886,7 +886,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                 {/* Lock toggle — appears on hover, stays visible when locked */}
                 {showLock && !locked && (
                   <g
-                    transform={`translate(${b.x + bw - 4} ${b.y - 12})`}
+                    transform={`translate(${b.x + bw - 6} ${b.y - 22})`}
                     className="cursor-pointer"
                     onMouseDown={(e) => {
                       e.stopPropagation();
@@ -895,19 +895,19 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                     }}
                   >
                     <title>{isBoardLocked ? "Unlock board (allow dragging)" : "Lock board in place"}</title>
-                    <circle r={11}
+                    <circle r={20}
                       fill={isBoardLocked ? "var(--color-primary)" : "var(--color-card)"}
-                      stroke={isBoardLocked ? "var(--color-primary)" : "var(--color-border)"}
-                      strokeWidth={1.5} />
+                      stroke="var(--color-primary)"
+                      strokeWidth={2} />
                     {isBoardLocked ? (
-                      <g stroke="var(--color-primary-foreground)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x={-4} y={-1} width={8} height={6} rx={1} fill="var(--color-primary-foreground)" stroke="none" />
-                        <path d="M -2.5 -1 V -3 a 2.5 2.5 0 0 1 5 0 V -1" />
+                      <g stroke="var(--color-primary-foreground)" strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x={-7} y={-2} width={14} height={11} rx={2} fill="var(--color-primary-foreground)" stroke="none" />
+                        <path d="M -4.5 -2 V -7 a 4.5 4.5 0 0 1 9 0 V -2" />
                       </g>
                     ) : (
-                      <g stroke="var(--color-foreground)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x={-4} y={-1} width={8} height={6} rx={1} fill="var(--color-foreground)" stroke="none" />
-                        <path d="M -2.5 -1 V -3 a 2.5 2.5 0 0 1 5 0" />
+                      <g stroke="var(--color-primary)" strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x={-7} y={-2} width={14} height={11} rx={2} fill="var(--color-primary)" stroke="none" />
+                        <path d="M -4.5 -2 V -7 a 4.5 4.5 0 0 1 9 0" />
                       </g>
                     )}
                   </g>

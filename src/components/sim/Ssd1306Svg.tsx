@@ -7,34 +7,28 @@ interface Props {
 }
 
 /**
- * Visual representation of a 0.96" SSD1306 128×64 I2C OLED display.
+ * 0.96" SSD1306 128×64 I2C OLED — realistic top-down view of the common
+ * blue breakout board: 4-pin header at top (GND VDD SCK SDA), large black
+ * display window below the bezel, and a white flex cable strip + gold
+ * contact pads at the bottom edge.
  *
- * Body matches common breakouts (Vishay/Adafruit-style): blue PCB with a 4-pin
- * header (GND/VCC/SCL/SDA), a black panel area and the active pixel matrix.
- *
- * The pixel matrix is driven by the live framebuffer streamed from the AVR
- * worker via `oled-frame` messages. When no frame is available (sketch hasn't
- * initialized the display yet) we render the panel dark.
+ * Pixels are driven by the live framebuffer streamed from the AVR worker.
  */
 export function Ssd1306Svg({ addr }: Props) {
   const activeBoardId = useSimStore((s) => s.activeSimBoardId);
   const oledFrames = useSimStore((s) => s.oledFrames);
 
-  // Find the most recent frame for any board+addr matching this OLED.
   const frame = useMemo(() => {
     if (activeBoardId) {
       const f = oledFrames[`${activeBoardId}:${addr}`];
       if (f) return f;
     }
-    // Fallback: pick any board's frame for the same addr (single-board case).
     for (const [k, v] of Object.entries(oledFrames)) {
       if (k.endsWith(`:${addr}`)) return v;
     }
     return null;
   }, [oledFrames, activeBoardId, addr]);
 
-  // Build a single SVG <path> describing all lit pixels — vastly cheaper than
-  // 8 192 individual rects. Path uses absolute moves + tiny relative rects.
   const litPath = useMemo(() => {
     if (!frame || !frame.on) return "";
     const { w, h, bitmap } = frame;
@@ -47,64 +41,87 @@ export function Ssd1306Svg({ addr }: Props) {
     return d;
   }, [frame]);
 
-  // Component-local 140×100 box (matches COMPONENT_DEFS.oled).
-  // Layout: header on top (4 pins: GND VCC SCL SDA), panel below with active area.
-  const px = 1; // pixel size in px when displayed in panel coords (panel is 128×64 user units)
-  void px;
+  // Component bounds 140×100. Layout to match the photo reference:
+  //  • PCB: blue rounded rect, 4 corner mounting holes
+  //  • Top header strip darker blue, 4 pads with header pins
+  //  • Display window (black) takes the central area
+  //  • Flex cable strip + gold contact pads at the bottom
+  const PCB_FILL = "oklch(0.36 0.07 230)";       // mid blue
+  const PCB_STROKE = "oklch(0.20 0.04 230)";
+  const HEADER_FILL = "oklch(0.30 0.07 230)";    // slightly darker top strip
+  const PAD_GOLD = "oklch(0.72 0.10 80)";
+  const PIN_DARK = "oklch(0.18 0.01 80)";
+  const PANEL_BLACK = "oklch(0.06 0.005 250)";
+  const BEZEL = "oklch(0.10 0.01 250)";
+  const FLEX_WHITE = "oklch(0.96 0.01 90)";
+  const LABEL = "oklch(0.95 0.02 90)";
 
-  // Panel in component coords: 128 wide, 32 tall (ratio 2:1, matches 0.96").
-  const PANEL_X = 6;
-  const PANEL_Y = 22;
-  const PANEL_W = 128;
-  const PANEL_H = 64;
+  const PANEL_X = 12;
+  const PANEL_Y = 24;
+  const PANEL_W = 116;
+  const PANEL_H = 56;
 
-  // Inside the panel we draw the framebuffer (128×64 logical pixels) via a
-  // nested viewport. Use a uniform scale that fits W:128 into PANEL_W and
-  // squashes H:64 into PANEL_H. The viewport uses `preserveAspectRatio="none"`
-  // to honour the panel's 2:1 aspect (real 0.96" panels are 2:1).
-  const lit = "oklch(0.95 0.05 220)"; // bright cyan-white pixel
-  const dim = "oklch(0.04 0.005 250)"; // very dark panel surface
+  const lit = "oklch(0.95 0.05 220)";
 
   return (
     <g>
       {/* PCB body */}
       <rect x={0} y={0} width={140} height={100} rx={3}
-        fill="oklch(0.32 0.05 245)" stroke="oklch(0.18 0.02 245)" strokeWidth={1.2} />
+        fill={PCB_FILL} stroke={PCB_STROKE} strokeWidth={1} />
+
+      {/* Top header strip */}
+      <rect x={0} y={0} width={140} height={20} fill={HEADER_FILL} />
+
       {/* Mounting holes */}
-      <circle cx={5} cy={5} r={2.5} fill="oklch(0.05 0 0)" />
-      <circle cx={135} cy={5} r={2.5} fill="oklch(0.05 0 0)" />
-      <circle cx={5} cy={95} r={2.5} fill="oklch(0.05 0 0)" />
-      <circle cx={135} cy={95} r={2.5} fill="oklch(0.05 0 0)" />
+      {[
+        [6, 6], [134, 6], [6, 94], [134, 94],
+      ].map(([cx, cy], i) => (
+        <g key={i}>
+          <circle cx={cx} cy={cy} r={3} fill="oklch(0.92 0.03 80)" />
+          <circle cx={cx} cy={cy} r={1.4} fill="oklch(0.05 0 0)" />
+        </g>
+      ))}
 
-      {/* Header pads (GND / VCC / SCL / SDA — 4-pin I2C) */}
-      <g>
-        {[
-          { x: 30, label: "GND" },
-          { x: 55, label: "VDD" },
-          { x: 80, label: "SCK" },
-          { x: 105, label: "SDA" },
-        ].map((p, i) => (
-          <g key={p.label}>
-            <rect x={p.x - 8} y={3} width={16} height={10} rx={1.5}
-              fill="oklch(0.78 0.10 90)" />
-            <circle cx={p.x} cy={8} r={2.5} fill="oklch(0.10 0 0)" />
-            <text x={p.x} y={20} textAnchor="middle" fontSize={4.5}
-              fontFamily="monospace" fill="oklch(0.95 0.02 90)">
-              {`${i + 1} ${p.label}`}
-            </text>
-          </g>
-        ))}
-      </g>
+      {/* 4-pin header — gold pads + dark holes, with labels below */}
+      {[
+        { x: 50, label: "GND", num: "1" },
+        { x: 66, label: "VDD", num: "" },
+        { x: 82, label: "SCK", num: "" },
+        { x: 98, label: "SDA", num: "4" },
+      ].map((p) => (
+        <g key={p.label}>
+          <rect x={p.x - 5} y={3} width={10} height={7} rx={1} fill={PAD_GOLD} />
+          <circle cx={p.x} cy={6.5} r={1.6} fill={PIN_DARK} />
+        </g>
+      ))}
+      <text x={48} y={17} fontSize={3.2} fontFamily="monospace" fill={LABEL}>1</text>
+      <text x={101} y={17} fontSize={3.2} fontFamily="monospace" fill={LABEL}>4</text>
+      {[
+        { x: 50, label: "GND" },
+        { x: 66, label: "VDD" },
+        { x: 82, label: "SCK" },
+        { x: 98, label: "SDA" },
+      ].map((p) => (
+        <text key={p.label} x={p.x} y={17} textAnchor="middle"
+          fontSize={3.2} fontFamily="monospace" fill={LABEL}>
+          {p.label}
+        </text>
+      ))}
 
-      {/* Display bezel + panel */}
-      <rect x={PANEL_X - 2} y={PANEL_Y - 2}
-        width={PANEL_W + 4} height={PANEL_H + 4} rx={2}
-        fill="oklch(0.05 0.005 250)" stroke="oklch(0.10 0 0)" strokeWidth={0.6} />
+      {/* Display bezel + black panel */}
+      <rect x={PANEL_X - 1} y={PANEL_Y - 1}
+        width={PANEL_W + 2} height={PANEL_H + 2}
+        fill={BEZEL} />
       <rect x={PANEL_X} y={PANEL_Y} width={PANEL_W} height={PANEL_H}
-        fill={dim} />
+        fill={PANEL_BLACK} />
 
-      {/* Active pixel area — render via nested SVG so the path uses
-          framebuffer-native (128×64) coordinates, scaled to the panel rect. */}
+      {/* Subtle screen-glare highlight (top-right) */}
+      <path
+        d={`M ${PANEL_X + PANEL_W - 18} ${PANEL_Y} L ${PANEL_X + PANEL_W} ${PANEL_Y} L ${PANEL_X + PANEL_W} ${PANEL_Y + 22} Z`}
+        fill="oklch(1 0 0 / 0.04)"
+      />
+
+      {/* Active pixel area */}
       <svg
         x={PANEL_X} y={PANEL_Y} width={PANEL_W} height={PANEL_H}
         viewBox={`0 0 ${frame?.w ?? 128} ${frame?.h ?? 64}`}
@@ -112,22 +129,20 @@ export function Ssd1306Svg({ addr }: Props) {
         shapeRendering="crispEdges"
       >
         {frame && frame.on && litPath && (
-          <path d={litPath} fill={lit} opacity={Math.max(0.45, frame.contrast / 255)} />
-        )}
-        {(!frame || !frame.on) && (
-          <text x={(frame?.w ?? 128) / 2} y={(frame?.h ?? 64) / 2 + 4}
-            textAnchor="middle" fontSize={8} fontFamily="monospace"
-            fill="oklch(0.4 0.05 220 / 0.6)">SSD1306 OFF</text>
+          <path d={litPath} fill={lit} opacity={Math.max(0.55, frame.contrast / 255)} />
         )}
       </svg>
 
-      {/* Flex cable hint at bottom (decorative) */}
-      <rect x={50} y={88} width={40} height={10} fill="oklch(0.62 0.10 60)" />
-      <rect x={56} y={92} width={28} height={2} fill="oklch(0.45 0.08 60)" />
-
-      {/* Address label */}
-      <text x={70} y={97} textAnchor="middle" fontSize={4} fontFamily="monospace"
-        fill="oklch(0.85 0.02 90)">{`0x${addr.toString(16).toUpperCase()}`}</text>
+      {/* Flex cable: dark strip behind, white tongue with gold contacts */}
+      <rect x={PANEL_X} y={PANEL_Y + PANEL_H} width={PANEL_W} height={6}
+        fill="oklch(0.08 0.01 250)" />
+      <rect x={56} y={PANEL_Y + PANEL_H + 4} width={28} height={10}
+        fill={FLEX_WHITE} stroke="oklch(0.65 0.04 80)" strokeWidth={0.4} />
+      {/* Gold contact pads on the flex */}
+      {Array.from({ length: 6 }).map((_, i) => (
+        <rect key={i} x={59 + i * 4} y={PANEL_Y + PANEL_H + 5}
+          width={2.4} height={3.5} fill={PAD_GOLD} />
+      ))}
 
       <title>{`SSD1306 OLED 128×64 @ 0x${addr.toString(16).toUpperCase()}`}</title>
     </g>
