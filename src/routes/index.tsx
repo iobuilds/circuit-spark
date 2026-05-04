@@ -17,7 +17,36 @@ import { useSimStore } from "@/sim/store";
 import { useIdeStore, type SourceFile } from "@/sim/ideStore";
 import { compileSketch, type CompileResult, type CompileProgress } from "@/sim/compileApi";
 import { resolveRequiredLibraries } from "@/sim/autoInstallLibs";
+import { LIBRARY_PACKAGES } from "@/sim/ideCatalog";
+import { installLibrary } from "@/services/compilerService";
 import { toast } from "sonner";
+
+// Map a missing-header filename like "U8g2lib.h" to the Arduino Library
+// Manager package name. Falls back to a few well-known aliases for libraries
+// that might not yet be in our catalog snapshot.
+const HEADER_ALIASES: Record<string, string> = {
+  "u8g2lib.h": "U8g2",
+  "u8x8lib.h": "U8g2",
+  "adafruit_ssd1306.h": "Adafruit SSD1306",
+  "adafruit_gfx.h": "Adafruit GFX Library",
+  "adafruit_sensor.h": "Adafruit Unified Sensor",
+  "adafruit_busio_register.h": "Adafruit BusIO",
+};
+
+function packageForHeader(header: string): string | null {
+  const direct = LIBRARY_PACKAGES.find((p) => p.headers?.some((h) => h.toLowerCase() === header.toLowerCase()));
+  if (direct) return direct.name;
+  return HEADER_ALIASES[header.toLowerCase()] ?? null;
+}
+
+function missingHeadersFromResult(result: CompileResult): string[] {
+  const text = `${result.stderr ?? ""}\n${(result.errors ?? []).map((e) => e.message).join("\n")}`;
+  const out = new Set<string>();
+  const re = /([A-Za-z0-9_./-]+\.h):\s*No such file or directory/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) out.add(m[1].split("/").pop() ?? m[1]);
+  return [...out];
+}
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
@@ -161,10 +190,34 @@ function SimulatorPage() {
         );
       }
       setCompileProgress({ step: `Board ${i + 1}/${sketches.length} · ${s.displayName}`, percent: 0, message: `Compiling ${s.displayName}...` });
-      const result = await compileSketch(
+      let result = await compileSketch(
         { board: s.boardId, files: s.files, libraries: resolved.libraryIds },
         (p) => setCompileProgress({ ...p, step: `Board ${i + 1}/${sketches.length} · ${s.displayName}`, message: `[${s.displayName}] ${p.message ?? ""}` }),
       );
+
+      // Self-heal: if compile failed because a header file wasn't found, ask
+      // the backend to install the matching Library Manager package(s) and
+      // retry once. Covers cases where the backend cache thinks a library is
+      // installed but it isn't, or the user typed an #include for a library
+      // we know about but couldn't auto-resolve from the catalog.
+      if (!result.success) {
+        const missing = missingHeadersFromResult(result);
+        const packages = [...new Set(missing.map(packageForHeader).filter((p): p is string => !!p))];
+        if (packages.length > 0) {
+          toast.info(`Installing missing ${packages.length === 1 ? "library" : "libraries"}: ${packages.join(", ")}`);
+          try {
+            await Promise.all(packages.map((p) => installLibrary(p)));
+            setCompileProgress({ step: `Board ${i + 1}/${sketches.length} · ${s.displayName}`, percent: 0, message: `Retrying ${s.displayName}...` });
+            result = await compileSketch(
+              { board: s.boardId, files: s.files, libraries: [...resolved.libraryIds, ...packages] },
+              (p) => setCompileProgress({ ...p, step: `Board ${i + 1}/${sketches.length} · ${s.displayName}`, message: `[${s.displayName}] ${p.message ?? ""}` }),
+            );
+          } catch (e) {
+            console.warn("auto library install failed:", e);
+          }
+        }
+      }
+
       lastResult = result;
       if (!result.success) {
         allOk = false;
