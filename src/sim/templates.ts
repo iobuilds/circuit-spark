@@ -349,7 +349,8 @@ void loop() {
 `,
     components: [
       BOARD("uno1", 40, 40),
-      { id: "rtc1", kind: "ds3231", x: 540, y: 380, rotation: 0, props: {} },
+      // Place the RTC well clear of the Uno PCB (Uno spans 40..1000 × 40..744).
+      { id: "rtc1", kind: "ds3231", x: 1080, y: 300, rotation: 0, props: {} },
     ],
     wires: [
       { id: "w1", from: { componentId: "uno1", pinId: "5V"   }, to: { componentId: "rtc1", pinId: "VCC" } },
