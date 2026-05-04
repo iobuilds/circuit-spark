@@ -113,6 +113,11 @@ export interface SimState {
   setSimTime: (ms: number) => void;
   setSpeed: (n: number) => void;
   setCompileLog: (l: SimState["compileLog"]) => void;
+  setBoardFlash: (boardId: string, flash: Uint8Array) => void;
+  setBoardEeprom: (boardId: string, ee: Uint8Array) => void;
+  setBoardSram: (boardId: string, sram: Uint8Array) => void;
+  setBoardCpu: (boardId: string, cpu: { pc: number; sp: number; cycles: number; sreg: number }) => void;
+  setBoardAvrMode: (boardId: string, on: boolean) => void;
   setActiveSimBoard: (id: string | null) => void;
   setBoardStatus: (id: string, s: SimStatus) => void;
 
