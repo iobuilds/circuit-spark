@@ -90,14 +90,40 @@ export function SensorControlsPanel() {
                 <div className="text-[10px] text-muted-foreground">{comp.id.slice(0, 8)}</div>
               </div>
               <div className="space-y-2">
-                {inputs.map((pin) => (
-                  <PinControl
-                    key={pin.id}
-                    pin={pin}
-                    value={comp.props[`pin_${pin.id}_value`]}
-                    onChange={(v) => setProp(comp.id, `pin_${pin.id}_value`, v)}
-                  />
-                ))}
+                {inputs.map((pin) => {
+                  // Built-in sensor pseudo-pins (id prefixed with "__") write
+                  // directly to a real prop with a custom range; everything
+                  // else uses the generic 0..1023 pin slider.
+                  if (pin.id.startsWith("__")) {
+                    const propName = pin.id.slice(2); // "level" | "temperature" | "humidity"
+                    const ranges: Record<string, { min: number; max: number; step: number; unit: string }> = {
+                      level:       { min: 0, max: 1023, step: 1,   unit: "" },
+                      temperature: { min: 0, max: 50,   step: 0.5, unit: "°C" },
+                      humidity:    { min: 20, max: 90,  step: 1,   unit: "%" },
+                    };
+                    const r = ranges[propName] ?? { min: 0, max: 1023, step: 1, unit: "" };
+                    const cur = Number(comp.props[propName] ?? r.min);
+                    return (
+                      <div key={pin.id} className="flex items-center gap-2">
+                        <span className="font-mono w-24 truncate" title={pin.label}>{pin.label}</span>
+                        <input
+                          type="range" min={r.min} max={r.max} step={r.step} value={cur}
+                          onChange={(e) => setProp(comp.id, propName, Number(e.target.value))}
+                          className="flex-1 accent-primary"
+                        />
+                        <span className="font-mono tabular-nums w-16 text-right">{cur}{r.unit}</span>
+                      </div>
+                    );
+                  }
+                  return (
+                    <PinControl
+                      key={pin.id}
+                      pin={pin}
+                      value={comp.props[`pin_${pin.id}_value`]}
+                      onChange={(v) => setProp(comp.id, `pin_${pin.id}_value`, v)}
+                    />
+                  );
+                })}
               </div>
             </div>
           ))}
