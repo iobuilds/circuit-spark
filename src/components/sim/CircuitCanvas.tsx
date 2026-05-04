@@ -14,6 +14,7 @@ import { CornerDownLeft, Lock, Plus, Trash2, X, Undo2, Redo2, Wand2, Share2, Mov
 import { Button } from "@/components/ui/button";
 import { AddItemDialog } from "./AddItemDialog";
 import { SensorControlsPanel } from "./SensorControlsPanel";
+import { ChipInspectorDialog } from "./ChipInspectorDialog";
 
 
 interface Props {
@@ -85,6 +86,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const [zoom, setZoom] = useState(1);
   const [panning, setPanning] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [chipInspectorBoardId, setChipInspectorBoardId] = useState<string | null>(null);
   const [hovered, setHovered] = useState<HoveredPin | null>(null);
   const [selectedWireId, setSelectedWireId] = useState<string | null>(null);
   const [pinEditMode, setPinEditMode] = useState(false);
@@ -707,6 +709,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                     highlightPin={drawingFrom?.componentId === b.id ? drawingFrom.pinId : undefined}
                     onPinClick={(pinId) => handleBoardPinClick(b.id, pinId)}
                     onPinHover={hoverHandler}
+                    onChipClick={() => setChipInspectorBoardId(b.id)}
                   />
                 ) : (
                   <GenericBoard
@@ -1451,6 +1454,12 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
           h: entry.height ?? 60,
         })}
         onPickBoard={(bid) => startPlacement({ kind: "board", boardId: bid })}
+      />
+
+      <ChipInspectorDialog
+        open={chipInspectorBoardId !== null}
+        onOpenChange={(v) => { if (!v) setChipInspectorBoardId(null); }}
+        boardCompId={chipInspectorBoardId}
       />
 
       {/* Wire-drawing toolbar: shows source pin, point count, and shortcut buttons. */}
