@@ -239,8 +239,8 @@ export function SignalInspector({
   }, [visible, win, sig.ps]);
 
   // SVG dimensions.
-  const plotW = 248;
-  const plotH = 36;
+  const plotW = 230;
+  const plotH = 38;
   const xOf = (t: number) => {
     const w = win.end - win.start;
     if (w <= 0) return 0;
