@@ -473,6 +473,7 @@ export const useSimStore = create<SimState>((set, get) => {
       pinStates: {},
       serialByBoard: {},
       pinStatesByBoard: {},
+      pinEventsByBoard: {},
       statusByBoard: {},
       activeSimBoardId: null,
       wireHistory: [],
