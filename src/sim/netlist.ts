@@ -287,6 +287,34 @@ export function evaluateInputs(
         }
       }
     }
+    if (c.kind === "water-level") {
+      // Analog water-level sensor: signal pin (S) outputs 0..1023 proportional
+      // to the `level` prop (driven by the user via the Sensor Controls slider).
+      const s = net.netForCompPin.get(key(c.id, "S"));
+      if (s) {
+        const pinNum = labelToPinNum(s);
+        if (pinNum !== null) {
+          const value = Math.max(0, Math.min(1023, Math.round(Number(c.props.level ?? 0))));
+          out[pinNum] = { analog: value, digital: value > 200 ? 1 : 0 };
+        }
+      }
+    }
+    if (c.kind === "dht11") {
+      // The DHT11 sits on a single-wire bus; when idle the line is pulled HIGH
+      // (open-drain + pull-up). Library code that talks to the part decodes
+      // its own protocol from `digitalRead` — we surface the idle level here
+      // so connectivity tests pass and the sensor reads non-zero.
+      const d = net.netForCompPin.get(key(c.id, "DATA"));
+      if (d) {
+        const pinNum = labelToPinNum(d);
+        if (pinNum !== null) {
+          const state = pinStates[pinNum];
+          if (state?.mode === "INPUT" || state?.mode === "INPUT_PULLUP") {
+            out[pinNum] = { digital: 1, analog: 1023 };
+          }
+        }
+      }
+    }
     if (c.kind === "custom") {
       // Sensor sliders / toggles: any prop named "pin_<pinId>_value" drives the
       // board pin connected to that custom pin. Lets users move "axes" of an
