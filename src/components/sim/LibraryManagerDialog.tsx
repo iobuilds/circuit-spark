@@ -7,8 +7,9 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { CheckCircle2, ExternalLink, Library, Loader2, Trash2, Upload, Wifi, WifiOff, PackageCheck } from "lucide-react";
+import { CheckCircle2, ExternalLink, Library, Loader2, Trash2, Upload, Wifi, WifiOff, PackageCheck, FolderOpen } from "lucide-react";
 import { LIBRARY_PACKAGES } from "@/sim/ideCatalog";
+import { ProjectLibrariesTab } from "./ProjectLibrariesTab";
 import { useIdeStore } from "@/sim/ideStore";
 import { uploadZipLibrary } from "@/sim/compileApi";
 import {
@@ -83,7 +84,7 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
 
   useEffect(() => { if (!loaded) hydrate(); }, [loaded, hydrate]);
 
-  const [tab, setTab] = useState<"all" | "installed">("all");
+  const [tab, setTab] = useState<"all" | "installed" | "project">("all");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("All");
   const [type, setType] = useState<string>("All");
@@ -291,13 +292,16 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as "all" | "installed")} className="flex-1 flex flex-col min-h-0">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "all" | "installed" | "project")} className="flex-1 flex flex-col min-h-0">
           <div className="px-6 pt-3 border-b">
             <TabsList>
               <TabsTrigger value="all">All Libraries</TabsTrigger>
               <TabsTrigger value="installed" className="gap-1.5">
                 <PackageCheck className="h-3.5 w-3.5" /> Installed
                 <Badge variant="secondary" className="ml-1 text-[10px]">{installed.length}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="project" className="gap-1.5">
+                <FolderOpen className="h-3.5 w-3.5" /> This Project
               </TabsTrigger>
             </TabsList>
           </div>
@@ -418,6 +422,9 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
                 ))}
               </div>
             </ScrollArea>
+          </TabsContent>
+          <TabsContent value="project" className="flex-1 flex flex-col min-h-0 m-0">
+            <ProjectLibrariesTab visible={tab === "project"} />
           </TabsContent>
         </Tabs>
       </DialogContent>

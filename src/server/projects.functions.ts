@@ -116,3 +116,25 @@ export const removeProjectLibrary = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+export const setProjectLibraryInstalled = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: { projectId: string; name: string; installed: boolean }) =>
+    z.object({
+      projectId: Id,
+      name: z.string().min(1).max(120),
+      installed: z.boolean(),
+    }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    // Upsert so calling install on an unknown lib both records and marks it.
+    const { data: row, error } = await supabase.from("project_libraries").upsert({
+      project_id: data.projectId,
+      user_id: userId,
+      name: data.name,
+      source: "manual",
+      installed: data.installed,
+    }, { onConflict: "project_id,name" }).select().single();
+    if (error) throw new Error(error.message);
+    return row;
+  });
