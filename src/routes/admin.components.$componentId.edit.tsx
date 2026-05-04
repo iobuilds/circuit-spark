@@ -147,6 +147,15 @@ function ComponentEditor() {
             <Switch checked={draft.enabled} onCheckedChange={(v) => patch({ ...draft, enabled: v })} />
             <Label className="text-sm">Show in simulator palette</Label>
           </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={Boolean(draft.diagramOnly)}
+              onCheckedChange={(v) => patch({ ...draft, diagramOnly: v })}
+            />
+            <Label className="text-sm">
+              Diagram-only (visual / schematic — no simulation behavior)
+            </Label>
+          </div>
         </TabsContent>
 
         <TabsContent value="svg" className="mt-4">
