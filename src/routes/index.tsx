@@ -184,21 +184,19 @@ function SimulatorPage() {
       // make sure they're installed (and shipped to the backend so it can
       // resolve them). New libs get added to the user's IDE library list.
       const resolved = resolveRequiredLibraries(s.files);
+      const stepLabel0 = `Board ${i + 1}/${sketches.length} · ${s.displayName}`;
       if (resolved.added.length > 0) {
         const names = resolved.added.map((a) => a.name).join(", ");
         toast.info(
           `Installing ${resolved.added.length} required ${resolved.added.length === 1 ? "library" : "libraries"}: ${names}`,
         );
-        setCompileProgress({
-          step: `Board ${i + 1}/${sketches.length} · ${s.displayName}`,
-          percent: 0,
-          message: `Auto-installing libraries: ${names}`,
-        });
+        setCompileProgress({ step: stepLabel0, percent: 0, message: `Auto-installing libraries: ${names}` });
+        await new Promise((r) => setTimeout(r, 30));
       }
-      setCompileProgress({ step: `Board ${i + 1}/${sketches.length} · ${s.displayName}`, percent: 0, message: `Compiling ${s.displayName}...` });
+      setCompileProgress({ step: stepLabel0, percent: 0, message: `Compiling ${s.displayName}...` });
       let result = await compileSketch(
         { board: s.boardId, files: s.files, libraries: resolved.libraryIds },
-        (p) => setCompileProgress({ ...p, step: `Board ${i + 1}/${sketches.length} · ${s.displayName}`, message: `[${s.displayName}] ${p.message ?? ""}` }),
+        (p) => setCompileProgress({ ...p, step: stepLabel0, message: `[${s.displayName}] ${p.message ?? ""}` }),
       );
 
       // Self-heal: if compile failed because a header file wasn't found, ask
