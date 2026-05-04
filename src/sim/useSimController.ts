@@ -137,6 +137,40 @@ export function useSimController() {
       getOrCreate(resolveBoardId(boardId)).postMessage({ type: "compile", code }),
     start: (code: string, speed: number, boardId?: string) => {
       const id = resolveBoardId(boardId);
+      const flash = useSimStore.getState().flashByBoard[id];
+      // If we have a compiled .hex for this board, run avr8js cycle-accurate
+      // emulation against the real binary. Otherwise fall back to the
+      // JS-translation runtime in sim.worker.ts.
+      if (flash && flash.length > 0) {
+        const w = createAvrWorker(id);
+        useSimStore.getState().setPinStates({}, id);
+        // Convert flash bytes back to a HEX-like base64 string is overkill —
+        // the worker accepts raw HEX OR base64 of HEX. We send the bytes via
+        // a special message and the worker rebuilds an in-memory image.
+        // Easiest: pass the bytes directly through the existing parser path
+        // by constructing a minimal HEX string in the worker. We instead
+        // forward the original base64 .hex stashed alongside flash.
+        const hex = useSimStore.getState().flashByBoard[id];
+        // Convert Uint8Array → ":" Intel HEX string in 16-byte rows.
+        let hexStr = "";
+        for (let a = 0; a < hex.length; a += 16) {
+          const len = Math.min(16, hex.length - a);
+          let sum = len + ((a >> 8) & 0xff) + (a & 0xff) + 0x00;
+          let line = `:${len.toString(16).padStart(2, "0").toUpperCase()}${a.toString(16).padStart(4, "0").toUpperCase()}00`;
+          for (let i = 0; i < len; i++) {
+            const b = hex[a + i];
+            line += b.toString(16).padStart(2, "0").toUpperCase();
+            sum += b;
+          }
+          const cs = ((-sum) & 0xff).toString(16).padStart(2, "0").toUpperCase();
+          hexStr += line + cs + "\n";
+        }
+        hexStr += ":00000001FF\n";
+        w.postMessage({ type: "load-hex", hex: hexStr });
+        w.postMessage({ type: "start", speed });
+        void code;
+        return;
+      }
       // Replace the worker on every start so a re-run picks up new code even
       // if the previous program is still in its loop. Otherwise sim.worker
       // sees `running=true` and only sets stopRequested without restarting.
