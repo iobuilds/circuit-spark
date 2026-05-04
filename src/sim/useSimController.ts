@@ -9,6 +9,16 @@ type WorkerOut =
   | { type: "stopped"; reason?: string }
   | { type: "serial"; text: string; kind: "out" | "sys" }
   | { type: "pin-states"; pins: Record<number, PinState>; ms: number }
+  | { type: "loaded"; flashSize: number }
+  | {
+      type: "snapshot";
+      pc: number;
+      sp: number;
+      cycles: number;
+      sreg: number;
+      sramSlice: Uint8Array;
+      eeprom: Uint8Array;
+    }
   | { type: "error"; message: string };
 
 /**
