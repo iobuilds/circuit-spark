@@ -69,6 +69,8 @@ let stopRequested = false;
 let speed = 1;
 let lastPinEmit = 0;
 let lastSnapshot = 0;
+let serialBuf = "";
+let lastSerialFlush = 0;
 
 function loadHex(hex: string) {
   try {
@@ -93,8 +95,17 @@ function loadHex(hex: string) {
 
     usart = new AVRUSART(cpu, usart0Config, F_CPU);
     usart.onByteTransmit = (b: number) => {
-      // Forward as a string char; downstream Serial Monitor handles framing.
-      post({ type: "serial", text: String.fromCharCode(b), kind: "out" });
+      // Buffer characters and flush on newline or short idle so the Serial
+      // Monitor renders whole lines instead of one-char-per-line.
+      serialBuf += String.fromCharCode(b);
+      if (b === 0x0a /* \n */) {
+        post({ type: "serial", text: serialBuf, kind: "out" });
+        serialBuf = "";
+      } else if (serialBuf.length >= 256) {
+        post({ type: "serial", text: serialBuf, kind: "out" });
+        serialBuf = "";
+      }
+      lastSerialFlush = performance.now();
     };
 
     new AVRSPI(cpu, spiConfig, F_CPU);
@@ -186,6 +197,13 @@ async function runLoop() {
         sramSlice: sram,
         eeprom: ee,
       });
+    }
+
+    // Flush serial buffer if it's been idle for a moment (sketches that
+    // print without trailing newline still appear in the monitor).
+    if (serialBuf && performance.now() - lastSerialFlush > 50) {
+      post({ type: "serial", text: serialBuf, kind: "out" });
+      serialBuf = "";
     }
 
     // Yield so the worker stays responsive to messages.

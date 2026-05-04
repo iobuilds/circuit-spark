@@ -71,7 +71,7 @@ export function SerialMonitor({ onSerialIn }: Props) {
                   {new Date(l.ts).toLocaleTimeString(undefined, { hour12: false })}
                 </span>
               )}
-              <span className="whitespace-pre-wrap">{l.text}</span>
+              <span className="whitespace-pre-wrap">{l.text.replace(/\n$/, "")}</span>
             </div>
           ))
         )}
