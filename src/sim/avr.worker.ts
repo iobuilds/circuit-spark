@@ -151,16 +151,8 @@ async function runLoop() {
     const target = cpu.cycles + chunk;
     try {
       while (cpu.cycles < target && !stopRequested && !paused) {
-        // avrInstruction is included via CPU.tick? In avr8js, you call
-        // avrInstruction(cpu) per step. But CPU also has a built-in `tick()`
-        // for peripherals after each instruction.
-        const { avrInstruction, avrInterrupt } = await import("avr8js");
         avrInstruction(cpu);
         cpu.tick();
-        // Check pending interrupts via cpu.nextInterrupt is internal; relies
-        // on AVR8js's built-in handling already in instruction()/tick().
-        void avrInterrupt;
-        // (Avoiding unused-var lint via the void above.)
       }
     } catch (e) {
       post({ type: "error", message: (e as Error).message });
