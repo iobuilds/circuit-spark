@@ -167,7 +167,7 @@ export function LogicAnalyzerWindow({
     const el = plotRef.current;
     if (!el) return;
     const ro = new ResizeObserver(() => {
-      setPlotW(Math.max(300, el.clientWidth - 140));
+      setPlotW(Math.max(300, el.clientWidth - CHANNEL_LABEL_W - CHANNEL_GAP_W - PLOT_SIDE_PAD * 2));
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -181,21 +181,22 @@ export function LogicAnalyzerWindow({
 
   // Wheel: zoom around cursor; Shift+wheel pan.
   const onWheel = (e: React.WheelEvent) => {
+    if (isInteractiveTarget(e.target)) return;
     e.preventDefault();
+    const baseEnd = ensurePausedCapture();
     if (e.shiftKey) {
       setPanMs((p) => Math.max(0, p + (e.deltaY > 0 ? spanMs * 0.1 : -spanMs * 0.1)));
       return;
     }
     const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-    const px = e.clientX - rect.left - 60;
+    const px = e.clientX - rect.left - PLOT_SIDE_PAD - CHANNEL_LABEL_W - CHANNEL_GAP_W;
     const frac = Math.max(0, Math.min(1, px / plotW));
     const tCursor = winStart + frac * spanMs;
     const factor = e.deltaY > 0 ? 1.25 : 0.8;
-    const nextSpan = Math.max(0.05, Math.min(60_000, spanMs * factor));
+    const nextSpan = Math.max(MIN_SPAN_MS, Math.min(MAX_SPAN_MS, spanMs * factor));
     // Keep tCursor under the cursor: adjust panMs so winEnd stays sensible.
     const nextWinStart = tCursor - frac * nextSpan;
     const nextWinEnd = nextWinStart + nextSpan;
-    const baseEnd = paused && frozenEnd !== null ? frozenEnd : liveEnd;
     setSpanMs(nextSpan);
     setPanMs(Math.max(0, baseEnd - nextWinEnd));
   };
@@ -203,13 +204,16 @@ export function LogicAnalyzerWindow({
   // Drag pan.
   const dragRef = useRef<{ startX: number; startPan: number } | null>(null);
   const onMouseDown = (e: React.MouseEvent) => {
+    if (isInteractiveTarget(e.target)) return;
+    e.preventDefault();
+    ensurePausedCapture();
     dragRef.current = { startX: e.clientX, startPan: panMs };
   };
   useEffect(() => {
     function onMove(e: MouseEvent) {
       if (!dragRef.current) return;
       const dx = e.clientX - dragRef.current.startX;
-      const dt = (dx / plotW) * spanMs;
+      const dt = (-dx / plotW) * spanMs;
       setPanMs(Math.max(0, dragRef.current.startPan + dt));
     }
     function onUp() { dragRef.current = null; }
