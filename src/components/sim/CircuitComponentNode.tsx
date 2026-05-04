@@ -205,6 +205,16 @@ export function CircuitComponentNode({ comp, isPowered, voltage = 0, reversed = 
       )}
 
       {comp.kind === "ds3231" && <Ds3231Svg />}
+      {comp.kind === "dht11" && (
+        <Dht11Svg
+          temperature={Number(comp.props.temperature ?? 25)}
+          humidity={Number(comp.props.humidity ?? 60)}
+          powered={isPowered}
+        />
+      )}
+      {comp.kind === "water-level" && (
+        <WaterLevelSvg level={Math.max(0, Math.min(1023, Number(comp.props.level ?? 0)))} />
+      )}
 
       {/* Custom component visual: inline the admin SVG markup. */}
       {comp.kind === "custom" && (
@@ -280,59 +290,74 @@ function PinNode({
 function LedSvg({ color, on, size = 1, burned = false }: { color: string; on: boolean; size?: number; burned?: boolean }) {
   const c = LED_COLORS[color] ?? LED_COLORS.red;
   const s = Math.max(0.5, Math.min(2.5, size));
-  // Dome bulb sits between the two leads at x=20 / x=40 (pin positions, anchored by the parent).
-  // Geometry mirrors the reference dome-LED icon: rounded top, flat collar, two stub leads.
-  const bodyOff = "oklch(0.78 0.02 240)";   // light grey dome when off
-  const bodyOn = c.on;
-  const fill = burned ? "oklch(0.22 0.01 30)" : on ? bodyOn : bodyOff;
-  const stroke = burned ? "oklch(0.12 0.01 30)" : "oklch(0.18 0.01 240)";
+  // Reference: translucent dome bulb (blue/red…) with two bent metal leads —
+  // one short (cathode side, flat edge), one long bent outward (anode).
+  // 60×80 box; pins anchored at A=(20,78), K=(40,78).
+  const tint = burned ? "oklch(0.20 0.01 30)" : c.on;
+  const tintLight = burned ? "oklch(0.30 0.01 30)" : c.off;
+  const stroke = burned ? "oklch(0.12 0.01 30)" : "oklch(0.30 0.06 240 / 0.55)";
   const rays = on && !burned;
+  const leadColor = "oklch(0.55 0.01 250)";
+  const leadDark = "oklch(0.35 0.01 250)";
 
   return (
     <g>
-      {/* leads anchored to pin positions */}
-      <line x1={20} y1={62} x2={20} y2={78} stroke="oklch(0.78 0.02 240)" strokeWidth={1.5} />
-      <line x1={40} y1={62} x2={40} y2={78} stroke="oklch(0.78 0.02 240)" strokeWidth={1.5} />
-      {/* collar / base plate */}
-      <rect x={12} y={50} width={36} height={6} rx={1.5}
-        fill={burned ? "oklch(0.18 0.01 30)" : "oklch(0.45 0.02 240)"}
-        stroke={stroke} strokeWidth={1} />
-      <line x1={16} y1={56} x2={16} y2={62} stroke={stroke} strokeWidth={1} />
-      <line x1={44} y1={56} x2={44} y2={62} stroke={stroke} strokeWidth={1} />
+      {/* Bent leads — left lead bends slightly outward, right lead is straight (flat side cathode). */}
+      <path d="M 20 78 Q 18 70 14 64 L 14 56" stroke={leadColor} strokeWidth={2.4} fill="none" strokeLinecap="round" />
+      <path d="M 20 78 Q 18 70 14 64 L 14 56" stroke={leadDark} strokeWidth={1} fill="none" strokeLinecap="round" opacity={0.5} />
+      <line x1={40} y1={78} x2={40} y2={56} stroke={leadColor} strokeWidth={2.4} strokeLinecap="round" />
+      <line x1={40} y1={78} x2={40} y2={56} stroke={leadDark} strokeWidth={1} strokeLinecap="round" opacity={0.5} />
+
       <g transform={`translate(${30 * (1 - s)} ${28 * (1 - s)}) scale(${s})`}>
-        {/* dome: rounded top + flat bottom — `path` produces the silhouette in the icon */}
+        {/* Bulb body — bulbous round dome with slight neck and a flat cathode edge. */}
+        <defs>
+          <radialGradient id={`led-grad-${color}`} cx="35%" cy="30%" r="75%">
+            <stop offset="0%" stopColor={on ? "oklch(1 0.02 240 / 0.95)" : "oklch(0.92 0.02 240 / 0.85)"} />
+            <stop offset="55%" stopColor={on ? tint : tintLight} stopOpacity={0.85} />
+            <stop offset="100%" stopColor={on ? tint : tintLight} stopOpacity={0.95} />
+          </radialGradient>
+        </defs>
+        {/* Bulb silhouette: round top, slight inward neck, flat-cut cathode side on the right. */}
         <path
-          d="M10 50 V28 a20 20 0 0 1 40 0 V50 Z"
-          fill={fill}
+          d="M 12 50
+             V 28
+             C 12 12, 26 4, 30 4
+             C 38 4, 48 12, 48 28
+             V 50
+             L 42 50
+             L 42 48
+             L 18 48
+             L 18 50 Z"
+          fill={`url(#led-grad-${color})`}
           stroke={stroke}
-          strokeWidth={1.5}
+          strokeWidth={1.2}
           className={rays ? c.glow : ""}
         />
-        {/* highlight */}
+        {/* Internal anvil + post (the visible shapes inside a real LED). */}
+        <path d="M 22 48 L 22 30 L 28 22 L 28 18 L 32 18 L 32 30 L 38 38 L 38 48 Z"
+          fill="oklch(0.55 0.02 240 / 0.45)" stroke={stroke} strokeWidth={0.8} />
+        {/* Specular highlight band along the dome */}
         {!burned && (
-          <ellipse cx={22} cy={22} rx={4} ry={9} fill="oklch(1 0 0 / 0.35)" />
+          <ellipse cx={20} cy={20} rx={3.5} ry={9} fill="oklch(1 0 0 / 0.55)" />
         )}
-        {/* tiny inner die (the square chip element visible in the reference) */}
-        <rect x={26} y={42} width={8} height={5} rx={0.5}
-          fill={burned ? "oklch(0.08 0.01 30)" : on ? "oklch(0.95 0.02 90)" : "oklch(0.55 0.02 240)"} />
+        {!burned && (
+          <ellipse cx={26} cy={12} rx={6} ry={2} fill="oklch(1 0 0 / 0.45)" />
+        )}
       </g>
+
       {/* light rays — only when the LED is on and not burned */}
       {rays && (
-        <g stroke={c.on} strokeWidth={1.6} strokeLinecap="round" opacity={0.9}>
-          <line x1={30} y1={-2} x2={30} y2={4} />
+        <g stroke={c.on} strokeWidth={1.6} strokeLinecap="round" opacity={0.85}>
+          <line x1={30} y1={-4} x2={30} y2={2} />
           <line x1={6} y1={4} x2={11} y2={9} />
           <line x1={54} y1={4} x2={49} y2={9} />
-          <line x1={-2} y1={26} x2={5} y2={26} />
-          <line x1={55} y1={26} x2={62} y2={26} />
-          <line x1={6} y1={48} x2={11} y2={43} />
-          <line x1={54} y1={48} x2={49} y2={43} />
+          <line x1={-4} y1={26} x2={4} y2={26} />
+          <line x1={56} y1={26} x2={64} y2={26} />
         </g>
       )}
-      {/* burned: smoke wisps + 'X' */}
       {burned && (
         <g>
           <path d="M22 -2 q4 4 0 8 q-4 4 0 8" stroke="oklch(0.55 0.01 240 / 0.6)" strokeWidth={1.5} fill="none" strokeLinecap="round" />
-          <path d="M34 -2 q4 4 0 8 q-4 4 0 8" stroke="oklch(0.45 0.01 240 / 0.5)" strokeWidth={1.5} fill="none" strokeLinecap="round" />
           <text x={30} y={32} textAnchor="middle" fontSize={14} fontWeight={700}
             fill="oklch(0.7 0.22 25)" fontFamily="monospace">✕</text>
         </g>
@@ -515,34 +540,75 @@ const PROP_COLORS: Record<string, string> = {
   green: "oklch(0.65 0.20 145)",
 };
 
-function MotorSvg({ voltage, reversed, burned, color }: { voltage: number; reversed: boolean; burned: boolean; color: string }) {
-  // Speed: 0 below ~0.5V, full at 5V. Above 12V → burned (handled by canvas).
+function MotorSvg({ voltage, reversed, burned, color: _color }: { voltage: number; reversed: boolean; burned: boolean; color: string }) {
+  // Realistic TT gear motor (240×110 box). Yellow plastic gearbox + silver
+  // DC can with copper end caps and two contact tabs. Pins +/- exit on the
+  // right side at y=38 and y=72 from the contact tabs.
   const v = Math.max(0, voltage);
   const speed = Math.min(1, Math.max(0, (v - 0.4) / (5 - 0.4)));
-  const rps = (reversed ? -1 : 1) * speed * 8; // up to 8 revs/sec at 5V
+  const rps = (reversed ? -1 : 1) * speed * 6;
   const dur = rps !== 0 ? Math.abs(1 / rps) : 0;
-  const propFill = burned ? "oklch(0.35 0.02 30)" : (PROP_COLORS[color] ?? PROP_COLORS.blue);
-  const propStroke = "oklch(0.18 0.01 240)";
-  // Geometry centred around x=55. Pins exit at (38,148) and (72,148).
+
+  const yellow = burned ? "oklch(0.55 0.10 90)" : "oklch(0.86 0.18 95)";
+  const yellowDark = "oklch(0.65 0.16 90)";
+  const yellowOutline = "oklch(0.40 0.10 80)";
+  const silver = burned ? "oklch(0.40 0.005 250)" : "oklch(0.78 0.005 250)";
+  const silverDark = "oklch(0.55 0.005 250)";
+  const silverOutline = "oklch(0.30 0.005 250)";
+  const copper = burned ? "oklch(0.40 0.05 30)" : "oklch(0.62 0.13 45)";
+  const copperDark = "oklch(0.42 0.10 30)";
+
   return (
     <g>
-      {/* leads */}
-      <line x1={38} y1={120} x2={38} y2={148} stroke="oklch(0.78 0.02 240)" strokeWidth={2} />
-      <line x1={72} y1={120} x2={72} y2={148} stroke="oklch(0.78 0.02 240)" strokeWidth={2} />
-      {/* red end-cap with pins */}
-      <rect x={28} y={108} width={54} height={16} rx={3}
-        fill={burned ? "oklch(0.30 0.05 25)" : "oklch(0.55 0.20 25)"} stroke={propStroke} strokeWidth={1.2} />
-      {/* main grey can */}
-      <rect x={22} y={50} width={66} height={60} rx={4}
-        fill={burned ? "oklch(0.25 0.005 250)" : "oklch(0.55 0.005 250)"} stroke={propStroke} strokeWidth={1.4} />
-      {/* highlight strip */}
-      <rect x={30} y={56} width={6} height={48} rx={2} fill="oklch(0.78 0.005 250 / 0.5)" />
-      {/* shaft cap */}
-      <rect x={45} y={42} width={20} height={10} rx={2} fill="oklch(0.42 0.005 250)" stroke={propStroke} strokeWidth={1} />
-      {/* shaft */}
-      <line x1={55} y1={42} x2={55} y2={28} stroke="oklch(0.7 0.005 250)" strokeWidth={3} strokeLinecap="round" />
-      {/* propeller — animated rotation */}
-      <g transform="translate(55 24)">
+      {/* === Gearbox (left half, x=4..130) === */}
+      {/* mounting tab on far left */}
+      <rect x={2} y={40} width={14} height={28} rx={2} fill={yellowDark} stroke={yellowOutline} strokeWidth={1.2} />
+      <circle cx={9} cy={54} r={3} fill="oklch(0.30 0.01 90)" stroke={yellowOutline} strokeWidth={0.8} />
+      {/* main gearbox body — rounded rect */}
+      <rect x={14} y={14} width={118} height={82} rx={6}
+        fill={yellow} stroke={yellowOutline} strokeWidth={1.6} />
+      {/* subtle top highlight */}
+      <rect x={18} y={18} width={110} height={6} rx={3} fill="oklch(0.96 0.10 95 / 0.55)" />
+      {/* output shaft hub (the bump where the wheel attaches) */}
+      <circle cx={56} cy={55} r={9} fill={yellowDark} stroke={yellowOutline} strokeWidth={1.2} />
+      <circle cx={56} cy={55} r={5} fill="oklch(0.20 0.01 90)" stroke={yellowOutline} strokeWidth={0.8} />
+      {/* visible hex bolt head */}
+      <g transform="translate(40 30)">
+        <polygon points="0,-6 5.2,-3 5.2,3 0,6 -5.2,3 -5.2,-3"
+          fill="oklch(0.85 0.01 250)" stroke="oklch(0.30 0.01 250)" strokeWidth={1} />
+        <circle r={1.5} fill="oklch(0.30 0.01 250)" />
+      </g>
+      {/* small detail dots for screw holes */}
+      <circle cx={86} cy={32} r={2.4} fill="oklch(0.30 0.01 90)" stroke={yellowOutline} strokeWidth={0.6} />
+      <circle cx={86} cy={78} r={2.4} fill="oklch(0.30 0.01 90)" stroke={yellowOutline} strokeWidth={0.6} />
+      {/* gearbox-to-can transition lip */}
+      <rect x={130} y={26} width={10} height={58} rx={2} fill={yellowDark} stroke={yellowOutline} strokeWidth={1} />
+
+      {/* === DC motor can (right half, x=140..222) === */}
+      {/* main silver can */}
+      <rect x={140} y={28} width={78} height={54} rx={4}
+        fill={silver} stroke={silverOutline} strokeWidth={1.4} />
+      {/* horizontal seam */}
+      <line x1={142} y1={55} x2={216} y2={55} stroke={silverDark} strokeWidth={1} />
+      {/* highlights */}
+      <rect x={146} y={32} width={68} height={4} rx={2} fill="oklch(0.95 0.005 250 / 0.7)" />
+      <rect x={146} y={74} width={68} height={4} rx={2} fill="oklch(0.45 0.005 250 / 0.5)" />
+      {/* end cap with copper terminals */}
+      <rect x={216} y={26} width={14} height={58} rx={2} fill={copper} stroke={copperDark} strokeWidth={1.2} />
+      {/* copper terminal slits */}
+      <rect x={219} y={32} width={8} height={3} rx={1} fill={copperDark} />
+      <rect x={219} y={75} width={8} height={3} rx={1} fill={copperDark} />
+      {/* contact tab leads (the pin endpoints) */}
+      <line x1={230} y1={38} x2={234} y2={38} stroke={copperDark} strokeWidth={2.4} strokeLinecap="round" />
+      <line x1={230} y1={72} x2={234} y2={72} stroke={copperDark} strokeWidth={2.4} strokeLinecap="round" />
+      {/* polarity dots */}
+      <text x={225} y={20} textAnchor="middle" fontSize={9} fontWeight={800} fontFamily="monospace"
+        fill="oklch(0.75 0.20 145)">+</text>
+      <text x={225} y={98} textAnchor="middle" fontSize={11} fontWeight={800} fontFamily="monospace"
+        fill="var(--color-foreground)">−</text>
+
+      {/* === Spinning shaft (output) === */}
+      <g transform="translate(56 55)">
         {dur > 0 && !burned && (
           <animateTransform
             attributeName="transform"
@@ -551,26 +617,24 @@ function MotorSvg({ voltage, reversed, burned, color }: { voltage: number; rever
             to={reversed ? "0 0 0" : "360 0 0"}
             dur={`${dur}s`}
             repeatCount="indefinite"
+            additive="sum"
           />
         )}
-        {/* hub */}
-        <circle r={5} fill={propFill} stroke={propStroke} strokeWidth={1} />
-        {/* two blades */}
-        <ellipse cx={-22} cy={0} rx={22} ry={5} fill={propFill} stroke={propStroke} strokeWidth={1} />
-        <ellipse cx={22} cy={0} rx={22} ry={5} fill={propFill} stroke={propStroke} strokeWidth={1} />
+        <line x1={-7} y1={0} x2={7} y2={0} stroke="oklch(0.20 0.01 90)" strokeWidth={2} strokeLinecap="round" />
+        <line x1={0} y1={-7} x2={0} y2={7} stroke="oklch(0.20 0.01 90 / 0.4)" strokeWidth={1.4} strokeLinecap="round" />
       </g>
+
       {/* burned overlay */}
       {burned && (
         <g>
-          <path d="M40 36 q4 -6 0 -14" stroke="oklch(0.55 0.01 240 / 0.7)" strokeWidth={2} fill="none" strokeLinecap="round" />
-          <path d="M55 28 q5 -8 0 -18" stroke="oklch(0.45 0.01 240 / 0.6)" strokeWidth={2} fill="none" strokeLinecap="round" />
-          <path d="M70 36 q4 -6 0 -14" stroke="oklch(0.55 0.01 240 / 0.7)" strokeWidth={2} fill="none" strokeLinecap="round" />
-          <text x={55} y={88} textAnchor="middle" fontSize={20} fontWeight={800}
+          <path d="M170 22 q5 -8 0 -18" stroke="oklch(0.45 0.01 240 / 0.7)" strokeWidth={2.5} fill="none" strokeLinecap="round" />
+          <path d="M188 22 q5 -8 0 -18" stroke="oklch(0.55 0.01 240 / 0.7)" strokeWidth={2.5} fill="none" strokeLinecap="round" />
+          <text x={180} y={62} textAnchor="middle" fontSize={20} fontWeight={800}
             fill="oklch(0.7 0.22 25)" fontFamily="monospace">✕</text>
         </g>
       )}
       {/* status label */}
-      <text x={55} y={138} textAnchor="middle" fontSize={11} fontWeight={700} fontFamily="monospace"
+      <text x={120} y={107} textAnchor="middle" fontSize={11} fontWeight={700} fontFamily="monospace"
         fill="var(--color-foreground)" stroke="var(--color-background)" strokeWidth={3}
         paintOrder="stroke" style={{ paintOrder: "stroke" }}>
         {burned ? "BURNED" : v < 0.4 ? "0V" : `${v.toFixed(1)}V ${reversed ? "◀" : "▶"}`}
@@ -639,3 +703,125 @@ function BatterySvg({ cells, voltage, onVoltageChange }: {
   );
 }
 
+
+// ─── DHT11 sensor module ──────────────────────────────────────────────────
+// Blue plastic housing with grille (the polymer humidity-sensitive element)
+// mounted on a small breakout PCB with 3 header pins (VCC / DATA / GND).
+// Per the DHT11 datasheet: temp 0..50°C ±2°C, humidity 20..90% RH ±5%.
+function Dht11Svg({ temperature, humidity, powered }: { temperature: number; humidity: number; powered: boolean }) {
+  const t = Math.max(-10, Math.min(60, temperature));
+  const h = Math.max(0, Math.min(100, humidity));
+  // 160×90 box. Pins on left (x=10).
+  return (
+    <g>
+      {/* breakout PCB (red FR-4 in the reference) */}
+      <rect x={4} y={6} width={70} height={78} rx={3} fill="oklch(0.45 0.18 25)" stroke="oklch(0.25 0.10 25)" strokeWidth={1.2} />
+      {/* PCB silk text */}
+      <text x={26} y={18} fontSize={6} fontFamily="monospace" fill="oklch(0.95 0.01 30)" fontWeight={700}>DHT11</text>
+      {/* 3 header pins along the left side */}
+      {[28, 50, 72].map((y, i) => (
+        <g key={i}>
+          <rect x={14} y={y - 4} width={14} height={8} rx={1} fill="oklch(0.30 0.01 90)" stroke="oklch(0.18 0.01 90)" strokeWidth={0.6} />
+          <rect x={6} y={y - 1.5} width={10} height={3} rx={0.5} fill="oklch(0.78 0.13 90)" stroke="oklch(0.45 0.10 80)" strokeWidth={0.5} />
+        </g>
+      ))}
+      {/* pin labels */}
+      <text x={32} y={31} fontSize={6} fontFamily="monospace" fill="oklch(0.95 0.01 30)" fontWeight={700}>+</text>
+      <text x={32} y={53} fontSize={6} fontFamily="monospace" fill="oklch(0.95 0.01 30)" fontWeight={700}>OUT</text>
+      <text x={32} y={75} fontSize={6} fontFamily="monospace" fill="oklch(0.95 0.01 30)" fontWeight={700}>−</text>
+      {/* pull-up resistor + LED on PCB */}
+      <rect x={50} y={26} width={8} height={3} rx={0.5} fill="oklch(0.18 0.01 250)" />
+      <circle cx={56} cy={42} r={2} fill={powered ? "oklch(0.78 0.22 145)" : "oklch(0.4 0.05 145)"}
+        className={powered ? "led-glow-green" : ""} />
+      {/* ── Blue DHT11 module body ── */}
+      <rect x={78} y={4} width={78} height={82} rx={3} fill="oklch(0.55 0.14 220)" stroke="oklch(0.25 0.10 230)" strokeWidth={1.4} />
+      {/* highlight */}
+      <rect x={82} y={8} width={70} height={4} rx={2} fill="oklch(0.85 0.10 220 / 0.5)" />
+      {/* grille slits — the humidity sensor opening */}
+      <g fill="oklch(0.20 0.04 230)">
+        {[16, 22, 28, 34, 40, 46, 52, 58, 64, 70, 76].map((y) => (
+          <rect key={y} x={86} y={y} width={62} height={2.4} rx={0.6} />
+        ))}
+      </g>
+      {/* corner mounting hole */}
+      <circle cx={150} cy={80} r={3} fill="oklch(0.18 0.01 250)" stroke="oklch(0.12 0.01 250)" strokeWidth={0.6} />
+      {/* live readout */}
+      <g>
+        <rect x={4} y={4} width={70} height={2} fill="oklch(0.30 0.10 25)" />
+        <text x={39} y={94} textAnchor="middle" fontSize={9} fontWeight={700} fontFamily="monospace"
+          fill="var(--color-foreground)" stroke="var(--color-background)" strokeWidth={3} paintOrder="stroke"
+          style={{ paintOrder: "stroke" }}>
+          {t.toFixed(0)}°C / {h.toFixed(0)}%
+        </text>
+      </g>
+    </g>
+  );
+}
+
+// ─── Water Level Sensor ───────────────────────────────────────────────────
+// Red PCB with parallel exposed conductive traces. As `level` (0..1023) rises,
+// more traces become conductive and the water surface visualisation fills.
+function WaterLevelSvg({ level }: { level: number }) {
+  // 80×200 box. Pins on top (S, VCC, GND at y=4).
+  const lvl = Math.max(0, Math.min(1023, level)) / 1023;
+  // Probe area is from y=70 to y=192. Water rises from bottom up.
+  const probeTop = 70;
+  const probeBottom = 192;
+  const waterY = probeBottom - (probeBottom - probeTop) * lvl;
+
+  return (
+    <g>
+      {/* mounting holes top */}
+      <circle cx={14} cy={26} r={4} fill="oklch(0.18 0.01 250)" stroke="oklch(0.30 0.10 25)" strokeWidth={1} />
+      <circle cx={66} cy={26} r={4} fill="oklch(0.18 0.01 250)" stroke="oklch(0.30 0.10 25)" strokeWidth={1} />
+      {/* PCB body — red */}
+      <path
+        d="M 6 18 H 74 V 36 Q 74 44 66 46 H 56 V 200 H 24 V 46 H 14 Q 6 44 6 36 Z"
+        fill="oklch(0.50 0.20 25)" stroke="oklch(0.25 0.12 25)" strokeWidth={1.4}
+      />
+      {/* 3 pin headers up top */}
+      {[
+        { x: 22, l: "S" },
+        { x: 40, l: "+" },
+        { x: 58, l: "−" },
+      ].map((p) => (
+        <g key={p.x}>
+          <rect x={p.x - 4} y={8} width={8} height={14} rx={1} fill="oklch(0.30 0.01 90)" stroke="oklch(0.18 0.01 90)" strokeWidth={0.5} />
+          <text x={p.x} y={32} textAnchor="middle" fontSize={7} fontWeight={700} fontFamily="monospace"
+            fill="oklch(0.96 0.02 25)">{p.l}</text>
+        </g>
+      ))}
+      {/* SMD components on the upper paddle */}
+      <rect x={14} y={38} width={4} height={2.5} fill="oklch(0.18 0.01 250)" />
+      <rect x={22} y={38} width={4} height={2.5} fill="oklch(0.18 0.01 250)" />
+      <rect x={50} y={38} width={4} height={2.5} fill="oklch(0.18 0.01 250)" />
+      <text x={40} y={56} textAnchor="middle" fontSize={6} fontFamily="monospace" fill="oklch(0.96 0.02 25)" fontWeight={700}>
+        Power
+      </text>
+      {/* Conductive traces — vertical parallel lines */}
+      {Array.from({ length: 10 }).map((_, i) => {
+        const x = 28 + i * 3;
+        return (
+          <line key={i} x1={x} y1={probeTop} x2={x} y2={probeBottom}
+            stroke="oklch(0.92 0.04 25)" strokeWidth={1.4} strokeLinecap="round" />
+        );
+      })}
+      {/* Water visualisation overlay */}
+      {lvl > 0 && (
+        <g>
+          <rect x={26} y={waterY} width={28} height={probeBottom - waterY} rx={1}
+            fill="oklch(0.75 0.13 220 / 0.55)" />
+          {/* surface ripple */}
+          <path d={`M 26 ${waterY} q 4 -2 8 0 t 8 0 t 8 0 t 4 0`}
+            stroke="oklch(0.85 0.13 220)" strokeWidth={1} fill="none" />
+        </g>
+      )}
+      {/* live numeric readout */}
+      <text x={40} y={210} textAnchor="middle" fontSize={9} fontWeight={700} fontFamily="monospace"
+        fill="var(--color-foreground)" stroke="var(--color-background)" strokeWidth={3} paintOrder="stroke"
+        style={{ paintOrder: "stroke" }}>
+        {Math.round(level)} / 1023
+      </text>
+    </g>
+  );
+}

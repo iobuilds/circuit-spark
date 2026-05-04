@@ -54,6 +54,7 @@ export type ComponentKind =
   | "7seg"
   | "relay"
   | "ds3231"
+  | "water-level"
   | "board"
   | "custom";
 

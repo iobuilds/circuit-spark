@@ -105,12 +105,12 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
     ], available: false,
   },
   dht11: {
-    kind: "dht11", label: "DHT11", category: "Sensors", width: 80, height: 100,
+    kind: "dht11", label: "DHT11", category: "Sensors", width: 160, height: 90,
     pins: [
-      { id: "VCC",  label: "VCC",  x: 16, y: 98 },
-      { id: "DATA", label: "DATA", x: 40, y: 98 },
-      { id: "GND",  label: "GND",  x: 64, y: 98 },
-    ], available: false,
+      { id: "VCC",  label: "VCC",  x: 10, y: 28 },
+      { id: "DATA", label: "DATA", x: 10, y: 50 },
+      { id: "GND",  label: "GND",  x: 10, y: 72 },
+    ], available: true,
   },
   ultrasonic: {
     kind: "ultrasonic", label: "HC-SR04", category: "Sensors", width: 140, height: 70,
@@ -144,10 +144,10 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
     ], available: true,
   },
   motor: {
-    kind: "motor", label: "DC Motor", category: "Actuators", width: 110, height: 150,
+    kind: "motor", label: "TT Gear Motor", category: "Actuators", width: 240, height: 110,
     pins: [
-      { id: "+", label: "+", x: 38, y: 148 },
-      { id: "-", label: "-", x: 72, y: 148 },
+      { id: "+", label: "+", x: 234, y: 38 },
+      { id: "-", label: "-", x: 234, y: 72 },
     ], available: true,
   },
   ds3231: {
@@ -172,6 +172,14 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
   custom: {
     kind: "custom", label: "Custom", category: "Basic", width: 80, height: 60,
     pins: [], available: false,
+  },
+  "water-level": {
+    kind: "water-level", label: "Water Level Sensor", category: "Sensors", width: 80, height: 200,
+    pins: [
+      { id: "S",   label: "Signal", x: 22, y: 4 },
+      { id: "VCC", label: "VCC",    x: 40, y: 4 },
+      { id: "GND", label: "GND",    x: 58, y: 4 },
+    ], available: true,
   },
   // Board placeholder. Pins are resolved dynamically from the boardId stored
   // in component props (Uno uses uno-pins, others use generic header pins).
