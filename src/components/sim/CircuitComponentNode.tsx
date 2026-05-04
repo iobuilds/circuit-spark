@@ -703,3 +703,125 @@ function BatterySvg({ cells, voltage, onVoltageChange }: {
   );
 }
 
+
+// ─── DHT11 sensor module ──────────────────────────────────────────────────
+// Blue plastic housing with grille (the polymer humidity-sensitive element)
+// mounted on a small breakout PCB with 3 header pins (VCC / DATA / GND).
+// Per the DHT11 datasheet: temp 0..50°C ±2°C, humidity 20..90% RH ±5%.
+function Dht11Svg({ temperature, humidity, powered }: { temperature: number; humidity: number; powered: boolean }) {
+  const t = Math.max(-10, Math.min(60, temperature));
+  const h = Math.max(0, Math.min(100, humidity));
+  // 160×90 box. Pins on left (x=10).
+  return (
+    <g>
+      {/* breakout PCB (red FR-4 in the reference) */}
+      <rect x={4} y={6} width={70} height={78} rx={3} fill="oklch(0.45 0.18 25)" stroke="oklch(0.25 0.10 25)" strokeWidth={1.2} />
+      {/* PCB silk text */}
+      <text x={26} y={18} fontSize={6} fontFamily="monospace" fill="oklch(0.95 0.01 30)" fontWeight={700}>DHT11</text>
+      {/* 3 header pins along the left side */}
+      {[28, 50, 72].map((y, i) => (
+        <g key={i}>
+          <rect x={14} y={y - 4} width={14} height={8} rx={1} fill="oklch(0.30 0.01 90)" stroke="oklch(0.18 0.01 90)" strokeWidth={0.6} />
+          <rect x={6} y={y - 1.5} width={10} height={3} rx={0.5} fill="oklch(0.78 0.13 90)" stroke="oklch(0.45 0.10 80)" strokeWidth={0.5} />
+        </g>
+      ))}
+      {/* pin labels */}
+      <text x={32} y={31} fontSize={6} fontFamily="monospace" fill="oklch(0.95 0.01 30)" fontWeight={700}>+</text>
+      <text x={32} y={53} fontSize={6} fontFamily="monospace" fill="oklch(0.95 0.01 30)" fontWeight={700}>OUT</text>
+      <text x={32} y={75} fontSize={6} fontFamily="monospace" fill="oklch(0.95 0.01 30)" fontWeight={700}>−</text>
+      {/* pull-up resistor + LED on PCB */}
+      <rect x={50} y={26} width={8} height={3} rx={0.5} fill="oklch(0.18 0.01 250)" />
+      <circle cx={56} cy={42} r={2} fill={powered ? "oklch(0.78 0.22 145)" : "oklch(0.4 0.05 145)"}
+        className={powered ? "led-glow-green" : ""} />
+      {/* ── Blue DHT11 module body ── */}
+      <rect x={78} y={4} width={78} height={82} rx={3} fill="oklch(0.55 0.14 220)" stroke="oklch(0.25 0.10 230)" strokeWidth={1.4} />
+      {/* highlight */}
+      <rect x={82} y={8} width={70} height={4} rx={2} fill="oklch(0.85 0.10 220 / 0.5)" />
+      {/* grille slits — the humidity sensor opening */}
+      <g fill="oklch(0.20 0.04 230)">
+        {[16, 22, 28, 34, 40, 46, 52, 58, 64, 70, 76].map((y) => (
+          <rect key={y} x={86} y={y} width={62} height={2.4} rx={0.6} />
+        ))}
+      </g>
+      {/* corner mounting hole */}
+      <circle cx={150} cy={80} r={3} fill="oklch(0.18 0.01 250)" stroke="oklch(0.12 0.01 250)" strokeWidth={0.6} />
+      {/* live readout */}
+      <g>
+        <rect x={4} y={4} width={70} height={2} fill="oklch(0.30 0.10 25)" />
+        <text x={39} y={94} textAnchor="middle" fontSize={9} fontWeight={700} fontFamily="monospace"
+          fill="var(--color-foreground)" stroke="var(--color-background)" strokeWidth={3} paintOrder="stroke"
+          style={{ paintOrder: "stroke" }}>
+          {t.toFixed(0)}°C / {h.toFixed(0)}%
+        </text>
+      </g>
+    </g>
+  );
+}
+
+// ─── Water Level Sensor ───────────────────────────────────────────────────
+// Red PCB with parallel exposed conductive traces. As `level` (0..1023) rises,
+// more traces become conductive and the water surface visualisation fills.
+function WaterLevelSvg({ level }: { level: number }) {
+  // 80×200 box. Pins on top (S, VCC, GND at y=4).
+  const lvl = Math.max(0, Math.min(1023, level)) / 1023;
+  // Probe area is from y=70 to y=192. Water rises from bottom up.
+  const probeTop = 70;
+  const probeBottom = 192;
+  const waterY = probeBottom - (probeBottom - probeTop) * lvl;
+
+  return (
+    <g>
+      {/* mounting holes top */}
+      <circle cx={14} cy={26} r={4} fill="oklch(0.18 0.01 250)" stroke="oklch(0.30 0.10 25)" strokeWidth={1} />
+      <circle cx={66} cy={26} r={4} fill="oklch(0.18 0.01 250)" stroke="oklch(0.30 0.10 25)" strokeWidth={1} />
+      {/* PCB body — red */}
+      <path
+        d="M 6 18 H 74 V 36 Q 74 44 66 46 H 56 V 200 H 24 V 46 H 14 Q 6 44 6 36 Z"
+        fill="oklch(0.50 0.20 25)" stroke="oklch(0.25 0.12 25)" strokeWidth={1.4}
+      />
+      {/* 3 pin headers up top */}
+      {[
+        { x: 22, l: "S" },
+        { x: 40, l: "+" },
+        { x: 58, l: "−" },
+      ].map((p) => (
+        <g key={p.x}>
+          <rect x={p.x - 4} y={8} width={8} height={14} rx={1} fill="oklch(0.30 0.01 90)" stroke="oklch(0.18 0.01 90)" strokeWidth={0.5} />
+          <text x={p.x} y={32} textAnchor="middle" fontSize={7} fontWeight={700} fontFamily="monospace"
+            fill="oklch(0.96 0.02 25)">{p.l}</text>
+        </g>
+      ))}
+      {/* SMD components on the upper paddle */}
+      <rect x={14} y={38} width={4} height={2.5} fill="oklch(0.18 0.01 250)" />
+      <rect x={22} y={38} width={4} height={2.5} fill="oklch(0.18 0.01 250)" />
+      <rect x={50} y={38} width={4} height={2.5} fill="oklch(0.18 0.01 250)" />
+      <text x={40} y={56} textAnchor="middle" fontSize={6} fontFamily="monospace" fill="oklch(0.96 0.02 25)" fontWeight={700}>
+        Power
+      </text>
+      {/* Conductive traces — vertical parallel lines */}
+      {Array.from({ length: 10 }).map((_, i) => {
+        const x = 28 + i * 3;
+        return (
+          <line key={i} x1={x} y1={probeTop} x2={x} y2={probeBottom}
+            stroke="oklch(0.92 0.04 25)" strokeWidth={1.4} strokeLinecap="round" />
+        );
+      })}
+      {/* Water visualisation overlay */}
+      {lvl > 0 && (
+        <g>
+          <rect x={26} y={waterY} width={28} height={probeBottom - waterY} rx={1}
+            fill="oklch(0.75 0.13 220 / 0.55)" />
+          {/* surface ripple */}
+          <path d={`M 26 ${waterY} q 4 -2 8 0 t 8 0 t 8 0 t 4 0`}
+            stroke="oklch(0.85 0.13 220)" strokeWidth={1} fill="none" />
+        </g>
+      )}
+      {/* live numeric readout */}
+      <text x={40} y={210} textAnchor="middle" fontSize={9} fontWeight={700} fontFamily="monospace"
+        fill="var(--color-foreground)" stroke="var(--color-background)" strokeWidth={3} paintOrder="stroke"
+        style={{ paintOrder: "stroke" }}>
+        {Math.round(level)} / 1023
+      </text>
+    </g>
+  );
+}
