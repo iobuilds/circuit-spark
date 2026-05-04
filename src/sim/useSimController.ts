@@ -91,6 +91,11 @@ export function useSimController() {
           setBoardEeprom(boardId, m.eeprom);
           setBoardCpu(boardId, { pc: m.pc, sp: m.sp, cycles: m.cycles, sreg: m.sreg });
           break;
+        case "oled-frame":
+          useSimStore.getState().setOledFrame(boardId, m.addr, {
+            w: m.w, h: m.h, bitmap: m.bitmap, on: m.on, invert: m.invert, contrast: m.contrast,
+          });
+          break;
         case "error":
           setBoardStatus(boardId, "error");
           appendSerial({ ts: Date.now(), text: `Runtime error: ${m.message}`, kind: "sys" }, boardId);
