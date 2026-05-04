@@ -37,7 +37,12 @@ async function repairCliIndexes() {
   await runCli(['lib', 'update-index']);
 }
 
-module.exports = {
+// Public wrapper so routes can trigger the index repair.
+async function repair() {
+  await repairCliIndexes();
+  return { success: true };
+}
+
   async search(query, topic) {
     return new Promise((resolve) => {
       const args = ['lib', 'search', query, '--format', 'json'];
