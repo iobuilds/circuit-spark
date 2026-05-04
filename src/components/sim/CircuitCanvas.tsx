@@ -882,6 +882,35 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                     onPinHover={hoverHandler}
                   />
                 )}
+                {/* Lock toggle — appears on hover, stays visible when locked */}
+                {showLock && !locked && (
+                  <g
+                    transform={`translate(${b.x + bw - 4} ${b.y - 12})`}
+                    className="cursor-pointer"
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      setComponentProp(b.id, "locked", !isBoardLocked);
+                    }}
+                  >
+                    <title>{isBoardLocked ? "Unlock board (allow dragging)" : "Lock board in place"}</title>
+                    <circle r={11}
+                      fill={isBoardLocked ? "var(--color-primary)" : "var(--color-card)"}
+                      stroke={isBoardLocked ? "var(--color-primary)" : "var(--color-border)"}
+                      strokeWidth={1.5} />
+                    {isBoardLocked ? (
+                      <g stroke="var(--color-primary-foreground)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x={-4} y={-1} width={8} height={6} rx={1} fill="var(--color-primary-foreground)" stroke="none" />
+                        <path d="M -2.5 -1 V -3 a 2.5 2.5 0 0 1 5 0 V -1" />
+                      </g>
+                    ) : (
+                      <g stroke="var(--color-foreground)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x={-4} y={-1} width={8} height={6} rx={1} fill="var(--color-foreground)" stroke="none" />
+                        <path d="M -2.5 -1 V -3 a 2.5 2.5 0 0 1 5 0" />
+                      </g>
+                    )}
+                  </g>
+                )}
                 {isSel && (
                   <>
                     <rect
