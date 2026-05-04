@@ -27,6 +27,7 @@ import {
   adcConfig,
   eepromConfig,
   PinState as AvrPinState,
+  avrInstruction,
 } from "avr8js";
 import { parseIntelHex } from "./intelHex";
 import { ARDUINO_TO_AVR } from "./atmega328p";
