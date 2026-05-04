@@ -718,8 +718,6 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
           setPanning(false);
           setWpDrag(null);
           setSegDrag(null);
-          // Click without movement → just select the wire
-          if (segPending) { setSelectedWireId(segPending.wireId); setSelected(null); setSegPending(null); }
         }}
         onWheel={onWheel}
         onMouseDown={(e) => {
