@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { X, GripVertical, Activity, Pause, Play, ZoomIn, ZoomOut } from "lucide-react";
+import { X, GripVertical, Activity, Pause, Play, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Wire, CircuitComponent, PinState, PinEvent } from "@/sim/types";
 import type { NetGraph } from "@/sim/netlist";
 import { findUnoPin } from "@/sim/uno-pins";
 import { useSimStore } from "@/sim/store";
+import { LogicAnalyzerWindow } from "./LogicAnalyzerWindow";
 
 interface Props {
   wire: Wire;
