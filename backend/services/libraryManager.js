@@ -45,6 +45,8 @@ async function repair() {
 
 module.exports = {
   repair,
+
+  async search(query, topic) {
     return new Promise((resolve) => {
       const args = ['lib', 'search', query, '--format', 'json'];
       const proc = spawn(config.ARDUINO_CLI_PATH, args);
