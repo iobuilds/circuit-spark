@@ -115,6 +115,9 @@ function SimulatorPage() {
   const [showEditor, setShowEditor] = useState(true);
   const [showExplorer, setShowExplorer] = useState(true);
   const [showBottomPanels, setShowBottomPanels] = useState(true);
+  const [libMgrOpen, setLibMgrOpen] = useState(false);
+  const [installLibsOpen, setInstallLibsOpen] = useState(false);
+  const { isAdmin } = useIsAdmin();
   const inputCacheRef = useRef<Record<number, { d?: 0 | 1; a?: number }>>({});
 
   useEffect(() => { if (!ideLoaded) ideHydrate(); }, [ideLoaded, ideHydrate]);
