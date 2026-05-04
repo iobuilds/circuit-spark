@@ -497,8 +497,9 @@ export function LogicAnalyzerWindow({
 
                 {/* Channel waveform */}
                 <div
-                  className="flex-1 relative rounded border border-border/60 bg-card/40 cursor-grab active:cursor-grabbing"
+                  className="flex-1 relative rounded border border-border/60 bg-card/40 cursor-grab active:cursor-grabbing select-none"
                   onMouseDown={onMouseDown}
+                  title="Drag to pan. Scroll to zoom."
                 >
                   <svg width={plotW} height={ROW_H} className="block">
                     {/* grid */}
@@ -557,7 +558,7 @@ export function LogicAnalyzerWindow({
 
       {/* Status bar */}
       <div className="flex items-center gap-4 px-4 py-1.5 border-t border-border bg-card text-[11px] font-mono text-muted-foreground">
-        <span>{paused ? "⏸ PAUSED" : "● LIVE"}</span>
+        <span>{paused ? "⏸ CAPTURE FROZEN" : "● LIVE"}</span>
         <span>t = {(winEnd).toFixed(2)} ms</span>
         <span>Δ = {spanMs >= 1 ? `${spanMs.toFixed(2)} ms` : `${(spanMs * 1000).toFixed(1)} µs`}</span>
         <span>Pan = {panMs.toFixed(1)} ms</span>
