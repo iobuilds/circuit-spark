@@ -1,11 +1,27 @@
 const { spawn } = require('child_process');
 const path = require('path');
+const fs = require('fs/promises');
 const boardsConfig = require('../config/boards');
 const fileManager = require('./fileManager');
 const errorParser = require('../utils/errorParser');
 const logger = require('../utils/logger');
 const config = require('../config');
 const libraryCache = require('./libraryCache');
+
+function baseLibraryName(name) {
+  return String(name || '').split('@')[0].trim();
+}
+
+function isRecoverableCliIssue(text) {
+  const blob = String(text || '').toLowerCase();
+  return blob.includes('index') ||
+    blob.includes('not found') ||
+    blob.includes('no such file') ||
+    blob.includes('temporary') ||
+    blob.includes('timeout') ||
+    blob.includes('network') ||
+    blob.includes('initializing instance');
+}
 
 class CompilerService {
   parseMemoryStats(output, boardKey) {
@@ -32,14 +48,13 @@ class CompilerService {
 
   async checkLibraries(libraries) {
     if (!libraries || libraries.length === 0) return [];
-    const libBaseName = (name) => String(name || '').split('@')[0].trim();
 
     // Fast path: Redis-backed cache of the installed set, salted by the
     // arduino-cli index version. Skips spawning `lib list` (~300-800ms) every
     // compile and skips re-installing libs we know are already there.
     const cached = await libraryCache.getInstalledSet();
     if (cached) {
-      const missing = libraries.filter(l => !cached.has(libBaseName(l).toLowerCase()));
+      const missing = libraries.filter(l => !cached.has(baseLibraryName(l).toLowerCase()));
       logger.info(`libcache hit (v=${libraryCache.getIndexVersion()}): ${libraries.length - missing.length}/${libraries.length} already installed`);
       return missing;
     }
@@ -59,7 +74,7 @@ class CompilerService {
             .filter(Boolean);
           await libraryCache.setInstalledSet(installedNames);
           const lower = new Set(installedNames.map(n => n.toLowerCase()));
-          const missing = libraries.filter(l => !lower.has(libBaseName(l).toLowerCase()));
+          const missing = libraries.filter(l => !lower.has(baseLibraryName(l).toLowerCase()));
           resolve(missing);
         } catch (e) {
           resolve(libraries); // assume missing on parse error
@@ -99,8 +114,23 @@ class CompilerService {
       return arr.some(l => (l.library?.name || '').toLowerCase() === target);
     } catch (e) {
       logger.warn(`verify lib list parse error: ${e.message}`);
-      return false;
     }
+
+    const sketchbookLibs = path.join(process.env.HOME || '/root', 'Arduino', 'libraries');
+    try {
+      const entries = await fs.readdir(sketchbookLibs, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const props = path.join(sketchbookLibs, entry.name, 'library.properties');
+        try {
+          const text = await fs.readFile(props, 'utf8');
+          const name = text.match(/^name=(.+)$/m)?.[1]?.trim().toLowerCase();
+          if (name === target) return true;
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    return false;
   }
 
   // Self-healing index refresh. arduino-cli sometimes returns non-zero when an
@@ -127,17 +157,10 @@ class CompilerService {
       // Retry once after a fresh index refresh — covers stale/missing index
       // files (the rp2040 warning the user is seeing) and transient network blips.
       if (result.code !== 0) {
-        const errText = (result.stderr + result.stdout).toLowerCase();
-        const recoverable =
-          errText.includes('index') ||
-          errText.includes('not found') ||
-          errText.includes('no such file') ||
-          errText.includes('temporary') ||
-          errText.includes('timeout') ||
-          errText.includes('network');
-        if (recoverable) {
+        const errText = result.stderr + result.stdout;
+        if (isRecoverableCliIssue(errText)) {
           logger.warn(`Install of ${lib} failed (${result.code}); refreshing index and retrying...`);
-          await this.updateIndex();
+          await this.repairCliIndexes();
           result = await tryInstall(lib);
         }
       }
@@ -154,11 +177,18 @@ class CompilerService {
         const verified = await this._verifyLibraryInstalled(lib);
         if (!verified) {
           logger.error(`Drift detected: ${lib} reported installed but not visible to arduino-cli`);
-          await libraryCache.invalidate();
-          failed.push({ lib, error: `install reported success but library not found by arduino-cli (drift); cache invalidated` });
+          await this.repairCliIndexes();
+          result = await tryInstall(lib);
+          const verifiedAfterRepair = result.code === 0 && await this._verifyLibraryInstalled(lib);
+          if (!verifiedAfterRepair) {
+            failed.push({ lib, error: `install reported success but library not found by arduino-cli after automatic index repair` });
+          } else {
+            logger.info(`Installed library after index repair: ${lib} (verified)`);
+            await libraryCache.markInstalled(baseLibraryName(lib));
+          }
         } else {
           logger.info(`Installed library: ${lib} (verified)`);
-          await libraryCache.markInstalled(lib);
+          await libraryCache.markInstalled(baseLibraryName(lib));
         }
       }
     }
@@ -167,6 +197,16 @@ class CompilerService {
       const msg = failed.map(f => `${f.lib}: ${f.error}`).join('; ');
       throw new Error(`Library install failed — ${msg}`);
     }
+  }
+
+  async repairCliIndexes() {
+    const arduinoHome = path.join(process.env.HOME || '/root', '.arduino15');
+    const staleIndexes = ['package_rp2040_index.json', 'package_rp2040_index.json.sig'];
+    for (const file of staleIndexes) {
+      try { await fs.rm(path.join(arduinoHome, file), { force: true }); } catch (_) {}
+    }
+    await libraryCache.invalidate();
+    await this.updateIndex();
   }
 
   async compile({ workDir, board, jobId, onOutput }) {

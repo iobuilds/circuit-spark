@@ -151,4 +151,32 @@ function resolveLibraryNames(libraries) {
   return [...out];
 }
 
-module.exports = { detectRequiredLibraries, extractIncludes, resolveLibraryNames, HEADER_TO_LIBRARY };
+function resolveHeadersToLibraries(headers) {
+  const indexMaps = loadLibraryIndexMaps();
+  const out = new Set();
+  for (const raw of headers || []) {
+    const header = String(raw || '').trim();
+    if (!header || BUILTIN_HEADERS.has(header)) continue;
+    const key = header.toLowerCase();
+    const lib = HEADER_TO_LIBRARY[key] || indexMaps.byHeader.get(key);
+    if (lib) out.add(lib);
+  }
+  return [...out];
+}
+
+function missingHeadersFromCompilerOutput(output) {
+  const out = new Set();
+  const re = /fatal error:\s*([^:\s]+\.h(?:pp)?):\s*No such file or directory/gi;
+  let m;
+  while ((m = re.exec(String(output || ''))) !== null) out.add(m[1].trim());
+  return [...out];
+}
+
+module.exports = {
+  detectRequiredLibraries,
+  extractIncludes,
+  resolveLibraryNames,
+  resolveHeadersToLibraries,
+  missingHeadersFromCompilerOutput,
+  HEADER_TO_LIBRARY,
+};

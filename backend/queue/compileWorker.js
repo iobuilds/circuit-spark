@@ -7,7 +7,12 @@ const hashCode = require('../utils/hashCode');
 const logger = require('../utils/logger');
 const config = require('../config');
 const { validatePins } = require('../utils/pinValidator');
-const { detectRequiredLibraries, resolveLibraryNames } = require('../utils/includeScanner');
+const {
+  detectRequiredLibraries,
+  resolveLibraryNames,
+  resolveHeadersToLibraries,
+  missingHeadersFromCompilerOutput,
+} = require('../utils/includeScanner');
 
 fileManager.ensureTempDir();
 
@@ -65,7 +70,7 @@ compileQueue.process(config.MAX_CONCURRENT_JOBS, async (job) => {
 
       await emit('libraries', 40, 'Checking libraries...');
       const detected = detectRequiredLibraries(files);
-      const allLibs = resolveLibraryNames(Array.from(new Set([...(libraries || []), ...detected])));
+      let allLibs = resolveLibraryNames(Array.from(new Set([...(libraries || []), ...detected])));
       const missing = await compiler.checkLibraries(allLibs);
       if (missing.length > 0) {
         await emit('install_libs', 50, `Installing ${missing.length} missing libraries: ${missing.join(', ')}`);
@@ -84,8 +89,7 @@ compileQueue.process(config.MAX_CONCURRENT_JOBS, async (job) => {
         }
       }
 
-      await emit('compile', 65, 'Compiling with arduino-cli...');
-      const result = await compiler.compile({
+      const runCompile = () => compiler.compile({
         workDir, board, jobId: job.id,
         onOutput: async (line) => {
           if (line.trim()) {
@@ -93,6 +97,31 @@ compileQueue.process(config.MAX_CONCURRENT_JOBS, async (job) => {
           }
         }
       });
+
+      await emit('compile', 65, 'Compiling with arduino-cli...');
+      let result = await runCompile();
+
+      const missingHeaders = missingHeadersFromCompilerOutput(`${result.stderr}\n${result.stdout}\n${JSON.stringify(result.errors || [])}`);
+      const retryLibs = resolveLibraryNames(resolveHeadersToLibraries(missingHeaders));
+      if (!result.success && retryLibs.length > 0) {
+        await emit('install_libs', 75, `Auto-installing libraries for missing headers: ${retryLibs.join(', ')}`);
+        try {
+          await compiler.installLibraries(retryLibs);
+        } catch (installErr) {
+          await emit('install_libs', 100, `Library auto-install failed ✗`);
+          return {
+            success: false, stdout: result.stdout || '', stderr: installErr.message,
+            errors: [{ file: 'libraries', line: 0, col: 0, message: installErr.message, severity: 'error' }],
+            warnings: result.warnings || [], binary: null, binaryType: null, binarySize: 0,
+            flashUsed: 0, flashTotal: 0, flashPercent: 0,
+            ramUsed: 0, ramTotal: 0, ramPercent: 0,
+            duration: Date.now() - startTime, fromCache: false,
+          };
+        }
+        allLibs = resolveLibraryNames([...allLibs, ...retryLibs]);
+        await emit('compile', 85, 'Retrying compile with auto-installed libraries...');
+        result = await runCompile();
+      }
 
       await emit('finish', 100, result.success ? 'Compilation successful ✓' : 'Compilation failed ✗');
 
