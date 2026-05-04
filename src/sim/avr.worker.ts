@@ -40,8 +40,11 @@ import {
 import {
   createSsd1306State,
   SSD1306_ADDRS,
+  SSD1306_W,
+  SSD1306_H,
   ssd1306HandleI2cRead,
   ssd1306HandleI2cWrite,
+  ssd1306Render,
 } from "./ssd1306";
 
 type InMsg =
