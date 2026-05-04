@@ -111,6 +111,7 @@ interface IdeState {
   installBoard: (b: InstalledBoard) => void;
   removeBoard: (id: string) => void;
   installLibrary: (lib: InstalledLibrary) => void;
+  setInstalledLibraries: (libs: InstalledLibrary[]) => void;
   removeLibrary: (id: string) => void;
   isBoardInstalled: (id: string) => boolean;
   isLibraryInstalled: (id: string) => boolean;
@@ -185,6 +186,10 @@ export const useIdeStore = create<IdeState>((set, get) => ({
         }
       }
     }
+  },
+  setInstalledLibraries: (libs) => {
+    saveJson(KEY_LIBS, libs);
+    set({ installedLibraries: libs });
   },
   removeLibrary: (id) => {
     const next = get().installedLibraries.filter((l) => l.id !== id);
