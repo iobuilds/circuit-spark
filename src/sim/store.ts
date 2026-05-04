@@ -423,7 +423,7 @@ export const useSimStore = create<SimState>((set, get) => {
 
   resetWorkspace: () => set({
     components: [], wires: [], selectedId: null, serial: [], pinStates: {},
-    serialByBoard: {}, pinStatesByBoard: {}, statusByBoard: {}, activeSimBoardId: null,
+    serialByBoard: {}, pinStatesByBoard: {}, pinEventsByBoard: {}, statusByBoard: {}, activeSimBoardId: null,
     simTimeMs: 0, drawingFrom: null, drawingWaypoints: [],
     wireHistory: [], wireFuture: [],
     flashByBoard: {}, eepromByBoard: {}, sramByBoard: {}, cpuByBoard: {}, avrModeByBoard: {},
