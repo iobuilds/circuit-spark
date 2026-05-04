@@ -201,39 +201,36 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
   async function startInstall(lib: ArduinoLibraryEntry) {
     const version = versionChoice[lib.id] ?? lib.latestVersion;
     setProgress((p) => ({ ...p, [lib.id]: 5 }));
+    try {
+      setProgress((p) => ({ ...p, [lib.id]: 35 }));
+      const result = await installLibrary(lib.name, version);
+      if (!result?.success) throw new Error(result?.error ?? `Failed to install ${lib.name}`);
+      setProgress((p) => ({ ...p, [lib.id]: 85 }));
+      await syncInstalledFromBackend(false);
+      toast.success(`${lib.name} v${version} installed on VPS`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setProgress((p) => {
+        const next = { ...p };
+        delete next[lib.id];
+        return next;
+      });
+    }
+  }
 
-    // Kick off the server-side download/cache in parallel with the visual
-    // progress bar so the UX feels native but the cache is real.
-    const cachePromise = primeServerCache(lib, version);
-
-    let pct = 5;
-    const tick = setInterval(() => {
-      pct += Math.random() * 22;
-      setProgress((p) => ({ ...p, [lib.id]: Math.min(95, pct) }));
-    }, 140);
-
-    const cacheResult = await cachePromise;
-    clearInterval(tick);
-    setProgress((p) => {
-      const next = { ...p };
-      delete next[lib.id];
-      return next;
-    });
-
-    installLib({
-      id: lib.id,
-      version,
-      name: lib.name,
-      headers: lib.headers,
-    });
-
-    if (cacheResult.cache === "HIT") {
-      toast.success(`${lib.name} v${version} installed (cache hit · 0 ms)`);
-    } else if (cacheResult.cache === "MISS") {
-      const kb = Math.round(cacheResult.size / 1024);
-      toast.success(`${lib.name} v${version} installed (${kb} KB · cached for next time)`);
-    } else {
-      toast.success(`${lib.name} v${version} installed`);
+  async function startRemove(lib: { id: string; name: string }) {
+    setProgress((p) => ({ ...p, [lib.id]: 20 }));
+    try {
+      const result = await uninstallLibrary(lib.name);
+      if (!result?.success) throw new Error(result?.error ?? `Failed to remove ${lib.name}`);
+      removeLib(lib.id);
+      await syncInstalledFromBackend(false);
+      toast.success(`${lib.name} removed from VPS`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setProgress((p) => { const next = { ...p }; delete next[lib.id]; return next; });
     }
   }
 
