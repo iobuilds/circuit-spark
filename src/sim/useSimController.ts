@@ -31,12 +31,18 @@ type WorkerOut =
 export function useSimController() {
   /** Map of boardComponentId → worker. */
   const workersRef = useRef<Map<string, Worker>>(new Map());
+  /** Boards whose active worker is the avr8js emulator (i.e. real .hex). */
+  const avrBoardsRef = useRef<Set<string>>(new Set());
   const setStatus = useSimStore((s) => s.setStatus);
   const setBoardStatus = useSimStore((s) => s.setBoardStatus);
   const appendSerial = useSimStore((s) => s.appendSerial);
   const setPinStates = useSimStore((s) => s.setPinStates);
   const setSimTime = useSimStore((s) => s.setSimTime);
   const setCompileLog = useSimStore((s) => s.setCompileLog);
+  const setBoardEeprom = useSimStore((s) => s.setBoardEeprom);
+  const setBoardSram = useSimStore((s) => s.setBoardSram);
+  const setBoardCpu = useSimStore((s) => s.setBoardCpu);
+  const setBoardAvrMode = useSimStore((s) => s.setBoardAvrMode);
 
   // Cleanup all workers on unmount.
   useEffect(() => {
@@ -47,10 +53,7 @@ export function useSimController() {
     };
   }, []);
 
-  function getOrCreate(boardId: string): Worker {
-    const existing = workersRef.current.get(boardId);
-    if (existing) return existing;
-    const w = new Worker(new URL("./sim.worker.ts", import.meta.url), { type: "module" });
+  function attachHandlers(boardId: string, w: Worker) {
     w.onmessage = (ev: MessageEvent<WorkerOut>) => {
       const m = ev.data;
       switch (m.type) {
@@ -77,13 +80,41 @@ export function useSimController() {
           setPinStates(m.pins, boardId);
           setSimTime(m.ms);
           break;
+        case "loaded":
+          appendSerial({ ts: Date.now(), text: `── avr8js loaded ${m.flashSize} bytes ──`, kind: "sys" }, boardId);
+          break;
+        case "snapshot":
+          setBoardSram(boardId, m.sramSlice);
+          setBoardEeprom(boardId, m.eeprom);
+          setBoardCpu(boardId, { pc: m.pc, sp: m.sp, cycles: m.cycles, sreg: m.sreg });
+          break;
         case "error":
           setBoardStatus(boardId, "error");
           appendSerial({ ts: Date.now(), text: `Runtime error: ${m.message}`, kind: "sys" }, boardId);
           break;
       }
     };
+  }
+
+  function getOrCreate(boardId: string): Worker {
+    const existing = workersRef.current.get(boardId);
+    if (existing) return existing;
+    const w = new Worker(new URL("./sim.worker.ts", import.meta.url), { type: "module" });
+    attachHandlers(boardId, w);
     workersRef.current.set(boardId, w);
+    avrBoardsRef.current.delete(boardId);
+    setBoardAvrMode(boardId, false);
+    return w;
+  }
+
+  function createAvrWorker(boardId: string): Worker {
+    const existing = workersRef.current.get(boardId);
+    if (existing) { existing.terminate(); workersRef.current.delete(boardId); }
+    const w = new Worker(new URL("./avr.worker.ts", import.meta.url), { type: "module" });
+    attachHandlers(boardId, w);
+    workersRef.current.set(boardId, w);
+    avrBoardsRef.current.add(boardId);
+    setBoardAvrMode(boardId, true);
     return w;
   }
 
