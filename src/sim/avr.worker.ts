@@ -93,8 +93,17 @@ function loadHex(hex: string) {
 
     usart = new AVRUSART(cpu, usart0Config, F_CPU);
     usart.onByteTransmit = (b: number) => {
-      // Forward as a string char; downstream Serial Monitor handles framing.
-      post({ type: "serial", text: String.fromCharCode(b), kind: "out" });
+      // Buffer characters and flush on newline or short idle so the Serial
+      // Monitor renders whole lines instead of one-char-per-line.
+      serialBuf += String.fromCharCode(b);
+      if (b === 0x0a /* \n */) {
+        post({ type: "serial", text: serialBuf, kind: "out" });
+        serialBuf = "";
+      } else if (serialBuf.length >= 256) {
+        post({ type: "serial", text: serialBuf, kind: "out" });
+        serialBuf = "";
+      }
+      lastSerialFlush = Date.now();
     };
 
     new AVRSPI(cpu, spiConfig, F_CPU);
