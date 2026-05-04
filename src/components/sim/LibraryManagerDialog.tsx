@@ -83,6 +83,20 @@ async function primeServerCache(lib: ArduinoLibraryEntry, version: string): Prom
   }
 }
 
+function normalizeBackendLibraries(rows: BackendInstalledLibrary[]): InstalledLibrary[] {
+  return rows.map((row) => {
+    const source = row.library ?? row;
+    const name = source.name ?? "Unknown library";
+    const catalog = LIBRARY_PACKAGES.find((lib) => lib.name.toLowerCase() === name.toLowerCase());
+    return {
+      id: catalog?.id ?? name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+      name,
+      version: source.version ?? catalog?.version ?? "installed",
+      headers: source.providesIncludes ?? catalog?.headers ?? [],
+    };
+  });
+}
+
 export function LibraryManagerDialog({ open, onOpenChange }: Props) {
   const installed = useIdeStore((s) => s.installedLibraries);
   const installLib = useIdeStore((s) => s.installLibrary);
@@ -107,6 +121,24 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
   const [versionChoice, setVersionChoice] = useState<Record<string, string>>({});
   const fileRef = useRef<HTMLInputElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  async function syncInstalledFromBackend(showToast = false) {
+    setSyncingInstalled(true);
+    try {
+      const rows = await getInstalledLibraries();
+      if (!Array.isArray(rows)) throw new Error(rows?.error ?? "Could not load VPS libraries");
+      setInstalledLibraries(normalizeBackendLibraries(rows));
+      if (showToast) toast.success(`Synced ${rows.length} libraries from VPS`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setSyncingInstalled(false);
+    }
+  }
+
+  useEffect(() => {
+    if (open) void syncInstalledFromBackend(false);
+  }, [open]);
 
   // Debounced live search against the Arduino index.
   useEffect(() => {
