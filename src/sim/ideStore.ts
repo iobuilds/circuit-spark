@@ -246,6 +246,7 @@ export const useIdeStore = create<IdeState>((set, get) => ({
     const next = { ...get().prefs, ...patch };
     saveJson(KEY_PREFS, next);
     set({ prefs: next });
+    (globalThis as unknown as { __ideMinSpacing?: number }).__ideMinSpacing = next.minSpacing;
   },
 }));
 
