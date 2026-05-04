@@ -40,12 +40,16 @@ export interface IdePreferences {
   fontSize: number;
   editorTheme: "embedsim-dark" | "vs-dark" | "light" | "hc-black" | "monokai" | "dracula";
   autoIncludeOnInstall: boolean;
+  /** Minimum gap (canvas units) enforced between components when loading
+   *  example projects or auto-arranging the workspace. */
+  minSpacing: number;
 }
 
 const DEFAULT_PREFS: IdePreferences = {
   fontSize: 13,
   editorTheme: "embedsim-dark",
   autoIncludeOnInstall: false,
+  minSpacing: 60,
 };
 
 const DEFAULT_INO = `// sketch.ino — main entry
