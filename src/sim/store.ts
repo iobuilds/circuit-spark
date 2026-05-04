@@ -125,6 +125,9 @@ export interface SimState {
 
   toggleTheme: () => void;
   resetWorkspace: () => void;
+  /** Reflow the current workspace so every component clears the user's
+   *  preferred minimum spacing. Boards are anchored; peripherals reflow. */
+  autoSpaceWorkspace: (gap?: number) => void;
   loadProject: (p: {
     code: string;
     components: CircuitComponent[];
