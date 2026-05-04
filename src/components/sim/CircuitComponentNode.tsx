@@ -3,6 +3,7 @@ import { COMPONENT_DEFS } from "@/sim/components";
 import type { CircuitComponent } from "@/sim/types";
 import { useEffect, useMemo, useState } from "react";
 import { useAdminStore } from "@/sim/adminStore";
+import { Ds3231Svg } from "./Ds3231Svg";
 
 interface Props {
   comp: CircuitComponent;
@@ -160,6 +161,8 @@ export function CircuitComponentNode({ comp, isPowered, voltage = 0, reversed = 
           onVoltageChange={(v) => setProp(comp.id, "voltage", v)}
         />
       )}
+
+      {comp.kind === "ds3231" && <Ds3231Svg />}
 
       {/* Custom component visual: inline the admin SVG markup. */}
       {comp.kind === "custom" && (
