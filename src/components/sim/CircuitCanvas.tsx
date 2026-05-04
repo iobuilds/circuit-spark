@@ -558,12 +558,21 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
       if (!p) return null;
       return { x: c.x + p.x, y: c.y + p.y };
     }
+    // Apply this component's rotation around its own center, matching the
+    // CircuitComponentNode <g rotate(...)> transform so wire endpoints follow.
+    const rotatePin = (px: number, py: number, w: number, h: number) => {
+      const angle = ((c?.rotation ?? 0) % 360 + 360) % 360;
+      if (!angle) return { x: px, y: py };
+      const cx = w / 2, cy = h / 2;
+      const rad = (angle * Math.PI) / 180;
+      const dx = px - cx, dy = py - cy;
+      return { x: cx + dx * Math.cos(rad) - dy * Math.sin(rad), y: cy + dx * Math.sin(rad) + dy * Math.cos(rad) };
+    };
     if (c.kind === "custom") {
       const cid = String(c.props.customId ?? "");
       const entry = adminComps.find((a) => a.id === cid);
       const pin = entry?.pins?.find((p) => p.id === pinId);
       if (!pin) return null;
-      // Honor per-instance pin overrides set via the "Move pins" tool.
       let px = pin.x, py = pin.y;
       const rawOv = c.props.pinOverrides;
       if (typeof rawOv === "string" && rawOv) {
@@ -575,12 +584,14 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
           }
         } catch { /* ignore malformed overrides */ }
       }
-      return { x: c.x + px, y: c.y + py };
+      const r = rotatePin(px, py, entry?.width ?? 80, entry?.height ?? 60);
+      return { x: c.x + r.x, y: c.y + r.y };
     }
     const def = COMPONENT_DEFS[c.kind];
     const pin = def.pins.find((p) => p.id === pinId);
     if (!pin) return null;
-    return { x: c.x + pin.x, y: c.y + pin.y };
+    const r = rotatePin(pin.x, pin.y, def.width, def.height);
+    return { x: c.x + r.x, y: c.y + r.y };
   }
 
   const drawingFromPos = drawingFrom ? endpointPos(drawingFrom.componentId, drawingFrom.pinId) : null;
