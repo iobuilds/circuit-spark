@@ -101,13 +101,17 @@ export function CircuitComponentNode({ comp, isPowered, voltage = 0, reversed = 
   };
 
 
+  const angle = ((comp.rotation ?? 0) % 360 + 360) % 360;
+  const cx = width / 2;
+  const cy = height / 2;
+
   return (
     <g
       transform={`translate(${comp.x} ${comp.y})`}
       onMouseDown={(e) => { onSelect(e); onDragStart(e); }}
       className="cursor-grab active:cursor-grabbing"
     >
-      {/* Selection ring */}
+      {/* Selection ring (axis-aligned around the unrotated bounding box) */}
       {selected && (
         <rect
           x={-4} y={-4} width={width + 8} height={height + 8}
@@ -118,6 +122,8 @@ export function CircuitComponentNode({ comp, isPowered, voltage = 0, reversed = 
           strokeDasharray="4 3"
         />
       )}
+
+      <g transform={angle ? `rotate(${angle} ${cx} ${cy})` : undefined}>
 
       {comp.kind === "led" && (
         <LedSvg
