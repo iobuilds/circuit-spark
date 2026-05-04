@@ -12,6 +12,7 @@ import { LIBRARY_PACKAGES } from "@/sim/ideCatalog";
 import { ProjectLibrariesTab } from "./ProjectLibrariesTab";
 import { useIdeStore } from "@/sim/ideStore";
 import { uploadZipLibrary } from "@/sim/compileApi";
+import { getInstalledLibraries, installLibrary, uninstallLibrary } from "@/services/compilerService";
 import {
   ARDUINO_CATEGORIES,
   ARDUINO_TYPES,
@@ -19,6 +20,13 @@ import {
   type ArduinoLibraryEntry,
 } from "@/sim/arduinoLibraryApi";
 import { toast } from "sonner";
+
+interface BackendInstalledLibrary {
+  library?: { name?: string; version?: string; providesIncludes?: string[] };
+  name?: string;
+  version?: string;
+  providesIncludes?: string[];
+}
 
 interface Props {
   open: boolean;
