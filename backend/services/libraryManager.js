@@ -157,9 +157,12 @@ module.exports = {
       const proc = spawn(config.ARDUINO_CLI_PATH, ['lib', 'install', '--zip-path', zipPath]);
       let err = '';
       proc.stderr.on('data', d => err += d);
-      proc.on('close', (code) => {
+      proc.on('close', async (code) => {
         try { fs.unlinkSync(zipPath); } catch(e) {}
-        if (code === 0) resolve({ success: true, message: 'Library installed from ZIP' });
+        if (code === 0) {
+          await libraryCache.invalidate();
+          resolve({ success: true, message: 'Library installed from ZIP' });
+        }
         else reject(new Error(err || 'ZIP install failed'));
       });
       proc.on('error', reject);
