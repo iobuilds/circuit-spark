@@ -74,6 +74,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
 
   const adminComps = useAdminStore((s) => s.components);
   const adminBoards = useAdminStore((s) => s.boards);
+  const [hoveredBoardId, setHoveredBoardId] = useState<string | null>(null);
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
@@ -831,11 +832,17 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
               const sy = (b.y + pin.y + pan.y) * zoom;
               setHovered({ id: pin.id, label: pin.label, kind: pin.kind, number: pin.number, sx, sy, boardCompId: b.id });
             };
+            const isBoardLocked = !!b.props.locked;
+            const showLock = hoveredBoardId === b.id || isBoardLocked;
+            const bw = bid === "uno" ? UNO_WIDTH : 360;
             return (
               <g
                 key={b.id}
+                onMouseEnter={() => setHoveredBoardId(b.id)}
+                onMouseLeave={() => setHoveredBoardId((cur) => (cur === b.id ? null : cur))}
                 onMouseDown={(e) => {
                   if (locked) return;
+                  if (isBoardLocked) return;
                   if (e.button !== 0) return;
                   e.stopPropagation();
                   setSelected(b.id);
@@ -845,7 +852,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                   // Make this board the active simulation target.
                   setBoard(bid);
                 }}
-                style={{ cursor: locked ? "default" : "grab" }}
+                style={{ cursor: locked ? "default" : isBoardLocked ? "not-allowed" : "grab" }}
               >
                 {/* Invisible hit target rendered BEFORE the board art so clicks anywhere on
                     the board reliably select/drag it. Pins (rendered after) stay on top. */}
@@ -874,6 +881,35 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                     onPinClick={(pinId) => handleBoardPinClick(b.id, pinId)}
                     onPinHover={hoverHandler}
                   />
+                )}
+                {/* Lock toggle — appears on hover, stays visible when locked */}
+                {showLock && !locked && (
+                  <g
+                    transform={`translate(${b.x + bw - 4} ${b.y - 12})`}
+                    className="cursor-pointer"
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      setComponentProp(b.id, "locked", !isBoardLocked);
+                    }}
+                  >
+                    <title>{isBoardLocked ? "Unlock board (allow dragging)" : "Lock board in place"}</title>
+                    <circle r={11}
+                      fill={isBoardLocked ? "var(--color-primary)" : "var(--color-card)"}
+                      stroke={isBoardLocked ? "var(--color-primary)" : "var(--color-border)"}
+                      strokeWidth={1.5} />
+                    {isBoardLocked ? (
+                      <g stroke="var(--color-primary-foreground)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x={-4} y={-1} width={8} height={6} rx={1} fill="var(--color-primary-foreground)" stroke="none" />
+                        <path d="M -2.5 -1 V -3 a 2.5 2.5 0 0 1 5 0 V -1" />
+                      </g>
+                    ) : (
+                      <g stroke="var(--color-foreground)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x={-4} y={-1} width={8} height={6} rx={1} fill="var(--color-foreground)" stroke="none" />
+                        <path d="M -2.5 -1 V -3 a 2.5 2.5 0 0 1 5 0" />
+                      </g>
+                    )}
+                  </g>
                 )}
                 {isSel && (
                   <>
