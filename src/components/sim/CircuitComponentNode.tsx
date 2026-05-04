@@ -530,34 +530,75 @@ const PROP_COLORS: Record<string, string> = {
   green: "oklch(0.65 0.20 145)",
 };
 
-function MotorSvg({ voltage, reversed, burned, color }: { voltage: number; reversed: boolean; burned: boolean; color: string }) {
-  // Speed: 0 below ~0.5V, full at 5V. Above 12V → burned (handled by canvas).
+function MotorSvg({ voltage, reversed, burned, color: _color }: { voltage: number; reversed: boolean; burned: boolean; color: string }) {
+  // Realistic TT gear motor (240×110 box). Yellow plastic gearbox + silver
+  // DC can with copper end caps and two contact tabs. Pins +/- exit on the
+  // right side at y=38 and y=72 from the contact tabs.
   const v = Math.max(0, voltage);
   const speed = Math.min(1, Math.max(0, (v - 0.4) / (5 - 0.4)));
-  const rps = (reversed ? -1 : 1) * speed * 8; // up to 8 revs/sec at 5V
+  const rps = (reversed ? -1 : 1) * speed * 6;
   const dur = rps !== 0 ? Math.abs(1 / rps) : 0;
-  const propFill = burned ? "oklch(0.35 0.02 30)" : (PROP_COLORS[color] ?? PROP_COLORS.blue);
-  const propStroke = "oklch(0.18 0.01 240)";
-  // Geometry centred around x=55. Pins exit at (38,148) and (72,148).
+
+  const yellow = burned ? "oklch(0.55 0.10 90)" : "oklch(0.86 0.18 95)";
+  const yellowDark = "oklch(0.65 0.16 90)";
+  const yellowOutline = "oklch(0.40 0.10 80)";
+  const silver = burned ? "oklch(0.40 0.005 250)" : "oklch(0.78 0.005 250)";
+  const silverDark = "oklch(0.55 0.005 250)";
+  const silverOutline = "oklch(0.30 0.005 250)";
+  const copper = burned ? "oklch(0.40 0.05 30)" : "oklch(0.62 0.13 45)";
+  const copperDark = "oklch(0.42 0.10 30)";
+
   return (
     <g>
-      {/* leads */}
-      <line x1={38} y1={120} x2={38} y2={148} stroke="oklch(0.78 0.02 240)" strokeWidth={2} />
-      <line x1={72} y1={120} x2={72} y2={148} stroke="oklch(0.78 0.02 240)" strokeWidth={2} />
-      {/* red end-cap with pins */}
-      <rect x={28} y={108} width={54} height={16} rx={3}
-        fill={burned ? "oklch(0.30 0.05 25)" : "oklch(0.55 0.20 25)"} stroke={propStroke} strokeWidth={1.2} />
-      {/* main grey can */}
-      <rect x={22} y={50} width={66} height={60} rx={4}
-        fill={burned ? "oklch(0.25 0.005 250)" : "oklch(0.55 0.005 250)"} stroke={propStroke} strokeWidth={1.4} />
-      {/* highlight strip */}
-      <rect x={30} y={56} width={6} height={48} rx={2} fill="oklch(0.78 0.005 250 / 0.5)" />
-      {/* shaft cap */}
-      <rect x={45} y={42} width={20} height={10} rx={2} fill="oklch(0.42 0.005 250)" stroke={propStroke} strokeWidth={1} />
-      {/* shaft */}
-      <line x1={55} y1={42} x2={55} y2={28} stroke="oklch(0.7 0.005 250)" strokeWidth={3} strokeLinecap="round" />
-      {/* propeller — animated rotation */}
-      <g transform="translate(55 24)">
+      {/* === Gearbox (left half, x=4..130) === */}
+      {/* mounting tab on far left */}
+      <rect x={2} y={40} width={14} height={28} rx={2} fill={yellowDark} stroke={yellowOutline} strokeWidth={1.2} />
+      <circle cx={9} cy={54} r={3} fill="oklch(0.30 0.01 90)" stroke={yellowOutline} strokeWidth={0.8} />
+      {/* main gearbox body — rounded rect */}
+      <rect x={14} y={14} width={118} height={82} rx={6}
+        fill={yellow} stroke={yellowOutline} strokeWidth={1.6} />
+      {/* subtle top highlight */}
+      <rect x={18} y={18} width={110} height={6} rx={3} fill="oklch(0.96 0.10 95 / 0.55)" />
+      {/* output shaft hub (the bump where the wheel attaches) */}
+      <circle cx={56} cy={55} r={9} fill={yellowDark} stroke={yellowOutline} strokeWidth={1.2} />
+      <circle cx={56} cy={55} r={5} fill="oklch(0.20 0.01 90)" stroke={yellowOutline} strokeWidth={0.8} />
+      {/* visible hex bolt head */}
+      <g transform="translate(40 30)">
+        <polygon points="0,-6 5.2,-3 5.2,3 0,6 -5.2,3 -5.2,-3"
+          fill="oklch(0.85 0.01 250)" stroke="oklch(0.30 0.01 250)" strokeWidth={1} />
+        <circle r={1.5} fill="oklch(0.30 0.01 250)" />
+      </g>
+      {/* small detail dots for screw holes */}
+      <circle cx={86} cy={32} r={2.4} fill="oklch(0.30 0.01 90)" stroke={yellowOutline} strokeWidth={0.6} />
+      <circle cx={86} cy={78} r={2.4} fill="oklch(0.30 0.01 90)" stroke={yellowOutline} strokeWidth={0.6} />
+      {/* gearbox-to-can transition lip */}
+      <rect x={130} y={26} width={10} height={58} rx={2} fill={yellowDark} stroke={yellowOutline} strokeWidth={1} />
+
+      {/* === DC motor can (right half, x=140..222) === */}
+      {/* main silver can */}
+      <rect x={140} y={28} width={78} height={54} rx={4}
+        fill={silver} stroke={silverOutline} strokeWidth={1.4} />
+      {/* horizontal seam */}
+      <line x1={142} y1={55} x2={216} y2={55} stroke={silverDark} strokeWidth={1} />
+      {/* highlights */}
+      <rect x={146} y={32} width={68} height={4} rx={2} fill="oklch(0.95 0.005 250 / 0.7)" />
+      <rect x={146} y={74} width={68} height={4} rx={2} fill="oklch(0.45 0.005 250 / 0.5)" />
+      {/* end cap with copper terminals */}
+      <rect x={216} y={26} width={14} height={58} rx={2} fill={copper} stroke={copperDark} strokeWidth={1.2} />
+      {/* copper terminal slits */}
+      <rect x={219} y={32} width={8} height={3} rx={1} fill={copperDark} />
+      <rect x={219} y={75} width={8} height={3} rx={1} fill={copperDark} />
+      {/* contact tab leads (the pin endpoints) */}
+      <line x1={230} y1={38} x2={234} y2={38} stroke={copperDark} strokeWidth={2.4} strokeLinecap="round" />
+      <line x1={230} y1={72} x2={234} y2={72} stroke={copperDark} strokeWidth={2.4} strokeLinecap="round" />
+      {/* polarity dots */}
+      <text x={225} y={20} textAnchor="middle" fontSize={9} fontWeight={800} fontFamily="monospace"
+        fill="oklch(0.75 0.20 145)">+</text>
+      <text x={225} y={98} textAnchor="middle" fontSize={11} fontWeight={800} fontFamily="monospace"
+        fill="var(--color-foreground)">−</text>
+
+      {/* === Spinning shaft (output) === */}
+      <g transform="translate(56 55)">
         {dur > 0 && !burned && (
           <animateTransform
             attributeName="transform"
@@ -566,26 +607,24 @@ function MotorSvg({ voltage, reversed, burned, color }: { voltage: number; rever
             to={reversed ? "0 0 0" : "360 0 0"}
             dur={`${dur}s`}
             repeatCount="indefinite"
+            additive="sum"
           />
         )}
-        {/* hub */}
-        <circle r={5} fill={propFill} stroke={propStroke} strokeWidth={1} />
-        {/* two blades */}
-        <ellipse cx={-22} cy={0} rx={22} ry={5} fill={propFill} stroke={propStroke} strokeWidth={1} />
-        <ellipse cx={22} cy={0} rx={22} ry={5} fill={propFill} stroke={propStroke} strokeWidth={1} />
+        <line x1={-7} y1={0} x2={7} y2={0} stroke="oklch(0.20 0.01 90)" strokeWidth={2} strokeLinecap="round" />
+        <line x1={0} y1={-7} x2={0} y2={7} stroke="oklch(0.20 0.01 90 / 0.4)" strokeWidth={1.4} strokeLinecap="round" />
       </g>
+
       {/* burned overlay */}
       {burned && (
         <g>
-          <path d="M40 36 q4 -6 0 -14" stroke="oklch(0.55 0.01 240 / 0.7)" strokeWidth={2} fill="none" strokeLinecap="round" />
-          <path d="M55 28 q5 -8 0 -18" stroke="oklch(0.45 0.01 240 / 0.6)" strokeWidth={2} fill="none" strokeLinecap="round" />
-          <path d="M70 36 q4 -6 0 -14" stroke="oklch(0.55 0.01 240 / 0.7)" strokeWidth={2} fill="none" strokeLinecap="round" />
-          <text x={55} y={88} textAnchor="middle" fontSize={20} fontWeight={800}
+          <path d="M170 22 q5 -8 0 -18" stroke="oklch(0.45 0.01 240 / 0.7)" strokeWidth={2.5} fill="none" strokeLinecap="round" />
+          <path d="M188 22 q5 -8 0 -18" stroke="oklch(0.55 0.01 240 / 0.7)" strokeWidth={2.5} fill="none" strokeLinecap="round" />
+          <text x={180} y={62} textAnchor="middle" fontSize={20} fontWeight={800}
             fill="oklch(0.7 0.22 25)" fontFamily="monospace">✕</text>
         </g>
       )}
       {/* status label */}
-      <text x={55} y={138} textAnchor="middle" fontSize={11} fontWeight={700} fontFamily="monospace"
+      <text x={120} y={107} textAnchor="middle" fontSize={11} fontWeight={700} fontFamily="monospace"
         fill="var(--color-foreground)" stroke="var(--color-background)" strokeWidth={3}
         paintOrder="stroke" style={{ paintOrder: "stroke" }}>
         {burned ? "BURNED" : v < 0.4 ? "0V" : `${v.toFixed(1)}V ${reversed ? "◀" : "▶"}`}
