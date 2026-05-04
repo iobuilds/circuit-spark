@@ -26,6 +26,7 @@ interface BackendInstalledLibrary {
   name?: string;
   version?: string;
   providesIncludes?: string[];
+  provides_includes?: string[];
 }
 
 interface Props {
@@ -65,7 +66,7 @@ function normalizeBackendLibraries(rows: BackendInstalledLibrary[]): InstalledLi
       id: catalog?.id ?? name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
       name,
       version: source.version ?? catalog?.version ?? "installed",
-      headers: source.providesIncludes ?? catalog?.headers ?? [],
+      headers: source.providesIncludes ?? source.provides_includes ?? catalog?.headers ?? [],
     };
   });
 }
