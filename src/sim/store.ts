@@ -192,6 +192,7 @@ export const useSimStore = create<SimState>((set, get) => {
   sramByBoard: {},
   cpuByBoard: {},
   avrModeByBoard: {},
+  oledFrames: {},
 
   theme: "dark",
 
