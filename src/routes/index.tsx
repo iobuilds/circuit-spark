@@ -11,7 +11,7 @@ import { CompileOutputPanel } from "@/components/sim/CompileOutputPanel";
 import { PinStateTable } from "@/components/sim/PinStateTable";
 import { BoardSimTabs } from "@/components/sim/BoardSimTabs";
 import { Button } from "@/components/ui/button";
-import { Code2, FileText, FolderTree, PanelRightClose, PanelRightOpen, LogOut, PanelBottomClose, PanelBottomOpen, Trash2 } from "lucide-react";
+import { Code2, FileText, FolderTree, PanelRightClose, PanelRightOpen, LogOut, PanelBottomClose, PanelBottomOpen, Trash2, Library, Download } from "lucide-react";
 import { useSimController } from "@/sim/useSimController";
 import { useSimStore } from "@/sim/store";
 import { useIdeStore, type SourceFile } from "@/sim/ideStore";
@@ -19,6 +19,9 @@ import { compileSketch, type CompileResult, type CompileProgress } from "@/sim/c
 import { resolveRequiredLibraries } from "@/sim/autoInstallLibs";
 import { LIBRARY_PACKAGES } from "@/sim/ideCatalog";
 import { installLibrary } from "@/services/compilerService";
+import { LibraryManagerDialog } from "@/components/sim/LibraryManagerDialog";
+import { InstallLibrariesDialog } from "@/components/sim/InstallLibrariesDialog";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { toast } from "sonner";
 
 // Map a missing-header filename like "U8g2lib.h" to the Arduino Library
