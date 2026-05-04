@@ -53,6 +53,7 @@ export type ComponentKind =
   | "switch"
   | "7seg"
   | "relay"
+  | "ds3231"
   | "board"
   | "custom";
 
