@@ -10,6 +10,8 @@ interface Props {
   highlightPin?: string;
   onPinClick?: (pinId: string, e: React.MouseEvent) => void;
   onPinHover?: (pin: BoardPin | null, e?: React.MouseEvent) => void;
+  /** Click handler for the ATmega328P IC — opens the chip inspector. */
+  onChipClick?: (e: React.MouseEvent) => void;
 }
 
 /** Map a VisualPin (admin schema) to the coarse BoardPin kind expected by the
