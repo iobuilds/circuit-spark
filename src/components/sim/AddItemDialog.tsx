@@ -377,7 +377,6 @@ function ComponentIcon({ kind }: { kind: ComponentKind }) {
           <line x1={18} y1={11} x2={18} y2={14} stroke="currentColor" strokeWidth={1.2} />
         </svg>
       );
-      );
     case "water-level":
       return (
         <svg viewBox="0 0 36 36" className={cls}>
