@@ -25,7 +25,6 @@ import {
   spiConfig,
   twiConfig,
   adcConfig,
-  atmega328Channels,
   eepromConfig,
   PinState as AvrPinState,
 } from "avr8js";
