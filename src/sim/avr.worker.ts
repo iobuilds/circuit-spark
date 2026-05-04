@@ -263,6 +263,8 @@ function loadHex(hex: string) {
      *  First byte is interpreted as the DS3231 register pointer; subsequent
      *  bytes are register writes (auto-incrementing pointer). */
     let twiTxBuf: number[] = [];
+    const isKnownSlave = (addr: number) =>
+      addr === DS3231_ADDR || oleds.has(addr);
     twi.eventHandler = {
       start: (repeated) => {
         twiTxBuf = [];
@@ -270,8 +272,12 @@ function loadHex(hex: string) {
         twi.completeStart();
       },
       stop: () => {
-        if (twiSlaveAddr === DS3231_ADDR && twiSlaveWrite && twiTxBuf.length) {
-          handleI2cWrite(ds3231, twiTxBuf);
+        if (twiSlaveWrite && twiTxBuf.length) {
+          if (twiSlaveAddr === DS3231_ADDR) {
+            handleI2cWrite(ds3231, twiTxBuf);
+          } else if (oleds.has(twiSlaveAddr)) {
+            ssd1306HandleI2cWrite(oleds.get(twiSlaveAddr)!, twiTxBuf);
+          }
         }
         emitStop();
         twiSlaveAddr = -1;
@@ -282,20 +288,23 @@ function loadHex(hex: string) {
         twiSlaveAddr = addr;
         twiSlaveWrite = write;
         twiTxBuf = [];
-        // Address byte: 7-bit addr << 1 | R/W. Slave ACKs if recognized.
+        const ack = isKnownSlave(addr);
         const addrByte = ((addr & 0x7f) << 1) | (write ? 0 : 1);
-        emitByte(addrByte, addr === DS3231_ADDR);
-        twi.completeConnect(addr === DS3231_ADDR);
+        emitByte(addrByte, ack);
+        twi.completeConnect(ack);
       },
       writeByte: (value) => {
-        if (twiSlaveAddr === DS3231_ADDR) twiTxBuf.push(value & 0xff);
-        emitByte(value & 0xff, twiSlaveAddr === DS3231_ADDR);
-        twi.completeWrite(twiSlaveAddr === DS3231_ADDR);
+        const ack = isKnownSlave(twiSlaveAddr);
+        if (ack) twiTxBuf.push(value & 0xff);
+        emitByte(value & 0xff, ack);
+        twi.completeWrite(ack);
       },
       readByte: (ack) => {
         let b = 0xff;
         if (twiSlaveAddr === DS3231_ADDR) {
           [b] = handleI2cRead(ds3231, 1);
+        } else if (oleds.has(twiSlaveAddr)) {
+          [b] = ssd1306HandleI2cRead(oleds.get(twiSlaveAddr)!, 1);
         }
         emitByte(b, ack);
         twi.completeRead(b);
