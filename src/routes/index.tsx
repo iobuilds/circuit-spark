@@ -115,7 +115,7 @@ function SimulatorPage() {
    */
   async function handleBackendCompile(onlyBoardCompIds?: string[]): Promise<boolean> {
     const { files, activeFileId } = useIdeStore.getState();
-    const installedLibraries = useIdeStore.getState().installedLibraries.map((l) => l.id);
+    // (Required libraries are auto-detected per-sketch from #include lines below.)
     let boards = useSimStore.getState().components.filter((c) => c.kind === "board");
     if (onlyBoardCompIds && onlyBoardCompIds.length > 0) {
       const set = new Set(onlyBoardCompIds);
