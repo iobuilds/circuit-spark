@@ -400,6 +400,11 @@ export const useSimStore = create<SimState>((set, get) => {
   setBoardSram: (boardId, sram) => set((st) => ({ sramByBoard: { ...st.sramByBoard, [boardId]: sram } })),
   setBoardCpu: (boardId, cpu) => set((st) => ({ cpuByBoard: { ...st.cpuByBoard, [boardId]: cpu } })),
   setBoardAvrMode: (boardId, on) => set((st) => ({ avrModeByBoard: { ...st.avrModeByBoard, [boardId]: on } })),
+  setOledFrame: (boardId, addr, frame) => set((st) => {
+    const key = `${boardId}:${addr}`;
+    const prev = st.oledFrames[key];
+    return { oledFrames: { ...st.oledFrames, [key]: { ...frame, rev: (prev?.rev ?? 0) + 1 } } };
+  }),
   setActiveSimBoard: (id) => set((st) => ({
     activeSimBoardId: id,
     serial: id ? (st.serialByBoard[id] ?? []) : [],
