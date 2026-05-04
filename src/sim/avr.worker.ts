@@ -78,6 +78,7 @@ let lastPinEmit = 0;
 let lastSnapshot = 0;
 let serialBuf = "";
 let lastSerialFlush = 0;
+const ds3231 = createDs3231State();
 
 function loadHex(hex: string) {
   try {
