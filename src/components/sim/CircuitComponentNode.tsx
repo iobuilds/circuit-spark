@@ -192,6 +192,7 @@ export function CircuitComponentNode({ comp, isPowered, voltage = 0, reversed = 
         const editable = Boolean(pinEditMode && comp.kind === "custom");
         return <PinNode key={pin.id} pin={pin} editable={editable} onPinClick={onPinClick} startPinDrag={startPinDrag} />;
       })}
+      </g>
     </g>
   );
 }
