@@ -138,7 +138,16 @@ export const useIdeStore = create<IdeState>((set, get) => ({
 
   hydrate: () => {
     const installedBoards = loadJson<InstalledBoard[]>(KEY_BOARDS, defaultInstalledBoards());
-    const installedLibraries = loadJson<InstalledLibrary[]>(KEY_LIBS, defaultInstalledLibraries());
+    const persistedLibs = loadJson<InstalledLibrary[]>(KEY_LIBS, defaultInstalledLibraries());
+    // Always union with the current defaults so newly-flagged installedByDefault
+    // libraries (e.g. Adafruit_SSD1306, U8g2) are picked up by existing users.
+    const defaults = defaultInstalledLibraries();
+    const byId = new Map<string, InstalledLibrary>();
+    for (const l of persistedLibs) byId.set(l.id, l);
+    for (const l of defaults) if (!byId.has(l.id)) byId.set(l.id, l);
+    const installedLibraries = Array.from(byId.values());
+    saveJson(KEY_LIBS, installedLibraries);
+
     const persistedFiles = loadJson<SourceFile[]>(KEY_PROJECT, []);
     const prefs = { ...DEFAULT_PREFS, ...loadJson<Partial<IdePreferences>>(KEY_PREFS, {}) };
     const files = persistedFiles.length ? persistedFiles : [
