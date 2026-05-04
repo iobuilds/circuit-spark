@@ -403,6 +403,7 @@ static const uint8_t FONT5x7[][5] PROGMEM = {
   {0x7F,0x09,0x19,0x29,0x46}, // R
   {0x46,0x49,0x49,0x49,0x31}, // S
   {0x01,0x01,0x7F,0x01,0x01}, // T
+  {0x3F,0x40,0x40,0x40,0x3F}, // U
   {0x3F,0x40,0x38,0x40,0x3F}, // W
   {0x00,0x00,0x00,0x00,0x00}, // space
   {0x00,0x36,0x36,0x00,0x00}, // :
@@ -416,9 +417,9 @@ static int8_t glyph(char c) {
     case 'E': return 13; case 'G': return 14; case 'K': return 15;
     case 'L': return 16; case 'M': return 17; case 'N': return 18;
     case 'O': return 19; case 'R': return 20; case 'S': return 21;
-    case 'T': return 22; case 'W': return 23;
-    case ':': return 25; case '.': return 26;
-    default:  return 24; // space
+    case 'T': return 22; case 'U': return 23; case 'W': return 24;
+    case ':': return 26; case '.': return 27;
+    default:  return 25; // space
   }
 }
 
