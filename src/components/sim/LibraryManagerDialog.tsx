@@ -56,33 +56,6 @@ function curatedAsArduinoEntries(): ArduinoLibraryEntry[] {
   }));
 }
 
-/**
- * Trigger the server-side download/cache of a library zip. Using `fetch` keeps
- * the result in our edge cache so subsequent installs of the same name@version
- * (across users / projects) are served instantly.
- */
-async function primeServerCache(lib: ArduinoLibraryEntry, version: string): Promise<{ cache: "HIT" | "MISS" | "SKIP"; size: number }> {
-  if (!lib.downloadUrl) return { cache: "SKIP", size: 0 };
-  try {
-    const sp = new URLSearchParams({
-      name: lib.name,
-      version,
-      url: lib.downloadUrl.replace(lib.latestVersion, version) || lib.downloadUrl,
-    });
-    const res = await fetch(`/api/libraries/download?${sp.toString()}`);
-    if (!res.ok) return { cache: "SKIP", size: 0 };
-    const cacheStatus = (res.headers.get("X-Cache") as "HIT" | "MISS") ?? "MISS";
-    const size = Number(res.headers.get("X-Cache-Size") ?? "0");
-    // Drain the body so the connection closes cleanly. We don't need the bytes
-    // client-side — the simulator doesn't actually compile the C++ source; we
-    // just need the cached metadata + headers to drive auto-include.
-    await res.arrayBuffer().catch(() => null);
-    return { cache: cacheStatus, size };
-  } catch {
-    return { cache: "SKIP", size: 0 };
-  }
-}
-
 function normalizeBackendLibraries(rows: BackendInstalledLibrary[]): InstalledLibrary[] {
   return rows.map((row) => {
     const source = row.library ?? row;
