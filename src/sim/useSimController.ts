@@ -79,6 +79,7 @@ export function useSimController() {
           break;
         case "pin-states":
           setPinStates(m.pins, boardId);
+          if (m.events && m.events.length) appendPinEvents(boardId, m.events);
           setSimTime(m.ms);
           break;
         case "loaded":
