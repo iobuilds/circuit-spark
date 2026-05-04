@@ -53,7 +53,7 @@ type OutMsg =
   | { type: "started" }
   | { type: "stopped"; reason?: string }
   | { type: "serial"; text: string; kind: "out" | "sys" }
-  | { type: "pin-states"; pins: Record<number, { mode: "INPUT" | "OUTPUT" | "INPUT_PULLUP"; digital: 0 | 1; analog: number }>; ms: number }
+  | { type: "pin-states"; pins: Record<number, { mode: "INPUT" | "OUTPUT" | "INPUT_PULLUP"; digital: 0 | 1; analog: number }>; ms: number; events?: { pin: number; t: number; d: 0 | 1 }[] }
   | { type: "snapshot"; pc: number; sp: number; cycles: number; sreg: number; sramSlice: Uint8Array; eeprom: Uint8Array }
   | { type: "error"; message: string };
 
