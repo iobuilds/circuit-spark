@@ -70,9 +70,7 @@ module.exports = {
     return new Promise((resolve) => {
       const proc = spawn(config.ARDUINO_CLI_PATH, ['lib', 'list', '--format', 'json']);
       let out = '';
-      let err = '';
       proc.stdout.on('data', d => out += d);
-      proc.stderr.on('data', d => err += d);
       proc.on('close', () => {
         try { resolve(JSON.parse(out) || []); } catch (e) { resolve([]); }
       });
