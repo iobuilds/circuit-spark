@@ -37,7 +37,7 @@ function extractIncludes(src: string): string[] {
 }
 
 export interface AutoInstallResult {
-  /** Final list of library IDs to send with the compile request. */
+  /** Arduino Library Manager package names to send with the compile request. */
   libraryIds: string[];
   /** New library packages added to the IDE store (for UI feedback). */
   added: { id: string; name: string }[];
@@ -58,7 +58,7 @@ export function resolveRequiredLibraries(
 
   const store = useIdeStore.getState();
   const installedById = new Map(store.installedLibraries.map((l) => [l.id, l] as const));
-  const finalIds = new Set(installedById.keys());
+  const compileLibraries = new Set<string>();
   const added: { id: string; name: string }[] = [];
   const unknown: string[] = [];
 
@@ -74,7 +74,7 @@ export function resolveRequiredLibraries(
       continue;
     }
     const preferred = matches.find((m) => installedById.has(m.id)) ?? matches[0];
-    finalIds.add(preferred.id);
+    compileLibraries.add(preferred.name);
 
     if (!installedById.has(preferred.id)) {
       const lib: InstalledLibrary = {
@@ -89,5 +89,5 @@ export function resolveRequiredLibraries(
     }
   }
 
-  return { libraryIds: Array.from(finalIds), added, unknown };
+  return { libraryIds: Array.from(compileLibraries), added, unknown };
 }
