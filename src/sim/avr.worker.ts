@@ -61,6 +61,7 @@ type OutMsg =
   | { type: "serial"; text: string; kind: "out" | "sys" }
   | { type: "pin-states"; pins: Record<number, { mode: "INPUT" | "OUTPUT" | "INPUT_PULLUP"; digital: 0 | 1; analog: number }>; ms: number; events?: { pin: number; t: number; d: 0 | 1 }[] }
   | { type: "snapshot"; pc: number; sp: number; cycles: number; sreg: number; sramSlice: Uint8Array; eeprom: Uint8Array }
+  | { type: "oled-frame"; addr: number; w: number; h: number; bitmap: Uint8Array; on: boolean; invert: boolean; contrast: number }
   | { type: "error"; message: string };
 
 const post = (m: OutMsg, transfer?: Transferable[]) =>
