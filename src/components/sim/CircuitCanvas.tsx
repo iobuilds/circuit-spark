@@ -1012,6 +1012,66 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                     />
                   );
                 })}
+                {/* Visible mid-segment grab handle on the selected wire — square +
+                    directional arrows showing which way it can be dragged. */}
+                {isWireSel && !locked && segPts.slice(0, -1).map((pt, i) => {
+                  const next = segPts[i + 1];
+                  const mx = (pt.x + next.x) / 2;
+                  const my = (pt.y + next.y) / 2;
+                  const horizontal = Math.abs(next.x - pt.x) >= Math.abs(next.y - pt.y);
+                  // Hide handle on tiny segments where it would overlap the endpoints.
+                  const segLen = Math.hypot(next.x - pt.x, next.y - pt.y);
+                  if (segLen < 18) return null;
+                  const startSegDrag = (e: React.MouseEvent) => {
+                    if (e.button !== 0) return;
+                    e.stopPropagation();
+                    pushWireHistory();
+                    if (!hasUserMids) {
+                      useSimStore.setState((st) => ({
+                        wires: st.wires.map((ww) => ww.id === w.id ? { ...ww, waypoints: mids.map((m) => ({ ...m })) } : ww),
+                      }));
+                    }
+                    setSegDrag({
+                      wireId: w.id,
+                      idx: i,
+                      start: clientToSvg(e),
+                      originalWaypoints: mids.map((m) => ({ ...m })),
+                      points: segPts.map((m) => ({ ...m })),
+                    });
+                  };
+                  return (
+                    <g
+                      key={`seg-handle-${i}`}
+                      transform={`translate(${mx} ${my})`}
+                      className={horizontal ? "cursor-ns-resize" : "cursor-ew-resize"}
+                      onMouseDown={startSegDrag}
+                    >
+                      {/* Square */}
+                      <rect
+                        x={-5}
+                        y={-5}
+                        width={10}
+                        height={10}
+                        fill="var(--color-primary)"
+                        stroke="var(--color-background)"
+                        strokeWidth={1.5}
+                        rx={1.5}
+                      />
+                      {/* Directional arrows */}
+                      {horizontal ? (
+                        <>
+                          <path d="M 0 -7 l -3 -3 l 6 0 z" fill="var(--color-primary)" stroke="var(--color-background)" strokeWidth={1} />
+                          <path d="M 0 7 l -3 3 l 6 0 z" fill="var(--color-primary)" stroke="var(--color-background)" strokeWidth={1} />
+                        </>
+                      ) : (
+                        <>
+                          <path d="M -7 0 l -3 -3 l 0 6 z" fill="var(--color-primary)" stroke="var(--color-background)" strokeWidth={1} />
+                          <path d="M 7 0 l 3 -3 l 0 6 z" fill="var(--color-primary)" stroke="var(--color-background)" strokeWidth={1} />
+                        </>
+                      )}
+                    </g>
+                  );
+                })}
                 {/* Draggable waypoint handles. */}
                 {userMids.map((pt, i) => (
                   <circle
