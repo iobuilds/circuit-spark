@@ -298,6 +298,14 @@ export function SignalInspector({
         <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
         <Activity className="h-3.5 w-3.5 text-primary" />
         <span className="font-semibold flex-1">Signal Inspector</span>
+        <Button
+          size="sm" variant="ghost" className="h-5 w-5 p-0"
+          title="Open Logic Analyzer"
+          onClick={(e) => { e.stopPropagation(); setMaximized(true); }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <Maximize2 className="h-3 w-3" />
+        </Button>
         <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={onClose}>
           <X className="h-3 w-3" />
         </Button>
