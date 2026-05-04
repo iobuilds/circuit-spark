@@ -205,6 +205,15 @@ export const useSimStore = create<SimState>((set, get) => {
   moveComponent: (id, x, y) => set((s) => ({
     components: s.components.map((c) => (c.id === id ? { ...c, x, y } : c)),
   })),
+  rotateComponent: (id, deltaDeg = 90) => set((s) => ({
+    components: s.components.map((c) => {
+      if (c.id !== id) return c;
+      const next = (((c.rotation ?? 0) + deltaDeg) % 360 + 360) % 360;
+      // Snap to 0/90/180/270 for predictable wiring.
+      const snapped = (Math.round(next / 90) * 90) % 360 as 0 | 90 | 180 | 270;
+      return { ...c, rotation: snapped };
+    }),
+  })),
   removeComponent: (id) => set((s) => ({
     components: s.components.filter((c) => c.id !== id),
     wires: s.wires.filter((w) => w.from.componentId !== id && w.to.componentId !== id),
