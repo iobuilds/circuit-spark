@@ -37,18 +37,51 @@ module.exports = {
   },
 
   async install(name, version) {
-    return new Promise((resolve, reject) => {
-      const libStr = version ? `${name}@${version}` : name;
-      logger.info(`Installing library: ${libStr}`);
-      const proc = spawn(config.ARDUINO_CLI_PATH, ['lib', 'install', libStr]);
-      let err = '';
-      proc.stderr.on('data', d => err += d);
-      proc.on('close', (code) => {
-        if (code === 0) resolve({ success: true, name, version });
-        else reject(new Error(err || `Failed to install ${libStr}`));
+    const libStr = version ? `${name}@${version}` : name;
+    logger.info(`Installing library: ${libStr}`);
+
+    // Run `lib install` and capture stdout+stderr so we can surface the real
+    // failure reason. arduino-cli sometimes exits 0 even when nothing was
+    // actually installed (e.g. when its instance init failed because of a
+    // broken 3rd-party index like the rp2040 one). We defend against that
+    // by re-listing libraries afterwards and confirming the new one shows up.
+    const runOnce = () => new Promise((resolve) => {
+      const proc = spawn(config.ARDUINO_CLI_PATH, ['lib', 'install', libStr], {
+        env: { ...process.env, HOME: process.env.HOME || '/root' },
       });
-      proc.on('error', reject);
+      let stdout = '', stderr = '';
+      proc.stdout.on('data', d => stdout += d.toString());
+      proc.stderr.on('data', d => stderr += d.toString());
+      proc.on('close', (code) => resolve({ code: code ?? -1, stdout, stderr }));
+      proc.on('error', (e) => resolve({ code: -1, stdout: '', stderr: e.message }));
     });
+
+    let r = await runOnce();
+    // If the failure mentions index problems, refresh and retry once.
+    const errBlob = (r.stdout + r.stderr).toLowerCase();
+    if (r.code !== 0 && (errBlob.includes('index') || errBlob.includes('no such file'))) {
+      logger.warn(`Install of ${libStr} failed; refreshing index and retrying`);
+      await new Promise((res) => spawn(config.ARDUINO_CLI_PATH, ['core', 'update-index']).on('close', res));
+      await new Promise((res) => spawn(config.ARDUINO_CLI_PATH, ['lib', 'update-index']).on('close', res));
+      r = await runOnce();
+    }
+    if (r.code !== 0) {
+      throw new Error((r.stderr || r.stdout || `exit ${r.code}`).trim());
+    }
+
+    // Drift check: confirm arduino-cli can actually see the library now.
+    const installed = await this.list();
+    const target = String(name).toLowerCase();
+    const hit = (installed || []).some(l => (l.library?.name || '').toLowerCase() === target);
+    if (!hit) {
+      throw new Error(
+        `arduino-cli reported success but '${name}' is not visible to 'lib list'. ` +
+        `This usually means a broken 3rd-party index (e.g. rp2040) is preventing ` +
+        `arduino-cli's instance from initializing. Run 'arduino-cli core update-index' on the host.`
+      );
+    }
+
+    return { success: true, name, version };
   },
 
   async installFromZip(zipPath) {
