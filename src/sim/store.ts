@@ -8,6 +8,7 @@ import type {
   SimStatus,
   Wire,
 } from "./types";
+import { autoSpaceComponents } from "./layout";
 
 const DEFAULT_CODE = `// Blink the on-board LED on pin 13.
 // Wire an LED from pin 13 to GND through a 220Ω resistor.
