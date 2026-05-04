@@ -107,7 +107,7 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
     try {
       const response = await getInstalledLibraries() as BackendInstalledLibrary[] | BackendLibraryListResponse;
       const rows = Array.isArray(response) ? response : (response.installed_libraries ?? response.libraries ?? []);
-      if (!Array.isArray(rows)) throw new Error(rows?.error ?? "Could not load VPS libraries");
+      if (!Array.isArray(response) && response.error) throw new Error(response.error);
       setInstalledLibraries(normalizeBackendLibraries(rows));
       if (showToast) toast.success(`Synced ${rows.length} libraries from VPS`);
     } catch (e) {
