@@ -165,6 +165,11 @@ export const useSimStore = create<SimState>((set, get) => {
   simTimeMs: 0,
   speed: 1,
   compileLog: [],
+  flashByBoard: {},
+  eepromByBoard: {},
+  sramByBoard: {},
+  cpuByBoard: {},
+  avrModeByBoard: {},
 
   theme: "dark",
 
