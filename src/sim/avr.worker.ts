@@ -105,7 +105,7 @@ function loadHex(hex: string) {
         post({ type: "serial", text: serialBuf, kind: "out" });
         serialBuf = "";
       }
-      lastSerialFlush = Date.now();
+      lastSerialFlush = performance.now();
     };
 
     new AVRSPI(cpu, spiConfig, F_CPU);
