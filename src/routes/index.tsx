@@ -209,17 +209,22 @@ function SimulatorPage() {
       if (!result.success) {
         const missing = missingHeadersFromResult(result);
         const stepLabel = `Board ${i + 1}/${sketches.length} · ${s.displayName}`;
+        const tick = () => new Promise((r) => setTimeout(r, 30));
         if (missing.length > 0) {
           setCompileProgress({ step: stepLabel, percent: 70, message: `Missing headers detected: ${missing.join(", ")}` });
+          await tick();
         }
         const packages = [...new Set(missing.map(packageForHeader).filter((p): p is string => !!p))];
         if (packages.length > 0) {
           toast.info(`Installing missing ${packages.length === 1 ? "library" : "libraries"}: ${packages.join(", ")}`);
           setCompileProgress({ step: stepLabel, percent: 75, message: `Auto-installing libraries: ${packages.join(", ")}` });
+          await tick();
           try {
             await Promise.all(packages.map((p) => installLibrary(p)));
             setCompileProgress({ step: stepLabel, percent: 80, message: `Installed: ${packages.join(", ")} ✓` });
+            await tick();
             setCompileProgress({ step: stepLabel, percent: 85, message: `Retrying compile for ${s.displayName}...` });
+            await tick();
             result = await compileSketch(
               { board: s.boardId, files: s.files, libraries: [...resolved.libraryIds, ...packages] },
               (p) => setCompileProgress({ ...p, step: stepLabel, message: `[${s.displayName}] ${p.message ?? ""}` }),
