@@ -16,6 +16,7 @@ import { useSimController } from "@/sim/useSimController";
 import { useSimStore } from "@/sim/store";
 import { useIdeStore, type SourceFile } from "@/sim/ideStore";
 import { compileSketch, type CompileResult, type CompileProgress } from "@/sim/compileApi";
+import { resolveRequiredLibraries } from "@/sim/autoInstallLibs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -150,9 +151,18 @@ function SimulatorPage() {
     let lastResult: CompileResult | null = null;
     for (let i = 0; i < sketches.length; i++) {
       const s = sketches[i];
+      // Auto-detect libraries required by this sketch's #include lines and
+      // make sure they're installed (and shipped to the backend so it can
+      // resolve them). New libs get added to the user's IDE library list.
+      const resolved = resolveRequiredLibraries(s.files);
+      if (resolved.added.length > 0) {
+        toast.info(
+          `Installing ${resolved.added.length} required ${resolved.added.length === 1 ? "library" : "libraries"}: ${resolved.added.map((a) => a.name).join(", ")}`,
+        );
+      }
       setCompileProgress({ step: `Board ${i + 1}/${sketches.length} · ${s.displayName}`, percent: 0, message: `Compiling ${s.displayName}...` });
       const result = await compileSketch(
-        { board: s.boardId, files: s.files, libraries: installedLibraries },
+        { board: s.boardId, files: s.files, libraries: resolved.libraryIds },
         (p) => setCompileProgress({ ...p, step: `Board ${i + 1}/${sketches.length} · ${s.displayName}`, message: `[${s.displayName}] ${p.message ?? ""}` }),
       );
       lastResult = result;
