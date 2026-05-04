@@ -129,10 +129,10 @@ export function CircuitComponentNode({ comp, isPowered, voltage = 0, reversed = 
       )}
 
       {/* Hover/locked lock toggle — top-right of bounding box. Click to toggle.
-          Sized large (r=24) for clear visibility / easy clicking on dense canvases. */}
+          Sized large (r=36) for very clear visibility on dense canvases. */}
       {(hover || isLocked) && (
         <g
-          transform={`translate(${width - 4} ${-26})`}
+          transform={`translate(${width + 4} ${-40})`}
           className="cursor-pointer"
           onMouseDown={(e) => {
             e.stopPropagation();
@@ -142,23 +142,27 @@ export function CircuitComponentNode({ comp, isPowered, voltage = 0, reversed = 
         >
           <title>{isLocked ? "Unlock component (allow dragging)" : "Lock component in place"}</title>
           {/* Soft drop shadow for visibility on any background */}
-          <circle r={26} fill="oklch(0 0 0 / 0.35)" />
-          <circle r={24}
+          <circle r={38} fill="oklch(0 0 0 / 0.45)" />
+          <circle r={36}
             fill={isLocked ? "var(--color-primary)" : "var(--color-card)"}
-            stroke={isLocked ? "var(--color-primary)" : "var(--color-primary)"}
-            strokeWidth={2.5} />
-          {/* Lock icon (closed when locked, open when unlocked) — scaled ~1.7× */}
+            stroke="var(--color-primary)"
+            strokeWidth={3.5} />
+          {/* Lock icon (closed when locked, open when unlocked) — large & high-contrast */}
           {isLocked ? (
-            <g stroke="var(--color-primary-foreground)" strokeWidth={2.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
-              <rect x={-10} y={-2.5} width={20} height={15} rx={2.5} fill="var(--color-primary-foreground)" stroke="none" />
-              <path d="M -6.5 -2.5 V -8 a 6.5 6.5 0 0 1 13 0 V -2.5" />
+            <g stroke="var(--color-primary-foreground)" strokeWidth={3.5} fill="none" strokeLinecap="round" strokeLinejoin="round">
+              <rect x={-15} y={-4} width={30} height={22} rx={4} fill="var(--color-primary-foreground)" stroke="none" />
+              <path d="M -10 -4 V -12 a 10 10 0 0 1 20 0 V -4" />
             </g>
           ) : (
-            <g stroke="var(--color-primary)" strokeWidth={2.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
-              <rect x={-10} y={-2.5} width={20} height={15} rx={2.5} fill="var(--color-primary)" stroke="none" />
-              <path d="M -6.5 -2.5 V -8 a 6.5 6.5 0 0 1 13 0" />
+            <g stroke="var(--color-primary)" strokeWidth={3.5} fill="none" strokeLinecap="round" strokeLinejoin="round">
+              <rect x={-15} y={-4} width={30} height={22} rx={4} fill="var(--color-primary)" stroke="none" />
+              <path d="M -10 -4 V -12 a 10 10 0 0 1 20 0" />
             </g>
           )}
+          <text y={28} textAnchor="middle" fontSize={11} fontWeight={700}
+            fill="var(--color-foreground)" fontFamily="monospace" pointerEvents="none">
+            {isLocked ? "LOCKED" : "UNLOCK"}
+          </text>
         </g>
       )}
 
