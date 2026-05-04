@@ -105,15 +105,15 @@ class CompilerService {
   async _verifyLibraryInstalled(libName) {
     const target = String(libName).split('@')[0].trim().toLowerCase();
     const res = await this._run(['lib', 'list', '--format', 'json'], { timeoutMs: 30000 });
-    if (res.code !== 0) {
-      logger.warn(`verify lib list failed (${res.code}): ${res.stderr.trim()}`);
-      return false;
-    }
     try {
       const arr = JSON.parse(res.stdout || '[]');
-      return arr.some(l => (l.library?.name || '').toLowerCase() === target);
+      if (arr.some(l => (l.library?.name || '').toLowerCase() === target)) return true;
     } catch (e) {
       logger.warn(`verify lib list parse error: ${e.message}`);
+    }
+
+    if (res.code !== 0) {
+      logger.warn(`verify lib list exited ${res.code} but continuing with filesystem fallback: ${res.stderr.trim()}`);
     }
 
     const sketchbookLibs = path.join(process.env.HOME || '/root', 'Arduino', 'libraries');
