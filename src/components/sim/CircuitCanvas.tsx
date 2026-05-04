@@ -1633,6 +1633,23 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         </div>
       )}
 
+      {/* Floating Signal Inspector — visible only while simulation is running/paused. */}
+      {inspector && (locked) && (() => {
+        const w = wires.find((ww) => ww.id === inspector.wireId);
+        if (!w) return null;
+        return (
+          <SignalInspector
+            wire={w}
+            components={components}
+            net={net}
+            pinStatesByBoard={pinStatesByBoard}
+            initialX={inspector.x}
+            initialY={inspector.y}
+            onClose={() => setInspector(null)}
+          />
+        );
+      })()}
+
       {/* 3D table view removed per user request */}
 
       {/* Use the unused size constants to silence lint */}
