@@ -151,19 +151,20 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
     ], available: true,
   },
   ds3231: {
-    kind: "ds3231", label: "DS3231 RTC", category: "Comms", width: 200, height: 110,
+    kind: "ds3231", label: "DS3231 RTC", category: "Comms", width: 200, height: 130,
     pins: [
-      // Left header
-      { id: "32K", label: "32K", x: 8, y: 22 },
-      { id: "SQW", label: "SQW", x: 8, y: 42 },
-      { id: "SCL", label: "SCL", x: 8, y: 62 },
-      { id: "SDA", label: "SDA", x: 8, y: 82 },
-      { id: "VCC", label: "VCC", x: 8, y: 102 },
-      // Right header (mirrored I2C bus)
-      { id: "SCL2", label: "SCL", x: 192, y: 32 },
-      { id: "SDA2", label: "SDA", x: 192, y: 52 },
-      { id: "VCC2", label: "VCC", x: 192, y: 72 },
-      { id: "GND", label: "GND", x: 192, y: 92 },
+      // Left 6-pin header
+      { id: "32K", label: "32K", x: 8, y: 18 },
+      { id: "SQW", label: "SQW", x: 8, y: 38 },
+      { id: "SCL", label: "SCL", x: 8, y: 58 },
+      { id: "SDA", label: "SDA", x: 8, y: 78 },
+      { id: "VCC", label: "VCC", x: 8, y: 98 },
+      { id: "GND", label: "GND", x: 8, y: 118 },
+      // Right 4-pin header (mirrored I2C bus)
+      { id: "SCL2", label: "SCL", x: 192, y: 38 },
+      { id: "SDA2", label: "SDA", x: 192, y: 58 },
+      { id: "VCC2", label: "VCC", x: 192, y: 78 },
+      { id: "GND2", label: "GND", x: 192, y: 98 },
     ], available: true,
   },
   // Generic placeholder for admin-defined custom components. Real visuals come
