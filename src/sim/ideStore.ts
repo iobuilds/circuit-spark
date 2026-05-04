@@ -152,6 +152,7 @@ export const useIdeStore = create<IdeState>((set, get) => ({
       activeFileId: files[0]?.id ?? null,
       prefs,
     });
+    (globalThis as unknown as { __ideMinSpacing?: number }).__ideMinSpacing = prefs.minSpacing;
   },
 
   installBoard: (b) => {
