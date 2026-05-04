@@ -10,8 +10,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CheckCircle2, ExternalLink, Library, Loader2, Trash2, Upload, Wifi, WifiOff, PackageCheck, FolderOpen } from "lucide-react";
 import { LIBRARY_PACKAGES } from "@/sim/ideCatalog";
 import { ProjectLibrariesTab } from "./ProjectLibrariesTab";
-import { useIdeStore } from "@/sim/ideStore";
+import { useIdeStore, type InstalledLibrary } from "@/sim/ideStore";
 import { uploadZipLibrary } from "@/sim/compileApi";
+import { getInstalledLibraries, installLibrary, uninstallLibrary } from "@/services/compilerService";
 import {
   ARDUINO_CATEGORIES,
   ARDUINO_TYPES,
@@ -19,6 +20,20 @@ import {
   type ArduinoLibraryEntry,
 } from "@/sim/arduinoLibraryApi";
 import { toast } from "sonner";
+
+interface BackendInstalledLibrary {
+  library?: { name?: string; version?: string; providesIncludes?: string[]; provides_includes?: string[] };
+  name?: string;
+  version?: string;
+  providesIncludes?: string[];
+  provides_includes?: string[];
+}
+
+interface BackendLibraryListResponse {
+  installed_libraries?: BackendInstalledLibrary[];
+  libraries?: BackendInstalledLibrary[];
+  error?: string;
+}
 
 interface Props {
   open: boolean;
@@ -48,37 +63,25 @@ function curatedAsArduinoEntries(): ArduinoLibraryEntry[] {
   }));
 }
 
-/**
- * Trigger the server-side download/cache of a library zip. Using `fetch` keeps
- * the result in our edge cache so subsequent installs of the same name@version
- * (across users / projects) are served instantly.
- */
-async function primeServerCache(lib: ArduinoLibraryEntry, version: string): Promise<{ cache: "HIT" | "MISS" | "SKIP"; size: number }> {
-  if (!lib.downloadUrl) return { cache: "SKIP", size: 0 };
-  try {
-    const sp = new URLSearchParams({
-      name: lib.name,
-      version,
-      url: lib.downloadUrl.replace(lib.latestVersion, version) || lib.downloadUrl,
-    });
-    const res = await fetch(`/api/libraries/download?${sp.toString()}`);
-    if (!res.ok) return { cache: "SKIP", size: 0 };
-    const cacheStatus = (res.headers.get("X-Cache") as "HIT" | "MISS") ?? "MISS";
-    const size = Number(res.headers.get("X-Cache-Size") ?? "0");
-    // Drain the body so the connection closes cleanly. We don't need the bytes
-    // client-side — the simulator doesn't actually compile the C++ source; we
-    // just need the cached metadata + headers to drive auto-include.
-    await res.arrayBuffer().catch(() => null);
-    return { cache: cacheStatus, size };
-  } catch {
-    return { cache: "SKIP", size: 0 };
-  }
+function normalizeBackendLibraries(rows: BackendInstalledLibrary[]): InstalledLibrary[] {
+  return rows.map((row) => {
+    const source = row.library ?? row;
+    const name = source.name ?? "Unknown library";
+    const catalog = LIBRARY_PACKAGES.find((lib) => lib.name.toLowerCase() === name.toLowerCase());
+    return {
+      id: catalog?.id ?? name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+      name,
+      version: source.version ?? catalog?.version ?? "installed",
+      headers: source.providesIncludes ?? source.provides_includes ?? catalog?.headers ?? [],
+    };
+  });
 }
 
 export function LibraryManagerDialog({ open, onOpenChange }: Props) {
   const installed = useIdeStore((s) => s.installedLibraries);
   const installLib = useIdeStore((s) => s.installLibrary);
   const removeLib = useIdeStore((s) => s.removeLibrary);
+  const setInstalledLibraries = useIdeStore((s) => s.setInstalledLibraries);
   const hydrate = useIdeStore((s) => s.hydrate);
   const loaded = useIdeStore((s) => s.loaded);
 
@@ -90,6 +93,7 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
   const [type, setType] = useState<string>("All");
   const [results, setResults] = useState<ArduinoLibraryEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [syncingInstalled, setSyncingInstalled] = useState(false);
   const [online, setOnline] = useState<boolean | null>(null); // null = unknown, true = live, false = fallback
   const [total, setTotal] = useState<number | null>(null);
   const [progress, setProgress] = useState<Record<string, number>>({});
@@ -97,6 +101,25 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
   const [versionChoice, setVersionChoice] = useState<Record<string, string>>({});
   const fileRef = useRef<HTMLInputElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  async function syncInstalledFromBackend(showToast = false) {
+    setSyncingInstalled(true);
+    try {
+      const response = await getInstalledLibraries() as BackendInstalledLibrary[] | BackendLibraryListResponse;
+      const rows = Array.isArray(response) ? response : (response.installed_libraries ?? response.libraries ?? []);
+      if (!Array.isArray(response) && response.error) throw new Error(response.error);
+      setInstalledLibraries(normalizeBackendLibraries(rows));
+      if (showToast) toast.success(`Synced ${rows.length} libraries from VPS`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setSyncingInstalled(false);
+    }
+  }
+
+  useEffect(() => {
+    if (open) void syncInstalledFromBackend(false);
+  }, [open]);
 
   // Debounced live search against the Arduino index.
   useEffect(() => {
@@ -159,39 +182,36 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
   async function startInstall(lib: ArduinoLibraryEntry) {
     const version = versionChoice[lib.id] ?? lib.latestVersion;
     setProgress((p) => ({ ...p, [lib.id]: 5 }));
+    try {
+      setProgress((p) => ({ ...p, [lib.id]: 35 }));
+      const result = await installLibrary(lib.name, version);
+      if (!result?.success) throw new Error(result?.error ?? `Failed to install ${lib.name}`);
+      setProgress((p) => ({ ...p, [lib.id]: 85 }));
+      await syncInstalledFromBackend(false);
+      toast.success(`${lib.name} v${version} installed on VPS`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setProgress((p) => {
+        const next = { ...p };
+        delete next[lib.id];
+        return next;
+      });
+    }
+  }
 
-    // Kick off the server-side download/cache in parallel with the visual
-    // progress bar so the UX feels native but the cache is real.
-    const cachePromise = primeServerCache(lib, version);
-
-    let pct = 5;
-    const tick = setInterval(() => {
-      pct += Math.random() * 22;
-      setProgress((p) => ({ ...p, [lib.id]: Math.min(95, pct) }));
-    }, 140);
-
-    const cacheResult = await cachePromise;
-    clearInterval(tick);
-    setProgress((p) => {
-      const next = { ...p };
-      delete next[lib.id];
-      return next;
-    });
-
-    installLib({
-      id: lib.id,
-      version,
-      name: lib.name,
-      headers: lib.headers,
-    });
-
-    if (cacheResult.cache === "HIT") {
-      toast.success(`${lib.name} v${version} installed (cache hit · 0 ms)`);
-    } else if (cacheResult.cache === "MISS") {
-      const kb = Math.round(cacheResult.size / 1024);
-      toast.success(`${lib.name} v${version} installed (${kb} KB · cached for next time)`);
-    } else {
-      toast.success(`${lib.name} v${version} installed`);
+  async function startRemove(lib: { id: string; name: string }) {
+    setProgress((p) => ({ ...p, [lib.id]: 20 }));
+    try {
+      const result = await uninstallLibrary(lib.name);
+      if (!result?.success) throw new Error(result?.error ?? `Failed to remove ${lib.name}`);
+      removeLib(lib.id);
+      await syncInstalledFromBackend(false);
+      toast.success(`${lib.name} removed from VPS`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setProgress((p) => { const next = { ...p }; delete next[lib.id]; return next; });
     }
   }
 
@@ -231,6 +251,7 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
         headers: result.headers ?? [],
         custom: true,
       });
+      await syncInstalledFromBackend(false);
       toast.success(`${result.name} installed from ZIP`);
     } catch (err) {
       clearInterval(tick);
@@ -338,8 +359,12 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
                 </span>
               )}
               <span className="mx-1">·</span>
-              <span>{installed.length} installed</span>
+              <span>{installed.length} installed on VPS</span>
               <div className="flex-1" />
+              <Button size="sm" variant="outline" onClick={() => syncInstalledFromBackend(true)} disabled={syncingInstalled}>
+                {syncingInstalled ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <PackageCheck className="h-3.5 w-3.5 mr-1.5" />}
+                Sync VPS
+              </Button>
               <input
                 ref={fileRef}
                 type="file"
@@ -367,8 +392,7 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
                     onRemove={() => {
                       const match = installed.find((l) => l.id === lib.id || l.name === lib.name);
                       if (match) {
-                        removeLib(match.id);
-                        toast.success(`${lib.name} removed`);
+                        void startRemove({ id: match.id, name: match.name ?? lib.name });
                       }
                     }}
                   />
@@ -399,9 +423,14 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
           <TabsContent value="installed" className="flex-1 flex flex-col min-h-0 m-0">
             <ScrollArea className="flex-1 min-h-0">
               <div className="px-6 py-3 space-y-2">
-                {installedRows.length === 0 && (
+                {syncingInstalled && (
+                  <div className="py-3 text-center text-muted-foreground text-sm inline-flex w-full items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Syncing VPS libraries…
+                  </div>
+                )}
+                {installedRows.length === 0 && !syncingInstalled && (
                   <div className="py-16 text-center text-muted-foreground text-sm">
-                    No libraries installed yet. Switch to <span className="font-medium">All Libraries</span> to add one.
+                    No VPS libraries installed yet. Switch to <span className="font-medium">All Libraries</span> to add one.
                   </div>
                 )}
                 {installedRows.map((lib) => (
@@ -414,10 +443,7 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
                     versionChoice={lib.latestVersion}
                     onVersionChange={() => {}}
                     onInstall={() => {}}
-                    onRemove={() => {
-                      removeLib(lib.id);
-                      toast.success(`${lib.name} removed`);
-                    }}
+                    onRemove={() => void startRemove({ id: lib.id, name: lib.name })}
                   />
                 ))}
               </div>

@@ -10,6 +10,13 @@ function baseLibraryName(name) {
   return String(name || '').split('@')[0].trim();
 }
 
+function normalizeCliLibraryList(parsed) {
+  if (Array.isArray(parsed)) return parsed;
+  if (Array.isArray(parsed?.installed_libraries)) return parsed.installed_libraries;
+  if (Array.isArray(parsed?.libraries)) return parsed.libraries;
+  return [];
+}
+
 function isRecoverableCliIssue(text) {
   const blob = String(text || '').toLowerCase();
   return blob.includes('index') || blob.includes('no such file') || blob.includes('not found') || blob.includes('initializing instance');
@@ -68,11 +75,11 @@ module.exports = {
 
   async list() {
     return new Promise((resolve) => {
-      const proc = spawn(config.ARDUINO_CLI_PATH, ['lib', 'list', '--format', 'json']);
+      const proc = spawn(config.ARDUINO_CLI_PATH, ['lib', 'list', '--format', 'json'], { env: { ...process.env, HOME: process.env.HOME || '/root' } });
       let out = '';
       proc.stdout.on('data', d => out += d);
       proc.on('close', () => {
-        try { resolve(JSON.parse(out) || []); } catch (e) { resolve([]); }
+        try { resolve(normalizeCliLibraryList(JSON.parse(out || '[]'))); } catch (e) { resolve([]); }
       });
       proc.on('error', () => resolve([]));
     });
@@ -157,9 +164,12 @@ module.exports = {
       const proc = spawn(config.ARDUINO_CLI_PATH, ['lib', 'install', '--zip-path', zipPath]);
       let err = '';
       proc.stderr.on('data', d => err += d);
-      proc.on('close', (code) => {
+      proc.on('close', async (code) => {
         try { fs.unlinkSync(zipPath); } catch(e) {}
-        if (code === 0) resolve({ success: true, message: 'Library installed from ZIP' });
+        if (code === 0) {
+          await libraryCache.invalidate();
+          resolve({ success: true, message: 'Library installed from ZIP' });
+        }
         else reject(new Error(err || 'ZIP install failed'));
       });
       proc.on('error', reject);
@@ -168,9 +178,12 @@ module.exports = {
 
   async uninstall(name) {
     return new Promise((resolve, reject) => {
-      const proc = spawn(config.ARDUINO_CLI_PATH, ['lib', 'uninstall', name]);
-      proc.on('close', (code) => {
-        if (code === 0) resolve({ success: true });
+      const proc = spawn(config.ARDUINO_CLI_PATH, ['lib', 'uninstall', name], { env: { ...process.env, HOME: process.env.HOME || '/root' } });
+      proc.on('close', async (code) => {
+        if (code === 0) {
+          await libraryCache.invalidate();
+          resolve({ success: true });
+        }
         else reject(new Error(`Failed to uninstall ${name}`));
       });
       proc.on('error', reject);

@@ -6,6 +6,13 @@ const config = require('../config');
 
 const BACKEND_BUILD_MARKER = 'lib-drift-fallback-2026-05-04';
 
+function normalizeCliLibraryList(parsed) {
+  if (Array.isArray(parsed)) return parsed;
+  if (Array.isArray(parsed?.installed_libraries)) return parsed.installed_libraries;
+  if (Array.isArray(parsed?.libraries)) return parsed.libraries;
+  return [];
+}
+
 function runCli(args, timeoutMs = 30000) {
   return new Promise((resolve) => {
     const proc = spawn(config.ARDUINO_CLI_PATH, args, { env: { ...process.env, HOME: process.env.HOME || '/root' } });
@@ -55,7 +62,7 @@ router.get('/libraries', async (req, res) => {
   let libraries = [];
   let parseError = null;
   try {
-    libraries = JSON.parse(result.stdout || '[]');
+    libraries = normalizeCliLibraryList(JSON.parse(result.stdout || '[]'));
   } catch (e) {
     parseError = e.message;
   }
