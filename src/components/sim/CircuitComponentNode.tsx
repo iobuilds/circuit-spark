@@ -569,9 +569,8 @@ function MotorSvg({ voltage, reversed, burned, color: _color }: { voltage: numbe
         fill={yellow} stroke={yellowOutline} strokeWidth={1.6} />
       {/* subtle top highlight */}
       <rect x={18} y={18} width={110} height={6} rx={3} fill="oklch(0.96 0.10 95 / 0.55)" />
-      {/* output shaft hub (the bump where the wheel attaches) */}
-      <circle cx={56} cy={55} r={9} fill={yellowDark} stroke={yellowOutline} strokeWidth={1.2} />
-      <circle cx={56} cy={55} r={5} fill="oklch(0.20 0.01 90)" stroke={yellowOutline} strokeWidth={0.8} />
+      {/* output shaft hub recess (the well that the disk spins inside of) */}
+      <circle cx={56} cy={55} r={22} fill={yellowDark} stroke={yellowOutline} strokeWidth={1.2} />
       {/* visible hex bolt head */}
       <g transform="translate(40 30)">
         <polygon points="0,-6 5.2,-3 5.2,3 0,6 -5.2,3 -5.2,-3"
