@@ -46,13 +46,17 @@ export function IdeMenubar({ onCompile, onUpload }: Props) {
   //   window.dispatchEvent(new CustomEvent("ide:install-libraries", { detail: { names: ["U8g2"] } }))
   useEffect(() => {
     const handler = (e: Event) => {
+      if (!isAdmin) {
+        toast.error("Library install is restricted to administrators");
+        return;
+      }
       const detail = (e as CustomEvent<{ names?: string[] }>).detail;
       setInstallPrefill(Array.isArray(detail?.names) ? detail!.names! : []);
       setInstallOpen(true);
     };
     window.addEventListener("ide:install-libraries", handler);
     return () => window.removeEventListener("ide:install-libraries", handler);
-  }, []);
+  }, [isAdmin]);
 
   function handleNewSketch() {
     addFile(`sketch_${Date.now().toString(36)}.ino`, "ino", "void setup() {\n\n}\n\nvoid loop() {\n\n}\n");
