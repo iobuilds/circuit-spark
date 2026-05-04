@@ -258,15 +258,32 @@ class CompilerService {
 
         try {
           let cliJson = {};
-          try {
-            const lines = stdout.trim().split('\n').filter(Boolean);
-            for (let i = lines.length - 1; i >= 0; i--) {
-              try { cliJson = JSON.parse(lines[i]); break; } catch (e) { continue; }
-            }
-          } catch (e) {}
+          // arduino-cli with --format=json may emit either a single-line JSON
+          // OR a pretty-printed multi-line JSON. Try whole-string parse first,
+          // then fall back to per-line, then to extracting the largest {...}
+          // block from stdout.
+          const tryParse = (s) => { try { return JSON.parse(s); } catch (_) { return null; } };
+          cliJson =
+            tryParse(stdout.trim()) ||
+            (() => {
+              const lines = stdout.trim().split('\n').filter(Boolean);
+              for (let i = lines.length - 1; i >= 0; i--) {
+                const j = tryParse(lines[i]);
+                if (j) return j;
+              }
+              return null;
+            })() ||
+            (() => {
+              // Extract the outermost { ... } block.
+              const first = stdout.indexOf('{');
+              const last = stdout.lastIndexOf('}');
+              if (first >= 0 && last > first) return tryParse(stdout.slice(first, last + 1));
+              return null;
+            })() ||
+            {};
 
-          const compilerErr = cliJson.compiler_err || stderr || '';
-          const compilerOut = cliJson.compiler_out || stdout || '';
+          const compilerErr = cliJson.compiler_err || cliJson.error || stderr || '';
+          const compilerOut = cliJson.compiler_out || (cliJson.compiler_err ? '' : stdout) || '';
 
           if (code !== 0) {
             return resolve({

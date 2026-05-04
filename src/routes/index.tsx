@@ -31,6 +31,13 @@ const HEADER_ALIASES: Record<string, string> = {
   "adafruit_gfx.h": "Adafruit GFX Library",
   "adafruit_sensor.h": "Adafruit Unified Sensor",
   "adafruit_busio_register.h": "Adafruit BusIO",
+  "adafruit_i2cdevice.h": "Adafruit BusIO",
+  "adafruit_spidevice.h": "Adafruit BusIO",
+  "adafruit_sh110x.h": "Adafruit SH110X",
+  "adafruit_sh1106.h": "Adafruit SH110X",
+  "ssd1306ascii.h": "SSD1306Ascii",
+  "ssd1306asciiwire.h": "SSD1306Ascii",
+  "ssd1306asciispi.h": "SSD1306Ascii",
 };
 
 function packageForHeader(header: string): string | null {
