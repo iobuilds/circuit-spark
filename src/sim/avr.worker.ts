@@ -277,7 +277,8 @@ async function runLoop() {
     const now = performance.now();
     if (now - lastPinEmit > 30) {
       lastPinEmit = now;
-      post({ type: "pin-states", pins: snapshotPins(), ms });
+      const events = pinEventBuf.splice(0, pinEventBuf.length);
+      post({ type: "pin-states", pins: snapshotPins(), ms, events });
     }
     if (now - lastSnapshot > 100) {
       lastSnapshot = now;
