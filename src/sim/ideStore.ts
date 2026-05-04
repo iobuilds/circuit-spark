@@ -40,12 +40,16 @@ export interface IdePreferences {
   fontSize: number;
   editorTheme: "embedsim-dark" | "vs-dark" | "light" | "hc-black" | "monokai" | "dracula";
   autoIncludeOnInstall: boolean;
+  /** Minimum gap (canvas units) enforced between components when loading
+   *  example projects or auto-arranging the workspace. */
+  minSpacing: number;
 }
 
 const DEFAULT_PREFS: IdePreferences = {
   fontSize: 13,
   editorTheme: "embedsim-dark",
   autoIncludeOnInstall: false,
+  minSpacing: 60,
 };
 
 const DEFAULT_INO = `// sketch.ino — main entry
@@ -148,6 +152,7 @@ export const useIdeStore = create<IdeState>((set, get) => ({
       activeFileId: files[0]?.id ?? null,
       prefs,
     });
+    (globalThis as unknown as { __ideMinSpacing?: number }).__ideMinSpacing = prefs.minSpacing;
   },
 
   installBoard: (b) => {
@@ -241,6 +246,7 @@ export const useIdeStore = create<IdeState>((set, get) => ({
     const next = { ...get().prefs, ...patch };
     saveJson(KEY_PREFS, next);
     set({ prefs: next });
+    (globalThis as unknown as { __ideMinSpacing?: number }).__ideMinSpacing = next.minSpacing;
   },
 }));
 

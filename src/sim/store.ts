@@ -8,6 +8,7 @@ import type {
   SimStatus,
   Wire,
 } from "./types";
+import { autoSpaceComponents } from "./layout";
 
 const DEFAULT_CODE = `// Blink the on-board LED on pin 13.
 // Wire an LED from pin 13 to GND through a 220Ω resistor.
@@ -124,6 +125,9 @@ export interface SimState {
 
   toggleTheme: () => void;
   resetWorkspace: () => void;
+  /** Reflow the current workspace so every component clears the user's
+   *  preferred minimum spacing. Boards are anchored; peripherals reflow. */
+  autoSpaceWorkspace: (gap?: number) => void;
   loadProject: (p: {
     code: string;
     components: CircuitComponent[];
@@ -390,6 +394,9 @@ export const useSimStore = create<SimState>((set, get) => {
     wireHistory: [], wireFuture: [],
     flashByBoard: {}, eepromByBoard: {}, sramByBoard: {}, cpuByBoard: {}, avrModeByBoard: {},
   }),
+  autoSpaceWorkspace: (gap = 60) => set((st) => ({
+    components: autoSpaceComponents(st.components, gap),
+  })),
   loadProject: (p) => {
     // Ensure a board exists for templates that wire to the legacy "board" id
     // without including a board component in their components[] array.
@@ -411,10 +418,20 @@ export const useSimStore = create<SimState>((set, get) => {
         ]
       : p.components;
 
+    // Auto-space components against the user's preferred minimum gap so
+    // example projects always render with clean separation regardless of
+    // the source coordinates.
+    let gap = 60;
+    try {
+      const mod = (globalThis as unknown as { __ideMinSpacing?: number });
+      if (typeof mod.__ideMinSpacing === "number") gap = mod.__ideMinSpacing;
+    } catch { /* fall back */ }
+    const spaced = autoSpaceComponents(components, gap);
+
     // Reset multi-board runtime state so old data doesn't leak between projects.
     set({
       code: p.code,
-      components,
+      components: spaced,
       wires: p.wires,
       boardId: p.boardId,
       selectedId: null,

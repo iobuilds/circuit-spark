@@ -3,8 +3,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { useIdeStore } from "@/sim/ideStore";
+import { useSimStore } from "@/sim/store";
 import { HAS_BACKEND, API_BASE } from "@/sim/compileApi";
+import { toast } from "sonner";
 
 interface Props {
   open: boolean;
@@ -57,6 +60,37 @@ export function PreferencesDialog({ open, onOpenChange }: Props) {
               checked={prefs.autoIncludeOnInstall}
               onCheckedChange={(v) => setPrefs({ autoIncludeOnInstall: v })}
             />
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="min-spacing">Minimum component spacing</Label>
+              <span className="text-xs text-muted-foreground tabular-nums">{prefs.minSpacing} u</span>
+            </div>
+            <Input
+              id="min-spacing"
+              type="range"
+              min={0}
+              max={200}
+              step={10}
+              value={prefs.minSpacing}
+              onChange={(e) => setPrefs({ minSpacing: Math.max(0, Math.min(200, Number(e.target.value) || 0)) })}
+            />
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                Examples and re-arranged diagrams keep at least this gap between every component.
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs shrink-0"
+                onClick={() => {
+                  useSimStore.getState().autoSpaceWorkspace(prefs.minSpacing);
+                  toast.success("Workspace re-arranged");
+                }}
+              >
+                Re-arrange now
+              </Button>
+            </div>
           </div>
           <div className="rounded-md bg-muted/40 border p-3 text-xs space-y-1">
             <div className="font-medium">Compile backend</div>
