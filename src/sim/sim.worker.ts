@@ -50,6 +50,13 @@ let running = false;
 let paused = false;
 let stopRequested = false;
 let lastEmit = 0;
+/** Per-pin transition log filled by digitalWrite/analogWrite/setInput so the
+ *  Signal Inspector can render real waveforms with virtual-time precision. */
+const pinEventBuf: { pin: number; t: number; d: 0 | 1 }[] = [];
+function pushPinEvent(pin: number, level: 0 | 1) {
+  pinEventBuf.push({ pin, t: virtualMs, d: level });
+  if (pinEventBuf.length > 8192) pinEventBuf.splice(0, pinEventBuf.length - 8192);
+}
 
 // ---------------- Pin helpers ----------------
 function ensurePin(p: number): PinState {
@@ -61,7 +68,8 @@ function emitPins(force = false) {
   const now = performance.now();
   if (!force && now - lastEmit < 30) return;
   lastEmit = now;
-  post({ type: "pin-states", pins: { ...pins }, ms: virtualMs });
+  const events = pinEventBuf.splice(0, pinEventBuf.length);
+  post({ type: "pin-states", pins: { ...pins }, ms: virtualMs, events });
 }
 
 // ---------------- Interrupt subsystem ----------------
