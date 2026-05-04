@@ -95,6 +95,16 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const [chipInspectorBoardId, setChipInspectorBoardId] = useState<string | null>(null);
   const [hovered, setHovered] = useState<HoveredPin | null>(null);
   const [selectedWireId, setSelectedWireId] = useState<string | null>(null);
+  /** Floating Signal Inspector — opened by clicking a wire while the simulation is running/paused. */
+  const [inspector, setInspector] = useState<{ wireId: string; x: number; y: number } | null>(null);
+  // Auto-close inspector when sim leaves running/paused.
+  useEffect(() => {
+    if (status !== "running" && status !== "paused") setInspector(null);
+  }, [status]);
+  // Auto-close if its wire was deleted.
+  useEffect(() => {
+    if (inspector && !wires.some((w) => w.id === inspector.wireId)) setInspector(null);
+  }, [wires, inspector]);
   const [pinEditMode, setPinEditMode] = useState(false);
   const setComponentProp = useSimStore((s) => s.setComponentProp);
   
