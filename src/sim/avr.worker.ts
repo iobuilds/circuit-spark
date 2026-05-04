@@ -37,6 +37,12 @@ import {
   handleI2cRead,
   handleI2cWrite,
 } from "./ds3231";
+import {
+  createSsd1306State,
+  SSD1306_ADDRS,
+  ssd1306HandleI2cRead,
+  ssd1306HandleI2cWrite,
+} from "./ssd1306";
 
 type InMsg =
   | { type: "load-hex"; hex: string }
