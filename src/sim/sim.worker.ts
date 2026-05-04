@@ -6,6 +6,7 @@
 // micros/millis. The runtime is JS — code is translated by ./compiler.ts.
 
 import { compileArduino, CompileError } from "./compiler";
+import { createDs3231State, DS3231_ADDR, handleI2cRead, handleI2cWrite } from "./ds3231";
 
 type PinMode = "INPUT" | "OUTPUT" | "INPUT_PULLUP";
 
@@ -155,6 +156,9 @@ let wireTxAddress: number | undefined;
 let wireOnReceive: ((n: number) => void) | null = null;
 let wireOnRequest: (() => void) | null = null;
 
+// Built-in DS3231 RTC instance — answers requests addressed to 0x68.
+const ds3231 = createDs3231State();
+
 const Wire = {
   begin: (_addr?: number) => {},
   end: () => {},
@@ -167,11 +171,23 @@ const Wire = {
     return s.length;
   },
   endTransmission: () => {
+    // Built-in DS3231 emulation: short-circuit the bus when addressed at 0x68.
+    if (wireTxAddress === DS3231_ADDR) {
+      handleI2cWrite(ds3231, [...wireTxBuffer]);
+      post({ type: "bus-tx", bus: "i2c", address: wireTxAddress, payload: [...wireTxBuffer] });
+      wireTxBuffer = [];
+      return 0;
+    }
     post({ type: "bus-tx", bus: "i2c", address: wireTxAddress, payload: [...wireTxBuffer] });
     wireTxBuffer = [];
     return 0;
   },
-  requestFrom: (_addr: number, n: number) => {
+  requestFrom: (addr: number, n: number) => {
+    if (addr === DS3231_ADDR) {
+      const bytes = handleI2cRead(ds3231, n);
+      for (const b of bytes) wireRxQueue.push(b & 0xff);
+      return bytes.length;
+    }
     return Math.min(n, wireRxQueue.length);
   },
   available: () => wireRxQueue.length,
