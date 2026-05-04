@@ -144,10 +144,10 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
     ], available: true,
   },
   motor: {
-    kind: "motor", label: "DC Motor", category: "Actuators", width: 110, height: 150,
+    kind: "motor", label: "TT Gear Motor", category: "Actuators", width: 240, height: 110,
     pins: [
-      { id: "+", label: "+", x: 38, y: 148 },
-      { id: "-", label: "-", x: 72, y: 148 },
+      { id: "+", label: "+", x: 234, y: 38 },
+      { id: "-", label: "-", x: 234, y: 72 },
     ], available: true,
   },
   ds3231: {
