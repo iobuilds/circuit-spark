@@ -131,7 +131,7 @@ export function CircuitComponentNode({ comp, isPowered, voltage = 0, reversed = 
       {/* Hover/locked lock toggle — top-right of bounding box. Click to toggle. */}
       {(hover || isLocked) && (
         <g
-          transform={`translate(${width - 4} ${-12})`}
+          transform={`translate(${width - 6} ${-16})`}
           className="cursor-pointer"
           onMouseDown={(e) => {
             e.stopPropagation();
@@ -140,20 +140,20 @@ export function CircuitComponentNode({ comp, isPowered, voltage = 0, reversed = 
           }}
         >
           <title>{isLocked ? "Unlock component (allow dragging)" : "Lock component in place"}</title>
-          <circle r={10}
+          <circle r={15}
             fill={isLocked ? "var(--color-primary)" : "var(--color-card)"}
             stroke={isLocked ? "var(--color-primary)" : "var(--color-border)"}
-            strokeWidth={1.5} />
+            strokeWidth={2} />
           {/* Lock icon (closed when locked, open when unlocked) */}
           {isLocked ? (
-            <g stroke="var(--color-primary-foreground)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
-              <rect x={-4} y={-1} width={8} height={6} rx={1} fill="var(--color-primary-foreground)" stroke="none" />
-              <path d="M -2.5 -1 V -3 a 2.5 2.5 0 0 1 5 0 V -1" />
+            <g stroke="var(--color-primary-foreground)" strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round">
+              <rect x={-6} y={-1.5} width={12} height={9} rx={1.5} fill="var(--color-primary-foreground)" stroke="none" />
+              <path d="M -3.75 -1.5 V -4.5 a 3.75 3.75 0 0 1 7.5 0 V -1.5" />
             </g>
           ) : (
-            <g stroke="var(--color-foreground)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
-              <rect x={-4} y={-1} width={8} height={6} rx={1} fill="var(--color-foreground)" stroke="none" />
-              <path d="M -2.5 -1 V -3 a 2.5 2.5 0 0 1 5 0" />
+            <g stroke="var(--color-foreground)" strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round">
+              <rect x={-6} y={-1.5} width={12} height={9} rx={1.5} fill="var(--color-foreground)" stroke="none" />
+              <path d="M -3.75 -1.5 V -4.5 a 3.75 3.75 0 0 1 7.5 0" />
             </g>
           )}
         </g>
