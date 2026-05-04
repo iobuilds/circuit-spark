@@ -71,13 +71,14 @@ export const COMPONENT_DEFS: Record<ComponentKind, ComponentDef> = {
     ], available: false,
   },
   oled: {
-    kind: "oled", label: "OLED 128x64", category: "Displays", width: 140, height: 100,
+    kind: "oled", label: "OLED 0.96\" 128x64", category: "Displays", width: 140, height: 100,
     pins: [
-      { id: "GND", label: "GND", x: 30, y: 98 },
-      { id: "VCC", label: "VCC", x: 55, y: 98 },
-      { id: "SCL", label: "SCL", x: 80, y: 98 },
-      { id: "SDA", label: "SDA", x: 105, y: 98 },
-    ], available: false,
+      // Header order matches typical I2C SSD1306 breakouts: GND, VCC, SCL, SDA.
+      { id: "GND", label: "GND", x: 30, y: 0 },
+      { id: "VCC", label: "VCC", x: 55, y: 0 },
+      { id: "SCL", label: "SCL", x: 80, y: 0 },
+      { id: "SDA", label: "SDA", x: 105, y: 0 },
+    ], available: true,
   },
   "7seg": {
     kind: "7seg", label: "7-Segment", category: "Displays", width: 90, height: 120,
