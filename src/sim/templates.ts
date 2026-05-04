@@ -544,4 +544,177 @@ void loop() {
       { id: "w4", from: { componentId: "uno1", pinId: "A5"   }, to: { componentId: "oled1", pinId: "SCL" } },
     ],
   },
+
+  // 9 ── SSD1306 OLED · Adafruit_SSD1306 + Adafruit_GFX
+  {
+    id: "ex-oled-adafruit",
+    name: "9 · OLED · Adafruit_SSD1306",
+    description:
+      "Classic Adafruit_SSD1306 + Adafruit_GFX example: splash, big text, shapes and an animated sine wave on a 128×64 I²C OLED @ 0x3C.",
+    boardId: "uno",
+    code: `// Requires libraries:  Adafruit GFX Library, Adafruit SSD1306
+// Wiring (Arduino Uno):
+//   OLED GND -> GND
+//   OLED VCC -> 5V (or 3.3V)
+//   OLED SCL -> A5
+//   OLED SDA -> A4
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+#define SCREEN_WIDTH  128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET    -1
+#define SCREEN_ADDR   0x3C
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+void splash() {
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(10, 8);
+  display.println(F("LOVABLE"));
+  display.setTextSize(1);
+  display.setCursor(20, 32);
+  display.println(F("Adafruit SSD1306"));
+  display.drawRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, SSD1306_WHITE);
+  display.display();
+  delay(1000);
+}
+
+void setup() {
+  Serial.begin(9600);
+  if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDR)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    for (;;) ;
+  }
+  splash();
+}
+
+void loop() {
+  static uint16_t t = 0;
+  display.clearDisplay();
+
+  // Header
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+  display.print(F("t="));
+  display.print(t);
+
+  // Big counter (mod 1000)
+  display.setTextSize(2);
+  display.setCursor(72, 0);
+  char buf[8];
+  snprintf(buf, sizeof(buf), "%03u", t % 1000);
+  display.print(buf);
+
+  // Primitives
+  display.drawCircle(16, 40, 10, SSD1306_WHITE);
+  display.fillTriangle(40, 50, 60, 20, 80, 50, SSD1306_WHITE);
+  display.drawRoundRect(90, 22, 34, 28, 4, SSD1306_WHITE);
+
+  // Animated sine wave across the bottom
+  for (int x = 0; x < SCREEN_WIDTH; x++) {
+    float a = (x + t) * 0.20f;
+    int y = 58 + (int)(4.0f * sinf(a));
+    display.drawPixel(x, y, SSD1306_WHITE);
+  }
+
+  display.display();
+  Serial.print(F("frame ")); Serial.println(t);
+  t++;
+  delay(40);
+}
+`,
+    components: [
+      BOARD("uno1", 40, 40),
+      { id: "oled1", kind: "oled", x: 1080, y: 220, rotation: 0, props: {} },
+    ],
+    wires: [
+      { id: "w1", from: { componentId: "uno1", pinId: "5V"   }, to: { componentId: "oled1", pinId: "VCC" } },
+      { id: "w2", from: { componentId: "uno1", pinId: "GND1" }, to: { componentId: "oled1", pinId: "GND" } },
+      { id: "w3", from: { componentId: "uno1", pinId: "A4"   }, to: { componentId: "oled1", pinId: "SDA" } },
+      { id: "w4", from: { componentId: "uno1", pinId: "A5"   }, to: { componentId: "oled1", pinId: "SCL" } },
+    ],
+  },
+
+  // 10 ── SSD1306 OLED · U8g2 graphics library
+  {
+    id: "ex-oled-u8g2",
+    name: "10 · OLED · U8g2 Graphics",
+    description:
+      "U8g2 page-buffer example on a 128×64 I²C OLED @ 0x3C. Scrolling marquee, big number font and animated bar graph.",
+    boardId: "uno",
+    code: `// Requires library:  U8g2 (by oliver)
+// Wiring (Arduino Uno):
+//   OLED GND -> GND
+//   OLED VCC -> 5V (or 3.3V)
+//   OLED SCL -> A5
+//   OLED SDA -> A4
+#include <Arduino.h>
+#include <U8g2lib.h>
+#include <Wire.h>
+
+// Page-buffer constructor — small RAM footprint, ideal for ATmega328P.
+U8G2_SSD1306_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
+
+static const char *MSG = "Hello from U8g2 on Lovable! ";
+
+void setup() {
+  Serial.begin(9600);
+  u8g2.begin();
+  u8g2.setContrast(0xCF);
+}
+
+void loop() {
+  static uint16_t frame = 0;
+
+  // Scrolling marquee offset
+  int textW = u8g2.getStrWidth(MSG);
+  if (textW <= 0) textW = 128;
+  int offset = -(int)((frame * 2) % (uint16_t)textW);
+
+  u8g2.firstPage();
+  do {
+    // Title bar
+    u8g2.setFont(u8g2_font_6x10_tf);
+    u8g2.drawStr(0, 8, "U8g2 SSD1306");
+    u8g2.drawHLine(0, 11, 128);
+
+    // Big number
+    u8g2.setFont(u8g2_font_logisoso24_tn);
+    char buf[8];
+    snprintf(buf, sizeof(buf), "%03u", frame % 1000);
+    u8g2.drawStr(28, 40, buf);
+
+    // Scrolling marquee (drawn twice for seamless wrap)
+    u8g2.setFont(u8g2_font_5x7_tf);
+    u8g2.drawStr(offset,         50, MSG);
+    u8g2.drawStr(offset + textW, 50, MSG);
+
+    // Animated bar graph
+    for (uint8_t i = 0; i < 16; i++) {
+      uint8_t h = 1 + (uint8_t)(((frame + i * 7) % 32));
+      u8g2.drawBox(i * 8, 64 - h, 6, h);
+    }
+  } while (u8g2.nextPage());
+
+  Serial.print(F("u8g2 frame ")); Serial.println(frame);
+  frame++;
+  delay(40);
+}
+`,
+    components: [
+      BOARD("uno1", 40, 40),
+      { id: "oled1", kind: "oled", x: 1080, y: 220, rotation: 0, props: {} },
+    ],
+    wires: [
+      { id: "w1", from: { componentId: "uno1", pinId: "5V"   }, to: { componentId: "oled1", pinId: "VCC" } },
+      { id: "w2", from: { componentId: "uno1", pinId: "GND1" }, to: { componentId: "oled1", pinId: "GND" } },
+      { id: "w3", from: { componentId: "uno1", pinId: "A4"   }, to: { componentId: "oled1", pinId: "SDA" } },
+      { id: "w4", from: { componentId: "uno1", pinId: "A5"   }, to: { componentId: "oled1", pinId: "SCL" } },
+    ],
+  },
 ];
