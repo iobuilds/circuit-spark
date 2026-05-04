@@ -45,6 +45,24 @@ const CH_COLORS = [
   "oklch(0.78 0.2 200)",  // cyan
 ];
 
+const MIN_SPAN_MS = 0.05;
+const MAX_SPAN_MS = 60_000;
+const CHANNEL_LABEL_W = 130;
+const CHANNEL_GAP_W = 8;
+const PLOT_SIDE_PAD = 16;
+
+function clonePinEvents(source: Record<number, PinEvent[]>): Record<number, PinEvent[]> {
+  const snap: Record<number, PinEvent[]> = {};
+  for (const [pin, events] of Object.entries(source ?? {})) {
+    snap[Number(pin)] = events.slice();
+  }
+  return snap;
+}
+
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && Boolean(target.closest("button, select, input, textarea, a"));
+}
+
 function defaultDecoder(pin: number): { decoder: Decoder; pin2?: number; baud?: number } {
   if (pin === 18) return { decoder: "i2c", pin2: 19 }; // SDA → pair with SCL
   if (pin === 19) return { decoder: "i2c", pin2: 18 };
@@ -92,22 +110,52 @@ export function LogicAnalyzerWindow({
   const [paused, setPaused] = useState(false);
   /** When paused, this is the frozen window end. When live, it's tNow. */
   const [frozenEnd, setFrozenEnd] = useState<number | null>(null);
+  /** Captured event snapshot used while paused/inspecting so live edges do not move under the cursor. */
+  const [frozenEvents, setFrozenEvents] = useState<Record<number, PinEvent[]> | null>(null);
   /** Pan offset (ms) — positive moves view to the past. */
   const [panMs, setPanMs] = useState(0);
 
   const allEvents = useCallback(
-    (pin: number): PinEvent[] => pinEvents?.[pin] ?? [],
-    [pinEvents],
+    (pin: number): PinEvent[] => (paused && frozenEvents ? frozenEvents : pinEvents)?.[pin] ?? [],
+    [paused, frozenEvents, pinEvents],
   );
 
   const liveEnd = useMemo(() => {
     let t = simTimeMs;
     for (const ch of channels) {
-      const evs = allEvents(ch.pin);
+      const evs = pinEvents?.[ch.pin] ?? [];
       if (evs.length) t = Math.max(t, evs[evs.length - 1].t);
     }
     return t;
-  }, [simTimeMs, channels, allEvents]);
+  }, [simTimeMs, channels, pinEvents]);
+
+  const ensurePausedCapture = useCallback(() => {
+    const baseEnd = paused && frozenEnd !== null ? frozenEnd : liveEnd;
+    if (!paused || !frozenEvents) {
+      setFrozenEvents(clonePinEvents(pinEvents));
+      setFrozenEnd(baseEnd);
+      setPaused(true);
+    }
+    return baseEnd;
+  }, [paused, frozenEnd, liveEnd, frozenEvents, pinEvents]);
+
+  const resumeLive = useCallback(() => {
+    setPaused(false);
+    setFrozenEnd(null);
+    setFrozenEvents(null);
+    setPanMs(0);
+  }, []);
+
+  const togglePause = useCallback(() => {
+    if (paused) {
+      resumeLive();
+      return;
+    }
+    setFrozenEvents(clonePinEvents(pinEvents));
+    setFrozenEnd(liveEnd);
+    setPaused(true);
+    setPanMs(0);
+  }, [paused, resumeLive, pinEvents, liveEnd]);
 
   const winEnd = paused && frozenEnd !== null ? frozenEnd - panMs : liveEnd - panMs;
   const winStart = winEnd - spanMs;
@@ -119,7 +167,7 @@ export function LogicAnalyzerWindow({
     const el = plotRef.current;
     if (!el) return;
     const ro = new ResizeObserver(() => {
-      setPlotW(Math.max(300, el.clientWidth - 140));
+      setPlotW(Math.max(300, el.clientWidth - CHANNEL_LABEL_W - CHANNEL_GAP_W - PLOT_SIDE_PAD * 2));
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -133,21 +181,22 @@ export function LogicAnalyzerWindow({
 
   // Wheel: zoom around cursor; Shift+wheel pan.
   const onWheel = (e: React.WheelEvent) => {
+    if (isInteractiveTarget(e.target)) return;
     e.preventDefault();
+    const baseEnd = ensurePausedCapture();
     if (e.shiftKey) {
       setPanMs((p) => Math.max(0, p + (e.deltaY > 0 ? spanMs * 0.1 : -spanMs * 0.1)));
       return;
     }
     const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-    const px = e.clientX - rect.left - 60;
+    const px = e.clientX - rect.left - PLOT_SIDE_PAD - CHANNEL_LABEL_W - CHANNEL_GAP_W;
     const frac = Math.max(0, Math.min(1, px / plotW));
     const tCursor = winStart + frac * spanMs;
     const factor = e.deltaY > 0 ? 1.25 : 0.8;
-    const nextSpan = Math.max(0.05, Math.min(60_000, spanMs * factor));
+    const nextSpan = Math.max(MIN_SPAN_MS, Math.min(MAX_SPAN_MS, spanMs * factor));
     // Keep tCursor under the cursor: adjust panMs so winEnd stays sensible.
     const nextWinStart = tCursor - frac * nextSpan;
     const nextWinEnd = nextWinStart + nextSpan;
-    const baseEnd = paused && frozenEnd !== null ? frozenEnd : liveEnd;
     setSpanMs(nextSpan);
     setPanMs(Math.max(0, baseEnd - nextWinEnd));
   };
@@ -155,13 +204,16 @@ export function LogicAnalyzerWindow({
   // Drag pan.
   const dragRef = useRef<{ startX: number; startPan: number } | null>(null);
   const onMouseDown = (e: React.MouseEvent) => {
+    if (isInteractiveTarget(e.target)) return;
+    e.preventDefault();
+    ensurePausedCapture();
     dragRef.current = { startX: e.clientX, startPan: panMs };
   };
   useEffect(() => {
     function onMove(e: MouseEvent) {
       if (!dragRef.current) return;
       const dx = e.clientX - dragRef.current.startX;
-      const dt = (dx / plotW) * spanMs;
+      const dt = (-dx / plotW) * spanMs;
       setPanMs(Math.max(0, dragRef.current.startPan + dt));
     }
     function onUp() { dragRef.current = null; }
@@ -307,24 +359,21 @@ export function LogicAnalyzerWindow({
         <div className="flex-1" />
         <div className="flex items-center gap-1 text-xs">
           <span className="text-muted-foreground">Span</span>
-          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setSpanMs((s) => Math.max(0.05, s / 2))}><ZoomIn className="h-3.5 w-3.5" /></Button>
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { ensurePausedCapture(); setSpanMs((s) => Math.max(MIN_SPAN_MS, s / 2)); }}><ZoomIn className="h-3.5 w-3.5" /></Button>
           <span className="font-mono w-16 text-center tabular-nums">
             {spanMs >= 1000 ? `${(spanMs / 1000).toFixed(2)}s` : spanMs >= 1 ? `${spanMs.toFixed(1)}ms` : `${(spanMs * 1000).toFixed(0)}µs`}
           </span>
-          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setSpanMs((s) => Math.min(60_000, s * 2))}><ZoomOut className="h-3.5 w-3.5" /></Button>
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { ensurePausedCapture(); setSpanMs((s) => Math.min(MAX_SPAN_MS, s * 2)); }}><ZoomOut className="h-3.5 w-3.5" /></Button>
         </div>
         <Button
           size="sm"
           variant={paused ? "default" : "outline"}
           className="h-7"
-          onClick={() => {
-            if (paused) { setPaused(false); setFrozenEnd(null); setPanMs(0); }
-            else { setPaused(true); setFrozenEnd(liveEnd); }
-          }}
+          onClick={togglePause}
         >
           {paused ? <><Play className="h-3 w-3 mr-1" />Run</> : <><Pause className="h-3 w-3 mr-1" />Pause</>}
         </Button>
-        <Button size="sm" variant="outline" className="h-7" onClick={() => { setPanMs(0); setFrozenEnd(null); }}>
+        <Button size="sm" variant="outline" className="h-7" onClick={resumeLive}>
           Live
         </Button>
         <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={onClose} title="Close">
@@ -358,7 +407,7 @@ export function LogicAnalyzerWindow({
               <option key={p} value={p}>{ARDUINO_PIN_LABELS[p] ?? `Pin ${p}`}</option>
             ))}
         </select>
-        <span className="text-muted-foreground ml-4">Tip: scroll to zoom · drag to pan · Shift+scroll to pan</span>
+        <span className="text-muted-foreground ml-4">Scroll or +/- freezes capture for zoom · drag waveform to pan · Live resumes realtime</span>
       </div>
 
       {/* Plot area */}
@@ -448,8 +497,9 @@ export function LogicAnalyzerWindow({
 
                 {/* Channel waveform */}
                 <div
-                  className="flex-1 relative rounded border border-border/60 bg-card/40 cursor-grab active:cursor-grabbing"
+                  className="flex-1 relative rounded border border-border/60 bg-card/40 cursor-grab active:cursor-grabbing select-none"
                   onMouseDown={onMouseDown}
+                  title="Drag to pan. Scroll to zoom."
                 >
                   <svg width={plotW} height={ROW_H} className="block">
                     {/* grid */}
@@ -508,7 +558,7 @@ export function LogicAnalyzerWindow({
 
       {/* Status bar */}
       <div className="flex items-center gap-4 px-4 py-1.5 border-t border-border bg-card text-[11px] font-mono text-muted-foreground">
-        <span>{paused ? "⏸ PAUSED" : "● LIVE"}</span>
+        <span>{paused ? "⏸ CAPTURE FROZEN" : "● LIVE"}</span>
         <span>t = {(winEnd).toFixed(2)} ms</span>
         <span>Δ = {spanMs >= 1 ? `${spanMs.toFixed(2)} ms` : `${(spanMs * 1000).toFixed(1)} µs`}</span>
         <span>Pan = {panMs.toFixed(1)} ms</span>
