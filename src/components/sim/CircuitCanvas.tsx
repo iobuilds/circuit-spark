@@ -457,8 +457,30 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
     };
     const onDown = (e: KeyboardEvent) => {
       if (isTyping(e.target)) return;
-      if (e.code === "Space") { e.preventDefault(); setSpaceHeld(true); return; }
+      if (e.code === "Space") {
+        // If a non-board component is selected, rotate it 90° CW. Otherwise
+        // hold-Space acts as a pan modifier.
+        const sel = useSimStore.getState().selectedId;
+        const comp = sel ? useSimStore.getState().components.find((c) => c.id === sel) : null;
+        if (comp && comp.kind !== "board" && !locked) {
+          e.preventDefault();
+          useSimStore.getState().rotateComponent(comp.id, 90);
+          return;
+        }
+        e.preventDefault();
+        setSpaceHeld(true);
+        return;
+      }
       if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+      if (e.key === "r" || e.key === "R") {
+        const sel = useSimStore.getState().selectedId;
+        const comp = sel ? useSimStore.getState().components.find((c) => c.id === sel) : null;
+        if (comp && comp.kind !== "board" && !locked) {
+          e.preventDefault();
+          useSimStore.getState().rotateComponent(comp.id, 90);
+        }
+        return;
+      }
       if (e.key === "+" || e.key === "=") {
         e.preventDefault();
         setZoom((z) => Math.min(4, +(z * 1.18).toFixed(3)));
