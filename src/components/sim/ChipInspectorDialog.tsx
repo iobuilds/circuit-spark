@@ -219,7 +219,7 @@ function RegistersTab({ sram }: { sram: Uint8Array }) {
   }, []);
 
   return (
-    <ScrollArea className="h-full">
+    <div className="h-full overflow-y-auto">
       <div className="p-4 space-y-4">
         {Object.entries(groups).map(([group, regs]) => (
           <div key={group}>
