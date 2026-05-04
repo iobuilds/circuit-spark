@@ -95,7 +95,7 @@ export function PreferencesDialog({ open, onOpenChange }: Props) {
           <div className="rounded-md bg-muted/40 border p-3 text-xs space-y-1">
             <div className="font-medium">Compile backend</div>
             <div className="text-muted-foreground">
-              {HAS_BACKEND ? <>Connected to <span className="font-mono">{API_BASE}</span></> : "No backend configured. Set VITE_API_URL to point at your VPS."}
+              {HAS_BACKEND ? <>Connected to <span className="font-mono">{API_BASE}</span></> : "No backend configured. Set VITE_API_URL to point at your compiler server."}
             </div>
           </div>
         </div>
