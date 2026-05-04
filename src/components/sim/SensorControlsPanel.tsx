@@ -33,13 +33,30 @@ export function SensorControlsPanel() {
   const sensors: ResolvedSensor[] = useMemo(() => {
     const out: ResolvedSensor[] = [];
     for (const c of components) {
-      if (c.kind !== "custom") continue;
-      const cid = String(c.props.customId ?? "");
-      const entry = adminComps.find((a) => a.id === cid);
-      if (!entry?.pins?.length) continue;
-      const inputs = entry.pins.filter((p) => !NON_INPUT_TYPES.has(p.type));
-      if (inputs.length === 0) continue;
-      out.push({ comp: c, label: entry.label, inputs });
+      if (c.kind === "custom") {
+        const cid = String(c.props.customId ?? "");
+        const entry = adminComps.find((a) => a.id === cid);
+        if (!entry?.pins?.length) continue;
+        const inputs = entry.pins.filter((p) => !NON_INPUT_TYPES.has(p.type));
+        if (inputs.length === 0) continue;
+        out.push({ comp: c, label: entry.label, inputs });
+        continue;
+      }
+      // Built-in sensors with user-controllable inputs.
+      if (c.kind === "water-level") {
+        out.push({
+          comp: c, label: "Water Level Sensor",
+          inputs: [{ id: "__level", label: "Water level", type: "analog", x: 0, y: 0, color: "#3b82f6" }],
+        });
+      } else if (c.kind === "dht11") {
+        out.push({
+          comp: c, label: "DHT11",
+          inputs: [
+            { id: "__temperature", label: "Temp °C", type: "analog", x: 0, y: 0, color: "#ef4444" },
+            { id: "__humidity",    label: "Humidity %", type: "analog", x: 0, y: 0, color: "#3b82f6" },
+          ],
+        });
+      }
     }
     return out;
   }, [components, adminComps]);
