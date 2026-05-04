@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { X, GripVertical, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Wire, CircuitComponent, PinState } from "@/sim/types";
@@ -136,9 +136,89 @@ export function SignalInspector({
 
   const netLabel = fromR.netLabel ?? toR.netLabel ?? "—";
 
+  // ── Logic-analyser waveform ─────────────────────────────────────────────
+  // Rolling buffer of recent samples driven off a 50 ms tick. Keeps last ~6 s
+  // (120 samples). Tracks both digital (0/1) and analog (0..1023).
+  const BUF = 120;
+  type Sample = { t: number; d: 0 | 1; a: number };
+  const bufRef = useRef<Sample[]>([]);
+  const [, force] = useState(0);
+
+  // Decide what numbers we're plotting on each tick.
+  const currentDigital: 0 | 1 = sig.ps
+    ? sig.ps.digital
+    : ((fromR.voltsFixed ?? toR.voltsFixed ?? 0) >= 2.5 ? 1 : 0);
+  const currentAnalog: number = sig.ps
+    ? sig.ps.analog
+    : ((fromR.voltsFixed ?? toR.voltsFixed ?? 0) >= 2.5 ? 1023 : 0);
+
+  // Clear buffer when the inspected wire changes.
+  useEffect(() => { bufRef.current = []; }, [wire.id]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const buf = bufRef.current;
+      buf.push({ t: performance.now(), d: currentDigital, a: currentAnalog });
+      if (buf.length > BUF) buf.splice(0, buf.length - BUF);
+      force((n) => (n + 1) & 0xffff);
+    }, 50);
+    return () => window.clearInterval(id);
+  }, [currentDigital, currentAnalog]);
+
+  // Compute simple frequency / duty from the digital trace (last second).
+  const stats = useMemo(() => {
+    const buf = bufRef.current;
+    if (buf.length < 2) return { freq: 0, duty: currentDigital ? 100 : 0, edges: 0 };
+    const cutoff = performance.now() - 1000;
+    const recent = buf.filter((s) => s.t >= cutoff);
+    let edges = 0;
+    let highMs = 0;
+    let totalMs = 0;
+    for (let i = 1; i < recent.length; i++) {
+      const dt = recent[i].t - recent[i - 1].t;
+      totalMs += dt;
+      if (recent[i - 1].d) highMs += dt;
+      if (recent[i].d !== recent[i - 1].d) edges++;
+    }
+    const freq = edges / 2; // edges per second / 2 = Hz (over ~1s window)
+    const duty = totalMs > 0 ? (highMs / totalMs) * 100 : currentDigital ? 100 : 0;
+    return { freq, duty, edges };
+  }, [bufRef.current.length, currentDigital]);
+
+  // Render dimensions for the two stacked SVG plots.
+  const plotW = 248;
+  const plotH = 32;
+  const buf = bufRef.current;
+  const xStep = plotW / Math.max(1, BUF - 1);
+  // Digital trace as a step path.
+  const digitalPath = (() => {
+    if (buf.length === 0) return "";
+    const startIdx = Math.max(0, buf.length - BUF);
+    let d = "";
+    for (let i = startIdx; i < buf.length; i++) {
+      const x = (i - startIdx) * xStep;
+      const y = buf[i].d ? 4 : plotH - 4;
+      d += i === startIdx ? `M ${x} ${y}` : ` H ${x} V ${y}`;
+    }
+    return d;
+  })();
+  // Analog trace as a polyline.
+  const analogPath = (() => {
+    if (buf.length === 0) return "";
+    const startIdx = Math.max(0, buf.length - BUF);
+    let d = "";
+    for (let i = startIdx; i < buf.length; i++) {
+      const x = (i - startIdx) * xStep;
+      const v = Math.max(0, Math.min(1023, buf[i].a));
+      const y = plotH - 2 - (v / 1023) * (plotH - 4);
+      d += i === startIdx ? `M ${x} ${y}` : ` L ${x} ${y}`;
+    }
+    return d;
+  })();
+
   return (
     <div
-      className="fixed z-50 w-72 rounded-lg border border-border bg-card/95 backdrop-blur shadow-2xl text-xs select-none"
+      className="fixed z-50 w-[280px] rounded-lg border border-border bg-card/95 backdrop-blur shadow-2xl text-xs select-none"
       style={{ left: pos.x, top: pos.y }}
     >
       <div
@@ -199,6 +279,46 @@ export function SignalInspector({
             )}
           </>
         )}
+
+        {/* ── Logic-analyser waveform ── */}
+        <div className="border-t border-border pt-2 mt-1.5 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Waveform</span>
+            <span className="font-mono text-[10px] text-muted-foreground">
+              {stats.freq > 0 ? `${stats.freq.toFixed(1)} Hz · ${stats.duty.toFixed(0)}% duty` : `${stats.duty.toFixed(0)}% duty`}
+            </span>
+          </div>
+          {/* Digital trace */}
+          <div className="rounded border border-border/60 bg-background/60 px-1 py-0.5">
+            <div className="flex items-center gap-1">
+              <span className="font-mono text-[9px] w-6 text-success">D</span>
+              <svg width={plotW} height={plotH} className="overflow-visible">
+                {/* baseline grid */}
+                <line x1={0} y1={plotH - 4} x2={plotW} y2={plotH - 4} stroke="var(--color-border)" strokeWidth={0.5} strokeDasharray="2 3" />
+                <line x1={0} y1={4} x2={plotW} y2={4} stroke="var(--color-border)" strokeWidth={0.5} strokeDasharray="2 3" />
+                <path d={digitalPath} fill="none" stroke="oklch(0.78 0.22 145)" strokeWidth={1.4} strokeLinejoin="miter" />
+                {/* live cursor */}
+                <line x1={plotW - 0.5} y1={0} x2={plotW - 0.5} y2={plotH} stroke="var(--color-primary)" strokeWidth={0.6} opacity={0.5} />
+              </svg>
+            </div>
+          </div>
+          {/* Analog trace */}
+          <div className="rounded border border-border/60 bg-background/60 px-1 py-0.5">
+            <div className="flex items-center gap-1">
+              <span className="font-mono text-[9px] w-6 text-warning">A</span>
+              <svg width={plotW} height={plotH} className="overflow-visible">
+                <line x1={0} y1={plotH / 2} x2={plotW} y2={plotH / 2} stroke="var(--color-border)" strokeWidth={0.5} strokeDasharray="2 3" />
+                <path d={analogPath} fill="none" stroke="oklch(0.78 0.18 60)" strokeWidth={1.2} strokeLinejoin="round" strokeLinecap="round" />
+                <line x1={plotW - 0.5} y1={0} x2={plotW - 0.5} y2={plotH} stroke="var(--color-primary)" strokeWidth={0.6} opacity={0.5} />
+              </svg>
+            </div>
+            <div className="flex items-center justify-between font-mono text-[9px] text-muted-foreground pl-7 pr-1">
+              <span>0</span>
+              <span className="tabular-nums">{currentAnalog}</span>
+              <span>1023</span>
+            </div>
+          </div>
+        </div>
 
         <div className="border-t border-border pt-1.5 mt-1.5 space-y-0.5">
           <div className="text-muted-foreground">Endpoints</div>

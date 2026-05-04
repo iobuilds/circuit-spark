@@ -569,9 +569,8 @@ function MotorSvg({ voltage, reversed, burned, color: _color }: { voltage: numbe
         fill={yellow} stroke={yellowOutline} strokeWidth={1.6} />
       {/* subtle top highlight */}
       <rect x={18} y={18} width={110} height={6} rx={3} fill="oklch(0.96 0.10 95 / 0.55)" />
-      {/* output shaft hub (the bump where the wheel attaches) */}
-      <circle cx={56} cy={55} r={9} fill={yellowDark} stroke={yellowOutline} strokeWidth={1.2} />
-      <circle cx={56} cy={55} r={5} fill="oklch(0.20 0.01 90)" stroke={yellowOutline} strokeWidth={0.8} />
+      {/* output shaft hub recess (the well that the disk spins inside of) */}
+      <circle cx={56} cy={55} r={22} fill={yellowDark} stroke={yellowOutline} strokeWidth={1.2} />
       {/* visible hex bolt head */}
       <g transform="translate(40 30)">
         <polygon points="0,-6 5.2,-3 5.2,3 0,6 -5.2,3 -5.2,-3"
@@ -607,21 +606,53 @@ function MotorSvg({ voltage, reversed, burned, color: _color }: { voltage: numbe
       <text x={225} y={98} textAnchor="middle" fontSize={11} fontWeight={800} fontFamily="monospace"
         fill="var(--color-foreground)">−</text>
 
-      {/* === Spinning shaft (output) === */}
+      {/* === Spinning output disk (clearly visible rotation indicator) === */}
       <g transform="translate(56 55)">
+        {/* Outer ring (static) so the spinning shows against a fixed reference */}
+        <circle r={20} fill="oklch(0.20 0.01 90)" stroke={yellowOutline} strokeWidth={1.4} opacity={0.9} />
+        <circle r={20} fill="none" stroke="oklch(0.96 0.10 95 / 0.4)" strokeWidth={0.6} />
+        <g>
+          {dur > 0 && !burned && (
+            <animateTransform
+              attributeName="transform"
+              type="rotate"
+              from={reversed ? "360 0 0" : "0 0 0"}
+              to={reversed ? "0 0 0" : "360 0 0"}
+              dur={`${dur}s`}
+              repeatCount="indefinite"
+              additive="sum"
+            />
+          )}
+          {/* spinning disk */}
+          <circle r={18} fill="oklch(0.32 0.04 90)" stroke="oklch(0.18 0.02 90)" strokeWidth={1} />
+          {/* high-contrast spokes (4) — make rotation unambiguous */}
+          <g stroke="oklch(0.95 0.12 95)" strokeWidth={2.4} strokeLinecap="round">
+            <line x1={-16} y1={0} x2={16} y2={0} />
+            <line x1={0} y1={-16} x2={0} y2={16} />
+          </g>
+          {/* secondary thin spokes for visual richness */}
+          <g stroke="oklch(0.75 0.14 95 / 0.55)" strokeWidth={1.2} strokeLinecap="round">
+            <line x1={-11} y1={-11} x2={11} y2={11} />
+            <line x1={-11} y1={11} x2={11} y2={-11} />
+          </g>
+          {/* alignment marker (red wedge) — easy to track at speed */}
+          <polygon points="0,-18 -3.5,-12 3.5,-12"
+            fill="oklch(0.70 0.22 25)" stroke="oklch(0.30 0.10 25)" strokeWidth={0.8} />
+          {/* center hub bolt */}
+          <circle r={4} fill="oklch(0.55 0.005 250)" stroke="oklch(0.20 0.01 90)" strokeWidth={0.8} />
+          <circle r={1.4} fill="oklch(0.20 0.01 90)" />
+        </g>
+        {/* tiny RPM badge under the disk when running */}
         {dur > 0 && !burned && (
-          <animateTransform
-            attributeName="transform"
-            type="rotate"
-            from={reversed ? "360 0 0" : "0 0 0"}
-            to={reversed ? "0 0 0" : "360 0 0"}
-            dur={`${dur}s`}
-            repeatCount="indefinite"
-            additive="sum"
-          />
+          <g transform="translate(0 30)">
+            <rect x={-22} y={-7} width={44} height={13} rx={6}
+              fill="oklch(0.18 0.01 90)" stroke="oklch(0.96 0.10 95 / 0.4)" strokeWidth={0.6} />
+            <text x={0} y={3} textAnchor="middle" fontSize={8} fontWeight={700} fontFamily="monospace"
+              fill="oklch(0.96 0.10 95)">
+              {Math.round(Math.abs(rps) * 60)} RPM {reversed ? "◀" : "▶"}
+            </text>
+          </g>
         )}
-        <line x1={-7} y1={0} x2={7} y2={0} stroke="oklch(0.20 0.01 90)" strokeWidth={2} strokeLinecap="round" />
-        <line x1={0} y1={-7} x2={0} y2={7} stroke="oklch(0.20 0.01 90 / 0.4)" strokeWidth={1.4} strokeLinecap="round" />
       </g>
 
       {/* burned overlay */}
