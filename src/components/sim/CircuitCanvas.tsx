@@ -648,11 +648,58 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
 
   const drawingFromPos = drawingFrom ? endpointPos(drawingFrom.componentId, drawingFrom.pinId) : null;
 
-  // Build a poly-line path for an existing wire, including its waypoints.
+  // Build a poly-line path with smooth rounded corners at each bend.
   function wirePath(a: { x: number; y: number }, b: { x: number; y: number }, mids: { x: number; y: number }[]) {
     const pts = [a, ...mids, b];
-    return pts.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(" ");
+    if (pts.length === 2) return `M ${pts[0].x} ${pts[0].y} L ${pts[1].x} ${pts[1].y}`;
+    const R = 10; // corner radius
+    let d = `M ${pts[0].x} ${pts[0].y}`;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const prev = pts[i - 1];
+      const cur = pts[i];
+      const next = pts[i + 1];
+      const v1x = cur.x - prev.x, v1y = cur.y - prev.y;
+      const v2x = next.x - cur.x, v2y = next.y - cur.y;
+      const len1 = Math.hypot(v1x, v1y) || 1;
+      const len2 = Math.hypot(v2x, v2y) || 1;
+      const r = Math.min(R, len1 / 2, len2 / 2);
+      const p1 = { x: cur.x - (v1x / len1) * r, y: cur.y - (v1y / len1) * r };
+      const p2 = { x: cur.x + (v2x / len2) * r, y: cur.y + (v2y / len2) * r };
+      d += ` L ${p1.x} ${p1.y} Q ${cur.x} ${cur.y} ${p2.x} ${p2.y}`;
+    }
+    const last = pts[pts.length - 1];
+    d += ` L ${last.x} ${last.y}`;
+    return d;
   }
+
+  /** Auto-color wires by net role: red = power rail, black = ground.
+   *  User-set colors always win. */
+  function autoWireColor(w: Wire): string | undefined {
+    if (w.color) return w.color;
+    const labelA = net.netForCompPin.get(`${w.from.componentId}::${w.from.pinId}`)
+                ?? (w.from.componentId !== "board" ? null : w.from.pinId);
+    const labelB = net.netForCompPin.get(`${w.to.componentId}::${w.to.pinId}`)
+                ?? (w.to.componentId !== "board" ? null : w.to.pinId);
+    const isPower = (l: string | null | undefined) =>
+      !!l && (l === "5V" || l === "3V3" || l === "VIN" || l.startsWith("BAT+:"));
+    const isGnd = (l: string | null | undefined) =>
+      !!l && (l === "GND" || l === "GND1" || l === "GND2" || l === "GND_TOP" || l.startsWith("BAT-:"));
+    // Direct board-pin endpoints (when netForCompPin map missed it).
+    const directPower = (ep: { componentId: string; pinId: string }) => {
+      const c = components.find((x) => x.id === ep.componentId);
+      if (c?.kind !== "board") return false;
+      return ep.pinId === "5V" || ep.pinId === "3V3" || ep.pinId === "VIN";
+    };
+    const directGnd = (ep: { componentId: string; pinId: string }) => {
+      const c = components.find((x) => x.id === ep.componentId);
+      if (c?.kind !== "board") return false;
+      return ep.pinId.startsWith("GND");
+    };
+    if (isPower(labelA) || isPower(labelB) || directPower(w.from) || directPower(w.to)) return "#ef4444";
+    if (isGnd(labelA) || isGnd(labelB) || directGnd(w.from) || directGnd(w.to)) return "#0a0a0a";
+    return undefined;
+  }
+
 
   function removeWorkspaceComponent(id: string) {
     const comp = components.find((c) => c.id === id);
