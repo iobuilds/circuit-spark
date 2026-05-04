@@ -166,6 +166,9 @@ export function CompileOutputPanel({ output, progress, compiling, onClose, onErr
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="flex-1 min-h-0 flex flex-col">
         <TabsList className="rounded-none h-7 px-2 self-start bg-transparent">
+          <TabsTrigger value="log" className="text-xs">
+            Live Log {liveLog.length > 0 ? `(${liveLog.length})` : ""}
+          </TabsTrigger>
           <TabsTrigger value="output" className="text-xs">Output</TabsTrigger>
           <TabsTrigger value="errors" className="text-xs">
             Errors {output && output.errors.length > 0 ? `(${output.errors.length})` : ""}
@@ -174,6 +177,68 @@ export function CompileOutputPanel({ output, progress, compiling, onClose, onErr
             Warnings {warnings.length > 0 ? `(${warnings.length})` : ""}
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="log" className="flex-1 min-h-0 mt-0 overflow-auto">
+          <div ref={logScrollRef} className="h-full overflow-auto">
+            {liveLog.length === 0 ? (
+              <div className="px-3 py-3 text-muted-foreground italic">Waiting for compile events…</div>
+            ) : (
+              <ul className="font-mono text-[11px] divide-y divide-border">
+                {liveLog.map((entry, i) => {
+                  const libs = entry.kind === "install" ? extractLibsFromMessage(entry.message) : [];
+                  const headers = entry.kind === "header" ? extractLibsFromMessage(entry.message) : [];
+                  const time = new Date(entry.ts).toLocaleTimeString(undefined, { hour12: false });
+                  const Icon =
+                    entry.kind === "install" ? Download :
+                    entry.kind === "header" ? AlertTriangle :
+                    entry.kind === "success" ? CheckCircle2 :
+                    entry.kind === "error" ? XCircle :
+                    entry.kind === "retry" ? Loader2 :
+                    Package;
+                  const color =
+                    entry.kind === "install" ? "text-primary" :
+                    entry.kind === "header" ? "text-warning" :
+                    entry.kind === "success" ? "text-success" :
+                    entry.kind === "error" ? "text-destructive" :
+                    entry.kind === "retry" ? "text-primary" :
+                    "text-muted-foreground";
+                  return (
+                    <li key={i} className="px-3 py-1.5">
+                      <div className="flex items-start gap-2">
+                        <Icon className={`h-3.5 w-3.5 mt-0.5 flex-shrink-0 ${color} ${entry.kind === "retry" ? "animate-spin" : ""}`} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground text-[10px] tabular-nums">{time}</span>
+                            <span className="text-foreground/60 text-[10px] uppercase tracking-wide">{entry.step}</span>
+                          </div>
+                          <div className="text-foreground break-words">{entry.message}</div>
+                          {libs.length > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {libs.map((l) => (
+                                <span key={l} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-medium">
+                                  <Download className="h-3 w-3" /> {l}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {headers.length > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {headers.map((h) => (
+                                <span key={h} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-warning/10 text-warning text-[10px] font-medium">
+                                  <AlertTriangle className="h-3 w-3" /> {h}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </TabsContent>
 
         <TabsContent value="output" className="flex-1 min-h-0 mt-0 overflow-auto">
           <pre className="font-mono text-[11px] px-3 py-2 whitespace-pre-wrap text-foreground/80">
