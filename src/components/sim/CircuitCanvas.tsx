@@ -462,7 +462,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         // hold-Space acts as a pan modifier.
         const sel = useSimStore.getState().selectedId;
         const comp = sel ? useSimStore.getState().components.find((c) => c.id === sel) : null;
-        if (comp && comp.kind !== "board" && !locked) {
+        if (comp && comp.kind !== "board" && useSimStore.getState().status !== "running" && useSimStore.getState().status !== "paused") {
           e.preventDefault();
           useSimStore.getState().rotateComponent(comp.id, 90);
           return;
@@ -475,7 +475,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
       if (e.key === "r" || e.key === "R") {
         const sel = useSimStore.getState().selectedId;
         const comp = sel ? useSimStore.getState().components.find((c) => c.id === sel) : null;
-        if (comp && comp.kind !== "board" && !locked) {
+        if (comp && comp.kind !== "board" && useSimStore.getState().status !== "running" && useSimStore.getState().status !== "paused") {
           e.preventDefault();
           useSimStore.getState().rotateComponent(comp.id, 90);
         }
