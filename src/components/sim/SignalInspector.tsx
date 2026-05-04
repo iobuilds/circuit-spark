@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { X, GripVertical, Activity, Pause, Play, ZoomIn, ZoomOut } from "lucide-react";
+import { X, GripVertical, Activity, Pause, Play, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Wire, CircuitComponent, PinState, PinEvent } from "@/sim/types";
 import type { NetGraph } from "@/sim/netlist";
 import { findUnoPin } from "@/sim/uno-pins";
 import { useSimStore } from "@/sim/store";
+import { LogicAnalyzerWindow } from "./LogicAnalyzerWindow";
 
 interface Props {
   wire: Wire;
@@ -85,6 +86,7 @@ export function SignalInspector({
 }: Props) {
   const [pos, setPos] = useState({ x: initialX, y: initialY });
   const dragRef = useRef<{ ox: number; oy: number; px: number; py: number } | null>(null);
+  const [maximized, setMaximized] = useState(false);
 
   // ── Logic-analyser controls ─────────────────────────────────────────
   const [edge, setEdge] = useState<TriggerEdge>("either");
@@ -283,6 +285,7 @@ export function SignalInspector({
   const levelY = analogY(level);
 
   return (
+    <>
     <div
       className="fixed z-50 w-[300px] rounded-lg border border-border bg-card/95 backdrop-blur shadow-2xl text-xs select-none"
       style={{ left: pos.x, top: pos.y }}
@@ -296,6 +299,14 @@ export function SignalInspector({
         <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
         <Activity className="h-3.5 w-3.5 text-primary" />
         <span className="font-semibold flex-1">Signal Inspector</span>
+        <Button
+          size="sm" variant="ghost" className="h-5 w-5 p-0"
+          title="Open Logic Analyzer"
+          onClick={(e) => { e.stopPropagation(); setMaximized(true); }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <Maximize2 className="h-3 w-3" />
+        </Button>
         <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={onClose}>
           <X className="h-3 w-3" />
         </Button>
@@ -418,8 +429,12 @@ export function SignalInspector({
                 : `${stats.duty.toFixed(0)}% duty · ${stats.edges} edges`}
             </span>
           </div>
-          {/* Digital trace */}
-          <div className="rounded border border-border/60 bg-background/60 px-1 py-1">
+          {/* Digital trace — click to open full Logic Analyzer */}
+          <div
+            className="rounded border border-border/60 bg-background/60 px-1 py-1 cursor-zoom-in hover:border-primary/60 transition-colors"
+            onClick={() => setMaximized(true)}
+            title="Click to open full Logic Analyzer"
+          >
             <div className="flex items-center gap-1">
               <span className="font-mono text-[9px] w-5 text-success">D</span>
               <svg width={plotW} height={plotH} className="block">
@@ -462,5 +477,16 @@ export function SignalInspector({
         </div>
       </div>
     </div>
+    {maximized && sig.boardCompId && sig.pinNum !== undefined && (
+      <LogicAnalyzerWindow
+        boardId={sig.boardCompId}
+        initialPin={sig.pinNum}
+        initialLabel={netLabel ?? `Pin ${sig.pinNum}`}
+        pinStates={pinStatesByBoard[sig.boardCompId] ?? {}}
+        pinEvents={pinEventsByBoard[sig.boardCompId] ?? {}}
+        onClose={() => setMaximized(false)}
+      />
+    )}
+    </>
   );
 }
