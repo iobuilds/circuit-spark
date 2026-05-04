@@ -119,9 +119,9 @@ void loop() {
 `,
     components: [
       BOARD("uno1", 60, 60),
-      { id: "pot1", kind: "potentiometer", x: 220, y: 360, rotation: 0, props: { value: 512 } },
-      { id: "led1", kind: "led",      x: 560, y: 130, rotation: 0, props: { color: "blue" } },
-      { id: "r1",   kind: "resistor", x: 540, y: 240, rotation: 0, props: { ohms: 220 } },
+      { id: "pot1", kind: "potentiometer", x: 1120, y: 480, rotation: 0, props: { value: 512 } },
+      { id: "led1", kind: "led",      x: 1120, y: 200, rotation: 0, props: { color: "blue" } },
+      { id: "r1",   kind: "resistor", x: 1100, y: 360, rotation: 0, props: { ohms: 220 } },
     ],
     wires: [
       { id: "w1", from: { componentId: "pot1", pinId: "1" }, to: { componentId: "uno1", pinId: "GND1" } },
