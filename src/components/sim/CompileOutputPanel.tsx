@@ -115,7 +115,7 @@ export function CompileOutputPanel({ output, progress, compiling, onClose, onErr
   const fmtMs = (n?: number) => (n === undefined ? "" : `${(n / 1000).toFixed(2)}s`);
 
   return (
-    <div className="border-t border-border bg-card text-xs flex flex-col" style={{ maxHeight: 260 }}>
+    <div className="border-t border-border bg-card text-xs flex flex-col" style={{ maxHeight: 320 }}>
       {/* Header / status bar */}
       <div className="flex items-center px-3 py-1.5 border-b border-border gap-2">
         {compiling ? (
