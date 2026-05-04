@@ -1456,6 +1456,12 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         onPickBoard={(bid) => startPlacement({ kind: "board", boardId: bid })}
       />
 
+      <ChipInspectorDialog
+        open={chipInspectorBoardId !== null}
+        onOpenChange={(v) => { if (!v) setChipInspectorBoardId(null); }}
+        boardCompId={chipInspectorBoardId}
+      />
+
       {/* Wire-drawing toolbar: shows source pin, point count, and shortcut buttons. */}
       {drawingFrom && (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-md bg-card/95 backdrop-blur border border-primary px-3 py-1.5 text-xs shadow-lg">
