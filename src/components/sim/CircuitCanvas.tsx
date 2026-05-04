@@ -74,6 +74,8 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
 
   const adminComps = useAdminStore((s) => s.components);
   const adminBoards = useAdminStore((s) => s.boards);
+  const setComponentProp = useSimStore((s) => s.setComponentProp);
+  const [hoveredBoardId, setHoveredBoardId] = useState<string | null>(null);
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
