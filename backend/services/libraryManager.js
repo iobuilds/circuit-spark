@@ -79,24 +79,14 @@ module.exports = {
     // actually installed (e.g. when its instance init failed because of a
     // broken 3rd-party index like the rp2040 one). We defend against that
     // by re-listing libraries afterwards and confirming the new one shows up.
-    const runOnce = () => new Promise((resolve) => {
-      const proc = spawn(config.ARDUINO_CLI_PATH, ['lib', 'install', libStr], {
-        env: { ...process.env, HOME: process.env.HOME || '/root' },
-      });
-      let stdout = '', stderr = '';
-      proc.stdout.on('data', d => stdout += d.toString());
-      proc.stderr.on('data', d => stderr += d.toString());
-      proc.on('close', (code) => resolve({ code: code ?? -1, stdout, stderr }));
-      proc.on('error', (e) => resolve({ code: -1, stdout: '', stderr: e.message }));
-    });
+    const runOnce = () => runCli(['lib', 'install', libStr]);
 
     let r = await runOnce();
     // If the failure mentions index problems, refresh and retry once.
-    const errBlob = (r.stdout + r.stderr).toLowerCase();
-    if (r.code !== 0 && (errBlob.includes('index') || errBlob.includes('no such file'))) {
+    const errBlob = r.stdout + r.stderr;
+    if (r.code !== 0 && isRecoverableCliIssue(errBlob)) {
       logger.warn(`Install of ${libStr} failed; refreshing index and retrying`);
-      await new Promise((res) => spawn(config.ARDUINO_CLI_PATH, ['core', 'update-index']).on('close', res));
-      await new Promise((res) => spawn(config.ARDUINO_CLI_PATH, ['lib', 'update-index']).on('close', res));
+      await repairCliIndexes();
       r = await runOnce();
     }
     if (r.code !== 0) {
@@ -108,13 +98,16 @@ module.exports = {
     const target = String(name).toLowerCase();
     const hit = (installed || []).some(l => (l.library?.name || '').toLowerCase() === target);
     if (!hit) {
-      throw new Error(
-        `arduino-cli reported success but '${name}' is not visible to 'lib list'. ` +
-        `This usually means a broken 3rd-party index (e.g. rp2040) is preventing ` +
-        `arduino-cli's instance from initializing. Run 'arduino-cli core update-index' on the host.`
-      );
+      logger.warn(`arduino-cli install drift for ${name}; repairing indexes and retrying`);
+      await repairCliIndexes();
+      r = await runOnce();
+      if (r.code !== 0) throw new Error((r.stderr || r.stdout || `exit ${r.code}`).trim());
+      const afterRepair = await this.list();
+      const fixed = (afterRepair || []).some(l => (l.library?.name || '').toLowerCase() === target);
+      if (!fixed) throw new Error(`arduino-cli reported success but '${name}' is still not visible after automatic index repair.`);
     }
 
+    await libraryCache.markInstalled(baseLibraryName(name));
     return { success: true, name, version };
   },
 
