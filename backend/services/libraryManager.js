@@ -68,7 +68,7 @@ module.exports = {
 
   async list() {
     return new Promise((resolve) => {
-      const proc = spawn(config.ARDUINO_CLI_PATH, ['lib', 'list', '--format', 'json']);
+      const proc = spawn(config.ARDUINO_CLI_PATH, ['lib', 'list', '--format', 'json'], { env: { ...process.env, HOME: process.env.HOME || '/root' } });
       let out = '';
       proc.stdout.on('data', d => out += d);
       proc.on('close', () => {
@@ -168,9 +168,12 @@ module.exports = {
 
   async uninstall(name) {
     return new Promise((resolve, reject) => {
-      const proc = spawn(config.ARDUINO_CLI_PATH, ['lib', 'uninstall', name]);
-      proc.on('close', (code) => {
-        if (code === 0) resolve({ success: true });
+      const proc = spawn(config.ARDUINO_CLI_PATH, ['lib', 'uninstall', name], { env: { ...process.env, HOME: process.env.HOME || '/root' } });
+      proc.on('close', async (code) => {
+        if (code === 0) {
+          await libraryCache.invalidate();
+          resolve({ success: true });
+        }
         else reject(new Error(`Failed to uninstall ${name}`));
       });
       proc.on('error', reject);
