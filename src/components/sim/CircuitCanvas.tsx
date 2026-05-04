@@ -77,6 +77,9 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
   const [dragId, setDragId] = useState<string | null>(null);
   const [wpDrag, setWpDrag] = useState<{ wireId: string; idx: number } | null>(null);
+  /** Pending wire-segment drag: on plain click+drag the first move inserts a waypoint
+   *  and starts dragging it. On a click without movement, the wire is just selected. */
+  const [segPending, setSegPending] = useState<{ wireId: string; idx: number; sx: number; sy: number } | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -405,6 +408,17 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
       const snap = (n: number) => Math.round(n / 10) * 10;
       moveComponent(dragId, snap(p.x - dragOffset.x), snap(p.y - dragOffset.y));
     }
+    if (segPending && !locked && !wpDrag) {
+      const dx = p.x - segPending.sx;
+      const dy = p.y - segPending.sy;
+      if (dx * dx + dy * dy > 9) {
+        const snap = (n: number) => Math.round(n / 5) * 5;
+        const newPoint = { x: snap(p.x), y: snap(p.y) };
+        insertWireWaypoint(segPending.wireId, segPending.idx, newPoint);
+        setWpDrag({ wireId: segPending.wireId, idx: segPending.idx });
+        setSegPending(null);
+      }
+    }
     if (wpDrag && !locked) {
       const snap = (n: number) => Math.round(n / 5) * 5;
       updateWireWaypoint(wpDrag.wireId, wpDrag.idx, { x: snap(p.x), y: snap(p.y) });
@@ -600,7 +614,13 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
         onDragOver={onSvgDragOver}
         onDrop={onSvgDrop}
         onMouseMove={onMouseMove}
-        onMouseUp={() => { setDragId(null); setPanning(false); setWpDrag(null); }}
+        onMouseUp={(e) => {
+          setDragId(null);
+          setPanning(false);
+          setWpDrag(null);
+          // Click without movement → just select the wire
+          if (segPending) { setSelectedWireId(segPending.wireId); setSelected(null); setSegPending(null); }
+        }}
         onWheel={onWheel}
         onMouseDown={(e) => {
           // Only react to clicks on the empty SVG background.
@@ -834,18 +854,16 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                         if (e.button === 2) { e.preventDefault(); removeWire(w.id); return; }
                         if (e.button !== 0) return;
                         e.stopPropagation();
-                        // Shift/Alt-click on a segment inserts a waypoint and starts dragging it.
-                        if (e.shiftKey || e.altKey) {
-                          const p = clientToSvg(e);
-                          const snap = (n: number) => Math.round(n / 5) * 5;
-                          const newPoint = { x: snap(p.x), y: snap(p.y) };
-                          insertWireWaypoint(w.id, i, newPoint);
-                          setWpDrag({ wireId: w.id, idx: i });
+                        if (locked) {
+                          setSelectedWireId(w.id);
+                          setSelected(null);
                           return;
                         }
-                        // Plain click selects the wire (so the style toolbar shows up).
-                        setSelectedWireId(w.id);
-                        setSelected(null);
+                        // Plain click+drag bends the wire; click without movement
+                        // selects it (handled in onMouseUp on the SVG root).
+                        const p = clientToSvg(e);
+                        pushWireHistory();
+                        setSegPending({ wireId: w.id, idx: i, sx: p.x, sy: p.y });
                       }}
                       onContextMenu={(e) => { e.preventDefault(); removeWire(w.id); }}
                     />

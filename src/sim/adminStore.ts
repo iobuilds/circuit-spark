@@ -53,6 +53,10 @@ export interface ComponentEntry {
   builtIn: boolean;
   /** Behavior for custom components in the simulator. */
   behavior?: "digital-out" | "digital-in" | "analog-in" | "passive";
+  /** When true, the component is purely visual (used for diagrams/schematic
+   *  illustrations). It is skipped from the simulation netlist and electrical
+   *  evaluation — wires can still attach for layout but carry no current. */
+  diagramOnly?: boolean;
   width?: number;
   height?: number;
   /** Raw SVG markup for visual rendering. */
