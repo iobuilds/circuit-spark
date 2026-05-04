@@ -78,6 +78,8 @@ export interface SimState {
   cpuByBoard: Record<string, { pc: number; sp: number; cycles: number; sreg: number }>;
   /** Whether avr8js mode is active for a given board (true after a successful compile). */
   avrModeByBoard: Record<string, boolean>;
+  /** Per-board OLED framebuffers, keyed by `${boardId}:${addr}`. */
+  oledFrames: Record<string, { w: number; h: number; bitmap: Uint8Array; on: boolean; invert: boolean; contrast: number; rev: number }>;
 
   // ui
   theme: "dark" | "light";
