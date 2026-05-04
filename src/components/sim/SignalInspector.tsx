@@ -280,6 +280,46 @@ export function SignalInspector({
           </>
         )}
 
+        {/* ── Logic-analyser waveform ── */}
+        <div className="border-t border-border pt-2 mt-1.5 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Waveform</span>
+            <span className="font-mono text-[10px] text-muted-foreground">
+              {stats.freq > 0 ? `${stats.freq.toFixed(1)} Hz · ${stats.duty.toFixed(0)}% duty` : `${stats.duty.toFixed(0)}% duty`}
+            </span>
+          </div>
+          {/* Digital trace */}
+          <div className="rounded border border-border/60 bg-background/60 px-1 py-0.5">
+            <div className="flex items-center gap-1">
+              <span className="font-mono text-[9px] w-6 text-success">D</span>
+              <svg width={plotW} height={plotH} className="overflow-visible">
+                {/* baseline grid */}
+                <line x1={0} y1={plotH - 4} x2={plotW} y2={plotH - 4} stroke="var(--color-border)" strokeWidth={0.5} strokeDasharray="2 3" />
+                <line x1={0} y1={4} x2={plotW} y2={4} stroke="var(--color-border)" strokeWidth={0.5} strokeDasharray="2 3" />
+                <path d={digitalPath} fill="none" stroke="oklch(0.78 0.22 145)" strokeWidth={1.4} strokeLinejoin="miter" />
+                {/* live cursor */}
+                <line x1={plotW - 0.5} y1={0} x2={plotW - 0.5} y2={plotH} stroke="var(--color-primary)" strokeWidth={0.6} opacity={0.5} />
+              </svg>
+            </div>
+          </div>
+          {/* Analog trace */}
+          <div className="rounded border border-border/60 bg-background/60 px-1 py-0.5">
+            <div className="flex items-center gap-1">
+              <span className="font-mono text-[9px] w-6 text-warning">A</span>
+              <svg width={plotW} height={plotH} className="overflow-visible">
+                <line x1={0} y1={plotH / 2} x2={plotW} y2={plotH / 2} stroke="var(--color-border)" strokeWidth={0.5} strokeDasharray="2 3" />
+                <path d={analogPath} fill="none" stroke="oklch(0.78 0.18 60)" strokeWidth={1.2} strokeLinejoin="round" strokeLinecap="round" />
+                <line x1={plotW - 0.5} y1={0} x2={plotW - 0.5} y2={plotH} stroke="var(--color-primary)" strokeWidth={0.6} opacity={0.5} />
+              </svg>
+            </div>
+            <div className="flex items-center justify-between font-mono text-[9px] text-muted-foreground pl-7 pr-1">
+              <span>0</span>
+              <span className="tabular-nums">{currentAnalog}</span>
+              <span>1023</span>
+            </div>
+          </div>
+        </div>
+
         <div className="border-t border-border pt-1.5 mt-1.5 space-y-0.5">
           <div className="text-muted-foreground">Endpoints</div>
           <div className="font-mono text-[11px] truncate" title={fromR.label}>↗ {fromR.label}</div>
