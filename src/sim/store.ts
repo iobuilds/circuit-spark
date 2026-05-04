@@ -378,6 +378,7 @@ export const useSimStore = create<SimState>((set, get) => {
     serialByBoard: {}, pinStatesByBoard: {}, statusByBoard: {}, activeSimBoardId: null,
     simTimeMs: 0, drawingFrom: null, drawingWaypoints: [],
     wireHistory: [], wireFuture: [],
+    flashByBoard: {}, eepromByBoard: {}, sramByBoard: {}, cpuByBoard: {}, avrModeByBoard: {},
   }),
   loadProject: (p) => {
     // Ensure a board exists for templates that wire to the legacy "board" id
