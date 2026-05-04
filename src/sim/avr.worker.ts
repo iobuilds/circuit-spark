@@ -88,6 +88,8 @@ const lastPinLevel: Record<number, 0 | 1> = {};
 
 function loadHex(hex: string) {
   try {
+    pinEventBuf.length = 0;
+    for (const k of Object.keys(lastPinLevel)) delete lastPinLevel[Number(k)];
     const parsed = parseIntelHex(hex);
     // CPU expects a Uint16Array of program memory. Ensure even byte length.
     const bytes = parsed.data.length % 2 === 0
