@@ -52,8 +52,9 @@ void loop() {
 `,
     components: [
       BOARD("uno1", 60, 60),
-      { id: "led1", kind: "led", x: 540, y: 130, rotation: 0, props: { color: "red" } },
-      { id: "r1",   kind: "resistor", x: 520, y: 240, rotation: 0, props: { ohms: 220 } },
+      // Components placed clear of the Uno PCB (60..1020 × 60..764).
+      { id: "led1", kind: "led", x: 1120, y: 200, rotation: 0, props: { color: "red" } },
+      { id: "r1",   kind: "resistor", x: 1100, y: 360, rotation: 0, props: { ohms: 220 } },
     ],
     wires: [
       { id: "w1", from: { componentId: "uno1", pinId: "D13" }, to: { componentId: "led1", pinId: "A" } },
@@ -83,9 +84,9 @@ void loop() {
 `,
     components: [
       BOARD("uno1", 60, 60),
-      { id: "led1", kind: "led", x: 560, y: 130, rotation: 0, props: { color: "green" } },
-      { id: "r1",   kind: "resistor", x: 540, y: 240, rotation: 0, props: { ohms: 220 } },
-      { id: "btn1", kind: "button",   x: 220, y: 360, rotation: 0, props: {} },
+      { id: "led1", kind: "led", x: 1120, y: 200, rotation: 0, props: { color: "green" } },
+      { id: "r1",   kind: "resistor", x: 1100, y: 360, rotation: 0, props: { ohms: 220 } },
+      { id: "btn1", kind: "button",   x: 1120, y: 480, rotation: 0, props: {} },
     ],
     wires: [
       { id: "w1", from: { componentId: "uno1", pinId: "D13" }, to: { componentId: "led1", pinId: "A" } },
@@ -118,9 +119,9 @@ void loop() {
 `,
     components: [
       BOARD("uno1", 60, 60),
-      { id: "pot1", kind: "potentiometer", x: 220, y: 360, rotation: 0, props: { value: 512 } },
-      { id: "led1", kind: "led",      x: 560, y: 130, rotation: 0, props: { color: "blue" } },
-      { id: "r1",   kind: "resistor", x: 540, y: 240, rotation: 0, props: { ohms: 220 } },
+      { id: "pot1", kind: "potentiometer", x: 1120, y: 480, rotation: 0, props: { value: 512 } },
+      { id: "led1", kind: "led",      x: 1120, y: 200, rotation: 0, props: { color: "blue" } },
+      { id: "r1",   kind: "resistor", x: 1100, y: 360, rotation: 0, props: { ohms: 220 } },
     ],
     wires: [
       { id: "w1", from: { componentId: "pot1", pinId: "1" }, to: { componentId: "uno1", pinId: "GND1" } },
@@ -349,7 +350,8 @@ void loop() {
 `,
     components: [
       BOARD("uno1", 40, 40),
-      { id: "rtc1", kind: "ds3231", x: 540, y: 380, rotation: 0, props: {} },
+      // Place the RTC well clear of the Uno PCB (Uno spans 40..1000 × 40..744).
+      { id: "rtc1", kind: "ds3231", x: 1080, y: 300, rotation: 0, props: {} },
     ],
     wires: [
       { id: "w1", from: { componentId: "uno1", pinId: "5V"   }, to: { componentId: "rtc1", pinId: "VCC" } },
