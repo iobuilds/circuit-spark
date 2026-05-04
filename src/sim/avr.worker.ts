@@ -85,6 +85,12 @@ let lastSnapshot = 0;
 let serialBuf = "";
 let lastSerialFlush = 0;
 const ds3231 = createDs3231State();
+// Map of I2C address → SSD1306 emulator. We allow both 0x3C and 0x3D so
+// sketches using either Adafruit_SSD1306 default work out of the box.
+const oleds = new Map<number, ReturnType<typeof createSsd1306State>>();
+for (const a of SSD1306_ADDRS) oleds.set(a, createSsd1306State());
+const lastOledDirty = new Map<number, number>();
+let lastOledEmit = 0;
 
 /** Rolling buffer of pin transitions captured since the last `pin-states`
  *  emission. Populated by AVRIOPort.addListener hooks installed at load time.
