@@ -36,7 +36,7 @@ type OutMsg =
   | { type: "started" }
   | { type: "stopped"; reason?: string }
   | { type: "serial"; text: string; kind: "out" | "sys"; port?: number }
-  | { type: "pin-states"; pins: Record<number, PinState>; ms: number }
+  | { type: "pin-states"; pins: Record<number, PinState>; ms: number; events?: { pin: number; t: number; d: 0 | 1 }[] }
   | { type: "tone"; pin: number; frequency: number; duration?: number }
   | { type: "bus-tx"; bus: "i2c" | "spi"; address?: number; payload: number[] }
   | { type: "error"; message: string };
