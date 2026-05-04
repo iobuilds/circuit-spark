@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { AddItemDialog } from "./AddItemDialog";
 import { SensorControlsPanel } from "./SensorControlsPanel";
 import { ChipInspectorDialog } from "./ChipInspectorDialog";
+import { SignalInspector } from "./SignalInspector";
 
 
 interface Props {
@@ -95,6 +96,16 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
   const [chipInspectorBoardId, setChipInspectorBoardId] = useState<string | null>(null);
   const [hovered, setHovered] = useState<HoveredPin | null>(null);
   const [selectedWireId, setSelectedWireId] = useState<string | null>(null);
+  /** Floating Signal Inspector — opened by clicking a wire while the simulation is running/paused. */
+  const [inspector, setInspector] = useState<{ wireId: string; x: number; y: number } | null>(null);
+  // Auto-close inspector when sim leaves running/paused.
+  useEffect(() => {
+    if (status !== "running" && status !== "paused") setInspector(null);
+  }, [status]);
+  // Auto-close if its wire was deleted.
+  useEffect(() => {
+    if (inspector && !wires.some((w) => w.id === inspector.wireId)) setInspector(null);
+  }, [wires, inspector]);
   const [pinEditMode, setPinEditMode] = useState(false);
   const setComponentProp = useSimStore((s) => s.setComponentProp);
   
@@ -954,7 +965,13 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                       fill="none"
                       className="cursor-pointer"
                       onMouseDown={(e) => {
-                        if (locked) return;
+                        if (locked) {
+                          if (e.button !== 0) return;
+                          e.stopPropagation();
+                          setInspector({ wireId: w.id, x: e.clientX + 12, y: e.clientY + 12 });
+                          setSelectedWireId(w.id);
+                          return;
+                        }
                         if (e.button === 2) { e.preventDefault(); removeWire(w.id); return; }
                         if (e.button !== 0) return;
                         e.stopPropagation();
@@ -1615,6 +1632,23 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
           <kbd className="hidden md:inline-flex text-[10px] px-1 py-0.5 rounded border border-border text-muted-foreground">Esc</kbd>
         </div>
       )}
+
+      {/* Floating Signal Inspector — visible only while simulation is running/paused. */}
+      {inspector && (locked) && (() => {
+        const w = wires.find((ww) => ww.id === inspector.wireId);
+        if (!w) return null;
+        return (
+          <SignalInspector
+            wire={w}
+            components={components}
+            net={net}
+            pinStatesByBoard={pinStatesByBoard}
+            initialX={inspector.x}
+            initialY={inspector.y}
+            onClose={() => setInspector(null)}
+          />
+        );
+      })()}
 
       {/* 3D table view removed per user request */}
 
