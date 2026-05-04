@@ -19,6 +19,7 @@ type WorkerOut =
       sramSlice: Uint8Array;
       eeprom: Uint8Array;
     }
+  | { type: "oled-frame"; addr: number; w: number; h: number; bitmap: Uint8Array; on: boolean; invert: boolean; contrast: number }
   | { type: "error"; message: string };
 
 /**
