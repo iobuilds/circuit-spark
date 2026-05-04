@@ -36,7 +36,6 @@ import {
   DS3231_ADDR,
   handleI2cRead,
   handleI2cWrite,
-  readSnapshot as ds3231Snapshot,
 } from "./ds3231";
 
 type InMsg =
