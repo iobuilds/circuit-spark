@@ -234,6 +234,8 @@ export async function repairLibraryIndexes() {
   const r = await fetch(`${API_URL}/api/libraries/repair`, { method: "POST" });
   return r.json();
 }
+
+export async function uploadZipLibrary(file: File) {
   const form = new FormData();
   form.append("zipfile", file);
   const r = await fetch(`${API_URL}/api/libraries/upload`, { method: "POST", body: form });
