@@ -136,6 +136,86 @@ export function SignalInspector({
 
   const netLabel = fromR.netLabel ?? toR.netLabel ?? "—";
 
+  // ── Logic-analyser waveform ─────────────────────────────────────────────
+  // Rolling buffer of recent samples driven off a 50 ms tick. Keeps last ~6 s
+  // (120 samples). Tracks both digital (0/1) and analog (0..1023).
+  const BUF = 120;
+  type Sample = { t: number; d: 0 | 1; a: number };
+  const bufRef = useRef<Sample[]>([]);
+  const [, force] = useState(0);
+
+  // Decide what numbers we're plotting on each tick.
+  const currentDigital: 0 | 1 = sig.ps
+    ? sig.ps.digital
+    : ((fromR.voltsFixed ?? toR.voltsFixed ?? 0) >= 2.5 ? 1 : 0);
+  const currentAnalog: number = sig.ps
+    ? sig.ps.analog
+    : ((fromR.voltsFixed ?? toR.voltsFixed ?? 0) >= 2.5 ? 1023 : 0);
+
+  // Clear buffer when the inspected wire changes.
+  useEffect(() => { bufRef.current = []; }, [wire.id]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const buf = bufRef.current;
+      buf.push({ t: performance.now(), d: currentDigital, a: currentAnalog });
+      if (buf.length > BUF) buf.splice(0, buf.length - BUF);
+      force((n) => (n + 1) & 0xffff);
+    }, 50);
+    return () => window.clearInterval(id);
+  }, [currentDigital, currentAnalog]);
+
+  // Compute simple frequency / duty from the digital trace (last second).
+  const stats = useMemo(() => {
+    const buf = bufRef.current;
+    if (buf.length < 2) return { freq: 0, duty: currentDigital ? 100 : 0, edges: 0 };
+    const cutoff = performance.now() - 1000;
+    const recent = buf.filter((s) => s.t >= cutoff);
+    let edges = 0;
+    let highMs = 0;
+    let totalMs = 0;
+    for (let i = 1; i < recent.length; i++) {
+      const dt = recent[i].t - recent[i - 1].t;
+      totalMs += dt;
+      if (recent[i - 1].d) highMs += dt;
+      if (recent[i].d !== recent[i - 1].d) edges++;
+    }
+    const freq = edges / 2; // edges per second / 2 = Hz (over ~1s window)
+    const duty = totalMs > 0 ? (highMs / totalMs) * 100 : currentDigital ? 100 : 0;
+    return { freq, duty, edges };
+  }, [bufRef.current.length, currentDigital]);
+
+  // Render dimensions for the two stacked SVG plots.
+  const plotW = 248;
+  const plotH = 32;
+  const buf = bufRef.current;
+  const xStep = plotW / Math.max(1, BUF - 1);
+  // Digital trace as a step path.
+  const digitalPath = (() => {
+    if (buf.length === 0) return "";
+    const startIdx = Math.max(0, buf.length - BUF);
+    let d = "";
+    for (let i = startIdx; i < buf.length; i++) {
+      const x = (i - startIdx) * xStep;
+      const y = buf[i].d ? 4 : plotH - 4;
+      d += i === startIdx ? `M ${x} ${y}` : ` H ${x} V ${y}`;
+    }
+    return d;
+  })();
+  // Analog trace as a polyline.
+  const analogPath = (() => {
+    if (buf.length === 0) return "";
+    const startIdx = Math.max(0, buf.length - BUF);
+    let d = "";
+    for (let i = startIdx; i < buf.length; i++) {
+      const x = (i - startIdx) * xStep;
+      const v = Math.max(0, Math.min(1023, buf[i].a));
+      const y = plotH - 2 - (v / 1023) * (plotH - 4);
+      d += i === startIdx ? `M ${x} ${y}` : ` L ${x} ${y}`;
+    }
+    return d;
+  })();
+
   return (
     <div
       className="fixed z-50 w-72 rounded-lg border border-border bg-card/95 backdrop-blur shadow-2xl text-xs select-none"
