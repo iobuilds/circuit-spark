@@ -103,6 +103,36 @@ function loadHex(hex: string) {
     portC = new AVRIOPort(cpu, portCConfig);
     portD = new AVRIOPort(cpu, portDConfig);
 
+    // Capture per-bit edges on every port change so the Signal Inspector
+    // can render real I2C / SPI / GPIO waveforms with µs precision (instead
+    // of being aliased away by the 30 ms `pin-states` snapshot interval).
+    const installPortLogger = (port: AVRIOPort, portName: "B" | "C" | "D") => {
+      port.addListener((value, oldValue) => {
+        if (!cpu) return;
+        const tMs = (cpu.cycles / F_CPU) * 1000;
+        const diff = value ^ oldValue;
+        if (diff === 0) return;
+        for (const [pinStr, m] of Object.entries(ARDUINO_TO_AVR)) {
+          if (m.port !== portName) continue;
+          const mask = 1 << m.bit;
+          if ((diff & mask) === 0) continue;
+          const pinNum = Number(pinStr);
+          const ps = port.pinState(m.bit);
+          let level: 0 | 1 = 0;
+          if (ps === AvrPinState.High) level = 1;
+          else if (ps === AvrPinState.InputPullUp) level = 1;
+          if (lastPinLevel[pinNum] === level) continue;
+          lastPinLevel[pinNum] = level;
+          pinEventBuf.push({ pin: pinNum, t: tMs, d: level });
+          // Cap in-worker backlog so a runaway program can't OOM us.
+          if (pinEventBuf.length > 8192) pinEventBuf.splice(0, pinEventBuf.length - 8192);
+        }
+      });
+    };
+    installPortLogger(portB, "B");
+    installPortLogger(portC, "C");
+    installPortLogger(portD, "D");
+
     new AVRTimer(cpu, timer0Config);
     new AVRTimer(cpu, timer1Config);
     new AVRTimer(cpu, timer2Config);
