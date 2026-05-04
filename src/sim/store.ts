@@ -62,6 +62,17 @@ export interface SimState {
   speed: number;
   compileLog: { kind: "info" | "warn" | "error"; text: string }[];
 
+  /** Per-board parsed flash image (Intel HEX → bytes), keyed by board component id. */
+  flashByBoard: Record<string, Uint8Array>;
+  /** Per-board EEPROM image (1 KB on ATmega328P). Updated by avr8js worker. */
+  eepromByBoard: Record<string, Uint8Array>;
+  /** Per-board live SRAM snapshot from avr8js (sampled by the worker). */
+  sramByBoard: Record<string, Uint8Array>;
+  /** Per-board emulator state — PC, SP, cycles. Updated by avr8js worker. */
+  cpuByBoard: Record<string, { pc: number; sp: number; cycles: number; sreg: number }>;
+  /** Whether avr8js mode is active for a given board (true after a successful compile). */
+  avrModeByBoard: Record<string, boolean>;
+
   // ui
   theme: "dark" | "light";
 
@@ -102,6 +113,11 @@ export interface SimState {
   setSimTime: (ms: number) => void;
   setSpeed: (n: number) => void;
   setCompileLog: (l: SimState["compileLog"]) => void;
+  setBoardFlash: (boardId: string, flash: Uint8Array) => void;
+  setBoardEeprom: (boardId: string, ee: Uint8Array) => void;
+  setBoardSram: (boardId: string, sram: Uint8Array) => void;
+  setBoardCpu: (boardId: string, cpu: { pc: number; sp: number; cycles: number; sreg: number }) => void;
+  setBoardAvrMode: (boardId: string, on: boolean) => void;
   setActiveSimBoard: (id: string | null) => void;
   setBoardStatus: (id: string, s: SimStatus) => void;
 
@@ -154,6 +170,11 @@ export const useSimStore = create<SimState>((set, get) => {
   simTimeMs: 0,
   speed: 1,
   compileLog: [],
+  flashByBoard: {},
+  eepromByBoard: {},
+  sramByBoard: {},
+  cpuByBoard: {},
+  avrModeByBoard: {},
 
   theme: "dark",
 
@@ -322,6 +343,11 @@ export const useSimStore = create<SimState>((set, get) => {
   setSimTime: (ms) => set({ simTimeMs: ms }),
   setSpeed: (n) => set({ speed: n }),
   setCompileLog: (l) => set({ compileLog: l }),
+  setBoardFlash: (boardId, flash) => set((st) => ({ flashByBoard: { ...st.flashByBoard, [boardId]: flash } })),
+  setBoardEeprom: (boardId, ee) => set((st) => ({ eepromByBoard: { ...st.eepromByBoard, [boardId]: ee } })),
+  setBoardSram: (boardId, sram) => set((st) => ({ sramByBoard: { ...st.sramByBoard, [boardId]: sram } })),
+  setBoardCpu: (boardId, cpu) => set((st) => ({ cpuByBoard: { ...st.cpuByBoard, [boardId]: cpu } })),
+  setBoardAvrMode: (boardId, on) => set((st) => ({ avrModeByBoard: { ...st.avrModeByBoard, [boardId]: on } })),
   setActiveSimBoard: (id) => set((st) => ({
     activeSimBoardId: id,
     serial: id ? (st.serialByBoard[id] ?? []) : [],
@@ -352,6 +378,7 @@ export const useSimStore = create<SimState>((set, get) => {
     serialByBoard: {}, pinStatesByBoard: {}, statusByBoard: {}, activeSimBoardId: null,
     simTimeMs: 0, drawingFrom: null, drawingWaypoints: [],
     wireHistory: [], wireFuture: [],
+    flashByBoard: {}, eepromByBoard: {}, sramByBoard: {}, cpuByBoard: {}, avrModeByBoard: {},
   }),
   loadProject: (p) => {
     // Ensure a board exists for templates that wire to the legacy "board" id

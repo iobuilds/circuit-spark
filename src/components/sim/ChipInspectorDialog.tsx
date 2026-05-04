@@ -25,19 +25,29 @@ export function ChipInspectorDialog({ open, onOpenChange, boardCompId }: Props) 
   const focusedPinStates = useSimStore((s) => s.pinStates);
   const simTimeMs = useSimStore((s) => s.simTimeMs);
   const status = useSimStore((s) => s.status);
+  const flashByBoard = useSimStore((s) => s.flashByBoard);
+  const eepromByBoard = useSimStore((s) => s.eepromByBoard);
+  const sramByBoard = useSimStore((s) => s.sramByBoard);
+  const cpuByBoard = useSimStore((s) => s.cpuByBoard);
 
   const pinStates = boardCompId
     ? (pinStatesByBoard[boardCompId] ?? focusedPinStates)
     : focusedPinStates;
 
-  // Synthetic SRAM image derived from current pin states.
-  const sram = useMemo(() => synthesizeSramFromPins(pinStates), [pinStates]);
+  const realFlash = boardCompId ? flashByBoard[boardCompId] : undefined;
+  const realEeprom = boardCompId ? eepromByBoard[boardCompId] : undefined;
+  const realSram = boardCompId ? sramByBoard[boardCompId] : undefined;
+  const realCpu = boardCompId ? cpuByBoard[boardCompId] : undefined;
 
-  // Estimated PC: every Arduino instruction averages ~1.5 cycles. PC is in
-  // 16-bit words; cap to flash size 16K words.
-  const cycles = Math.floor((simTimeMs / 1000) * F_CPU);
-  const pcWords = Math.floor(cycles / 1.5) % 0x4000;
-  const sp = (sram[0x3E + 0x20] << 8) | sram[0x3D + 0x20];
+  // Use live SRAM from avr8js when available; otherwise synthesize from pin states.
+  const sram = useMemo(
+    () => realSram ?? synthesizeSramFromPins(pinStates),
+    [realSram, pinStates],
+  );
+
+  const cycles = realCpu?.cycles ?? Math.floor((simTimeMs / 1000) * F_CPU);
+  const pcWords = realCpu?.pc ?? (Math.floor(cycles / 1.5) % 0x4000);
+  const sp = realCpu?.sp ?? ((sram[0x3E + 0x20] << 8) | sram[0x3D + 0x20]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
