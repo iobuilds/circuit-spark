@@ -81,7 +81,7 @@ function fromBoardPin(p: BoardPin): RenderPin {
   return { ...p, color: colorMap[p.kind] };
 }
 
-export function ArduinoUnoBoard({ x, y, highlightPin, onPinClick, onPinHover }: Props) {
+export function ArduinoUnoBoard({ x, y, highlightPin, onPinClick, onPinHover, onChipClick }: Props) {
   const pinStates = useSimStore((s) => s.pinStates);
   const boards = useAdminStore((s) => s.boards);
   const loaded = useAdminStore((s) => s.loaded);
