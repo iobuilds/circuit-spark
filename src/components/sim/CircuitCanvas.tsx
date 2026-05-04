@@ -1157,24 +1157,34 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
             );
           })}
 
-          {/* In-progress wire preview: from start through committed waypoints to mouse. */}
-          {drawingFromPos && (
-            <g pointerEvents="none">
-              <path
-                d={wirePath(drawingFromPos, mouse, drawingWaypoints)}
-                stroke="var(--color-primary)"
-                strokeWidth={4}
-                strokeDasharray="6 4"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              {drawingWaypoints.map((p, i) => (
-                <circle key={i} cx={p.x} cy={p.y} r={3.5}
-                  fill="var(--color-primary)" stroke="var(--color-background)" strokeWidth={1} />
-              ))}
-            </g>
-          )}
+          {/* In-progress wire preview: from start through committed waypoints to mouse.
+              When the user hasn't placed any manual bends yet, auto-route a clean
+              manhattan path so the preview snaps to 90° angles like real PCB routing. */}
+          {drawingFromPos && (() => {
+            const previewMids = drawingWaypoints.length
+              ? drawingWaypoints
+              : autoRoute(drawingFromPos, mouse, "preview");
+            return (
+              <g pointerEvents="none">
+                <path
+                  d={wirePath(drawingFromPos, mouse, previewMids)}
+                  stroke="var(--color-primary)"
+                  strokeWidth={4}
+                  strokeDasharray="6 4"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                {drawingWaypoints.map((p, i) => (
+                  <circle key={i} cx={p.x} cy={p.y} r={3.5}
+                    fill="var(--color-primary)" stroke="var(--color-background)" strokeWidth={1} />
+                ))}
+                {/* Endpoint dot at cursor so user sees the snap target */}
+                <circle cx={mouse.x} cy={mouse.y} r={4}
+                  fill="var(--color-primary)" stroke="var(--color-background)" strokeWidth={1.5} />
+              </g>
+            );
+          })()}
 
           {/* Ghost placement preview: follows the cursor until clicked or Escaped. */}
           {pending && (
