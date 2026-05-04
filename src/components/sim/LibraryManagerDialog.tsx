@@ -7,8 +7,9 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { CheckCircle2, ExternalLink, Library, Loader2, Trash2, Upload, Wifi, WifiOff, PackageCheck } from "lucide-react";
+import { CheckCircle2, ExternalLink, Library, Loader2, Trash2, Upload, Wifi, WifiOff, PackageCheck, FolderOpen } from "lucide-react";
 import { LIBRARY_PACKAGES } from "@/sim/ideCatalog";
+import { ProjectLibrariesTab } from "./ProjectLibrariesTab";
 import { useIdeStore } from "@/sim/ideStore";
 import { uploadZipLibrary } from "@/sim/compileApi";
 import {
