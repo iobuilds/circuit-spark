@@ -9,6 +9,7 @@ import { TEMPLATES } from "@/sim/templates";
 import { LIBRARY_PACKAGES } from "@/sim/ideCatalog";
 import { BoardManagerDialog } from "./BoardManagerDialog";
 import { LibraryManagerDialog } from "./LibraryManagerDialog";
+import { InstallLibrariesDialog } from "./InstallLibrariesDialog";
 import { PreferencesDialog } from "./PreferencesDialog";
 import { FileManagerDialog } from "./FileManagerDialog";
 import { toast } from "sonner";
