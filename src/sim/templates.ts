@@ -84,9 +84,9 @@ void loop() {
 `,
     components: [
       BOARD("uno1", 60, 60),
-      { id: "led1", kind: "led", x: 560, y: 130, rotation: 0, props: { color: "green" } },
-      { id: "r1",   kind: "resistor", x: 540, y: 240, rotation: 0, props: { ohms: 220 } },
-      { id: "btn1", kind: "button",   x: 220, y: 360, rotation: 0, props: {} },
+      { id: "led1", kind: "led", x: 1120, y: 200, rotation: 0, props: { color: "green" } },
+      { id: "r1",   kind: "resistor", x: 1100, y: 360, rotation: 0, props: { ohms: 220 } },
+      { id: "btn1", kind: "button",   x: 1120, y: 480, rotation: 0, props: {} },
     ],
     wires: [
       { id: "w1", from: { componentId: "uno1", pinId: "D13" }, to: { componentId: "led1", pinId: "A" } },
