@@ -8,7 +8,7 @@ type WorkerOut =
   | { type: "started" }
   | { type: "stopped"; reason?: string }
   | { type: "serial"; text: string; kind: "out" | "sys" }
-  | { type: "pin-states"; pins: Record<number, PinState>; ms: number }
+  | { type: "pin-states"; pins: Record<number, PinState>; ms: number; events?: { pin: number; t: number; d: 0 | 1 }[] }
   | { type: "loaded"; flashSize: number }
   | {
       type: "snapshot";
