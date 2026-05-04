@@ -39,6 +39,19 @@ export function IdeMenubar({ onCompile, onUpload }: Props) {
   const wires = useSimStore((s) => s.wires);
   const boardId = useSimStore((s) => s.boardId);
 
+  // Allow other parts of the app (e.g. compile-failure handler) to open the
+  // install dialog pre-filled with library names via a custom DOM event:
+  //   window.dispatchEvent(new CustomEvent("ide:install-libraries", { detail: { names: ["U8g2"] } }))
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ names?: string[] }>).detail;
+      setInstallPrefill(Array.isArray(detail?.names) ? detail!.names! : []);
+      setInstallOpen(true);
+    };
+    window.addEventListener("ide:install-libraries", handler);
+    return () => window.removeEventListener("ide:install-libraries", handler);
+  }, []);
+
   function handleNewSketch() {
     addFile(`sketch_${Date.now().toString(36)}.ino`, "ino", "void setup() {\n\n}\n\nvoid loop() {\n\n}\n");
     toast.success("New sketch tab created");
