@@ -22,6 +22,8 @@ interface Props {
 export function IdeMenubar({ onCompile, onUpload }: Props) {
   const [boardMgrOpen, setBoardMgrOpen] = useState(false);
   const [libMgrOpen, setLibMgrOpen] = useState(false);
+  const [installOpen, setInstallOpen] = useState(false);
+  const [installPrefill, setInstallPrefill] = useState<string[]>([]);
   const [prefsOpen, setPrefsOpen] = useState(false);
   const [fileMgrOpen, setFileMgrOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
