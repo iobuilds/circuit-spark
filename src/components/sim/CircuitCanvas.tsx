@@ -914,7 +914,8 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                     pointerEvents="none"
                   />
                 )}
-                {/* Per-segment hit zones: left-click selects the wire; shift-click inserts waypoint; right-click deletes. */}
+                {/* Per-segment hit zones: left-click selects the wire;
+                    double-click inserts a joint at the cursor; right-click deletes. */}
                 {segPts.slice(0, -1).map((pt, i) => {
                   const next = segPts[i + 1];
                   const sd = `M ${pt.x} ${pt.y} L ${next.x} ${next.y}`;
@@ -932,17 +933,23 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                         e.stopPropagation();
                         setSelectedWireId(w.id);
                         setSelected(null);
+                      }}
+                      onDoubleClick={(e) => {
                         if (locked) return;
-                        // First edit on an auto-routed wire: bake the auto-route
-                        // into the wire's waypoints so subsequent edits work.
+                        e.stopPropagation();
                         const p = clientToSvg(e);
+                        const snap = (n: number) => Math.round(n / 5) * 5;
+                        const newPoint = { x: snap(p.x), y: snap(p.y) };
                         pushWireHistory();
+                        // Bake auto-route first so the new joint slots into
+                        // the right segment.
                         if (!hasUserMids) {
                           useSimStore.setState((st) => ({
                             wires: st.wires.map((ww) => ww.id === w.id ? { ...ww, waypoints: mids.map((m) => ({ ...m })) } : ww),
                           }));
                         }
-                        setSegPending({ wireId: w.id, idx: i, sx: p.x, sy: p.y });
+                        insertWireWaypoint(w.id, i, newPoint);
+                        setSelectedWireId(w.id);
                       }}
                       onContextMenu={(e) => { e.preventDefault(); removeWire(w.id); }}
                     />
