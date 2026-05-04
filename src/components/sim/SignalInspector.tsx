@@ -477,5 +477,16 @@ export function SignalInspector({
         </div>
       </div>
     </div>
+    {maximized && sig.boardCompId && sig.pinNum !== undefined && (
+      <LogicAnalyzerWindow
+        boardId={sig.boardCompId}
+        initialPin={sig.pinNum}
+        initialLabel={netLabel ?? `Pin ${sig.pinNum}`}
+        pinStates={pinStatesByBoard[sig.boardCompId] ?? {}}
+        pinEvents={pinEventsByBoard[sig.boardCompId] ?? {}}
+        onClose={() => setMaximized(false)}
+      />
+    )}
+    </>
   );
 }
