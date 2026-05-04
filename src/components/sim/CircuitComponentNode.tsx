@@ -105,11 +105,16 @@ export function CircuitComponentNode({ comp, isPowered, voltage = 0, reversed = 
   const cx = width / 2;
   const cy = height / 2;
 
+  const isLocked = Boolean(comp.props.locked);
+  const [hover, setHover] = useState(false);
+
   return (
     <g
       transform={`translate(${comp.x} ${comp.y})`}
-      onMouseDown={(e) => { onSelect(e); onDragStart(e); }}
-      className="cursor-grab active:cursor-grabbing"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onMouseDown={(e) => { onSelect(e); if (!isLocked) onDragStart(e); }}
+      className={isLocked ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing"}
     >
       {/* Selection ring (axis-aligned around the unrotated bounding box) */}
       {selected && (
@@ -121,6 +126,37 @@ export function CircuitComponentNode({ comp, isPowered, voltage = 0, reversed = 
           strokeWidth={1.5}
           strokeDasharray="4 3"
         />
+      )}
+
+      {/* Hover/locked lock toggle — top-right of bounding box. Click to toggle. */}
+      {(hover || isLocked) && (
+        <g
+          transform={`translate(${width - 4} ${-12})`}
+          className="cursor-pointer"
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            setProp(comp.id, "locked", !isLocked);
+          }}
+        >
+          <title>{isLocked ? "Unlock component (allow dragging)" : "Lock component in place"}</title>
+          <circle r={10}
+            fill={isLocked ? "var(--color-primary)" : "var(--color-card)"}
+            stroke={isLocked ? "var(--color-primary)" : "var(--color-border)"}
+            strokeWidth={1.5} />
+          {/* Lock icon (closed when locked, open when unlocked) */}
+          {isLocked ? (
+            <g stroke="var(--color-primary-foreground)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
+              <rect x={-4} y={-1} width={8} height={6} rx={1} fill="var(--color-primary-foreground)" stroke="none" />
+              <path d="M -2.5 -1 V -3 a 2.5 2.5 0 0 1 5 0 V -1" />
+            </g>
+          ) : (
+            <g stroke="var(--color-foreground)" strokeWidth={1.6} fill="none" strokeLinecap="round" strokeLinejoin="round">
+              <rect x={-4} y={-1} width={8} height={6} rx={1} fill="var(--color-foreground)" stroke="none" />
+              <path d="M -2.5 -1 V -3 a 2.5 2.5 0 0 1 5 0" />
+            </g>
+          )}
+        </g>
       )}
 
       <g transform={angle ? `rotate(${angle} ${cx} ${cy})` : undefined}>
