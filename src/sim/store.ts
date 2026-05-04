@@ -370,6 +370,7 @@ export const useSimStore = create<SimState>((set, get) => {
       };
     });
   },
+  appendSerial: (line, boardId) => set((st) => {
     if (!boardId) return { serial: [...st.serial, line].slice(-500) };
     const prev = st.serialByBoard[boardId] ?? [];
     const updated = [...prev, line].slice(-500);
