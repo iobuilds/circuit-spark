@@ -718,6 +718,7 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
           setDragId(null);
           setPanning(false);
           setWpDrag(null);
+          setSegDrag(null);
           // Click without movement → just select the wire
           if (segPending) { setSelectedWireId(segPending.wireId); setSelected(null); setSegPending(null); }
         }}
@@ -956,11 +957,25 @@ export function CircuitCanvas({ onPinInputChange }: Props) {
                       fill="none"
                       className="cursor-pointer"
                       onMouseDown={(e) => {
+                        if (locked) return;
                         if (e.button === 2) { e.preventDefault(); removeWire(w.id); return; }
                         if (e.button !== 0) return;
                         e.stopPropagation();
                         setSelectedWireId(w.id);
                         setSelected(null);
+                        pushWireHistory();
+                        if (!hasUserMids) {
+                          useSimStore.setState((st) => ({
+                            wires: st.wires.map((ww) => ww.id === w.id ? { ...ww, waypoints: mids.map((m) => ({ ...m })) } : ww),
+                          }));
+                        }
+                        setSegDrag({
+                          wireId: w.id,
+                          idx: i,
+                          start: clientToSvg(e),
+                          originalWaypoints: mids.map((m) => ({ ...m })),
+                          points: segPts.map((m) => ({ ...m })),
+                        });
                       }}
                       onDoubleClick={(e) => {
                         if (locked) return;
