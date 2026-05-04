@@ -31,6 +31,13 @@ import {
 } from "avr8js";
 import { parseIntelHex } from "./intelHex";
 import { ARDUINO_TO_AVR } from "./atmega328p";
+import {
+  createDs3231State,
+  DS3231_ADDR,
+  handleI2cRead,
+  handleI2cWrite,
+  readSnapshot as ds3231Snapshot,
+} from "./ds3231";
 
 type InMsg =
   | { type: "load-hex"; hex: string }
