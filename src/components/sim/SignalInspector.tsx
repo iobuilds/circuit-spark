@@ -419,35 +419,35 @@ export function SignalInspector({
             </span>
           </div>
           {/* Digital trace */}
-          <div className="rounded border border-border/60 bg-background/60 px-1 py-0.5">
+          <div className="rounded border border-border/60 bg-background/60 px-1 py-1">
             <div className="flex items-center gap-1">
-              <span className="font-mono text-[9px] w-6 text-success">D</span>
-              <svg width={plotW} height={plotH} className="overflow-visible">
-                <line x1={0} y1={plotH - 4} x2={plotW} y2={plotH - 4} stroke="var(--color-border)" strokeWidth={0.5} strokeDasharray="2 3" />
-                <line x1={0} y1={4} x2={plotW} y2={4} stroke="var(--color-border)" strokeWidth={0.5} strokeDasharray="2 3" />
-                <path d={digitalPath} fill="none" stroke="oklch(0.78 0.22 145)" strokeWidth={1.4} strokeLinejoin="miter" />
+              <span className="font-mono text-[9px] w-5 text-success">D</span>
+              <svg width={plotW} height={plotH} className="block">
+                <line x1={0} y1={plotH - 4} x2={plotW} y2={plotH - 4} stroke="hsl(var(--border))" strokeOpacity={0.5} strokeWidth={0.5} strokeDasharray="2 3" />
+                <line x1={0} y1={4} x2={plotW} y2={4} stroke="hsl(var(--border))" strokeOpacity={0.5} strokeWidth={0.5} strokeDasharray="2 3" />
+                <path d={digitalPath} fill="none" stroke="oklch(0.78 0.22 145)" strokeWidth={1.6} strokeLinejoin="miter" />
                 {trigX !== null && (
                   <line x1={trigX} y1={0} x2={trigX} y2={plotH} stroke="oklch(0.75 0.2 30)" strokeWidth={0.8} strokeDasharray="2 2" />
                 )}
                 {/* live "now" cursor */}
-                <line x1={plotW - 0.5} y1={0} x2={plotW - 0.5} y2={plotH} stroke="var(--color-primary)" strokeWidth={0.6} opacity={0.5} />
+                <line x1={plotW - 0.5} y1={0} x2={plotW - 0.5} y2={plotH} stroke="oklch(0.78 0.22 145)" strokeWidth={0.6} opacity={0.6} />
               </svg>
             </div>
           </div>
           {/* Analog trace */}
-          <div className="rounded border border-border/60 bg-background/60 px-1 py-0.5">
+          <div className="rounded border border-border/60 bg-background/60 px-1 py-1">
             <div className="flex items-center gap-1">
-              <span className="font-mono text-[9px] w-6 text-warning">A</span>
-              <svg width={plotW} height={plotH} className="overflow-visible">
-                <line x1={0} y1={plotH / 2} x2={plotW} y2={plotH / 2} stroke="var(--color-border)" strokeWidth={0.5} strokeDasharray="2 3" />
+              <span className="font-mono text-[9px] w-5 text-warning">A</span>
+              <svg width={plotW} height={plotH} className="block">
+                <line x1={0} y1={plotH / 2} x2={plotW} y2={plotH / 2} stroke="hsl(var(--border))" strokeOpacity={0.5} strokeWidth={0.5} strokeDasharray="2 3" />
                 {/* trigger level reference */}
                 <line x1={0} y1={levelY} x2={plotW} y2={levelY} stroke="oklch(0.75 0.2 30)" strokeWidth={0.6} strokeDasharray="3 2" />
                 {/* current analog as a flat line (no per-event analog samples yet) */}
-                <line x1={0} y1={analogY(currentAnalog)} x2={plotW} y2={analogY(currentAnalog)} stroke="oklch(0.78 0.18 60)" strokeWidth={1.2} />
-                <line x1={plotW - 0.5} y1={0} x2={plotW - 0.5} y2={plotH} stroke="var(--color-primary)" strokeWidth={0.6} opacity={0.5} />
+                <line x1={0} y1={analogY(currentAnalog)} x2={plotW} y2={analogY(currentAnalog)} stroke="oklch(0.78 0.18 60)" strokeWidth={1.4} />
+                <line x1={plotW - 0.5} y1={0} x2={plotW - 0.5} y2={plotH} stroke="oklch(0.78 0.18 60)" strokeWidth={0.6} opacity={0.6} />
               </svg>
             </div>
-            <div className="flex items-center justify-between font-mono text-[9px] text-muted-foreground pl-7 pr-1">
+            <div className="flex items-center justify-between font-mono text-[9px] text-muted-foreground pl-6 pr-1">
               <span>0</span>
               <span className="tabular-nums">{currentAnalog}</span>
               <span>1023</span>
