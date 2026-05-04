@@ -7,7 +7,12 @@ const hashCode = require('../utils/hashCode');
 const logger = require('../utils/logger');
 const config = require('../config');
 const { validatePins } = require('../utils/pinValidator');
-const { detectRequiredLibraries, resolveLibraryNames } = require('../utils/includeScanner');
+const {
+  detectRequiredLibraries,
+  resolveLibraryNames,
+  resolveHeadersToLibraries,
+  missingHeadersFromCompilerOutput,
+} = require('../utils/includeScanner');
 
 fileManager.ensureTempDir();
 
@@ -65,7 +70,7 @@ compileQueue.process(config.MAX_CONCURRENT_JOBS, async (job) => {
 
       await emit('libraries', 40, 'Checking libraries...');
       const detected = detectRequiredLibraries(files);
-      const allLibs = resolveLibraryNames(Array.from(new Set([...(libraries || []), ...detected])));
+      let allLibs = resolveLibraryNames(Array.from(new Set([...(libraries || []), ...detected])));
       const missing = await compiler.checkLibraries(allLibs);
       if (missing.length > 0) {
         await emit('install_libs', 50, `Installing ${missing.length} missing libraries: ${missing.join(', ')}`);
@@ -84,8 +89,7 @@ compileQueue.process(config.MAX_CONCURRENT_JOBS, async (job) => {
         }
       }
 
-      await emit('compile', 65, 'Compiling with arduino-cli...');
-      const result = await compiler.compile({
+      const runCompile = () => compiler.compile({
         workDir, board, jobId: job.id,
         onOutput: async (line) => {
           if (line.trim()) {
@@ -93,6 +97,20 @@ compileQueue.process(config.MAX_CONCURRENT_JOBS, async (job) => {
           }
         }
       });
+
+      await emit('compile', 65, 'Compiling with arduino-cli...');
+      let result = await runCompile();
+
+      const missingHeaders = missingHeadersFromCompilerOutput(`${result.stderr}\n${result.stdout}\n${JSON.stringify(result.errors || [])}`);
+      const retryLibs = resolveLibraryNames(resolveHeadersToLibraries(missingHeaders))
+        .filter(lib => !allLibs.some(existing => existing.split('@')[0].toLowerCase() === lib.split('@')[0].toLowerCase()));
+      if (!result.success && retryLibs.length > 0) {
+        await emit('install_libs', 75, `Auto-installing libraries for missing headers: ${retryLibs.join(', ')}`);
+        await compiler.installLibraries(retryLibs);
+        allLibs = [...allLibs, ...retryLibs];
+        await emit('compile', 85, 'Retrying compile with auto-installed libraries...');
+        result = await runCompile();
+      }
 
       await emit('finish', 100, result.success ? 'Compilation successful ✓' : 'Compilation failed ✗');
 
