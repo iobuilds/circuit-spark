@@ -115,6 +115,9 @@ export interface SimState {
 
   setStatus: (s: SimStatus) => void;
   setPinStates: (s: Record<number, PinState>, boardId?: string) => void;
+  /** Append a batch of pin transition events from a worker into the rolling
+   *  per-board / per-pin event log. */
+  appendPinEvents: (boardId: string, events: PinEvent[]) => void;
   appendSerial: (line: SerialLine, boardId?: string) => void;
   clearSerial: (boardId?: string) => void;
   setSimTime: (ms: number) => void;
