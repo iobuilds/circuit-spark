@@ -52,6 +52,10 @@ export interface SimState {
   serialByBoard: Record<string, SerialLine[]>;
   /** Per-board pin states, keyed by board component id. */
   pinStatesByBoard: Record<string, Record<number, PinState>>;
+  /** Per-board logic-analyzer event log: each pin maps to a rolling buffer of
+   *  digital transitions captured by the simulator. Drives the Signal
+   *  Inspector waveform with real microsecond-resolution edges. */
+  pinEventsByBoard: Record<string, Record<number, PinEvent[]>>;
   /** Per-board run/compile status, keyed by board component id. */
   statusByBoard: Record<string, SimStatus>;
   /** Currently focused board for the bottom Pin States / Serial panels. */
