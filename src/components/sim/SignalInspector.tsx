@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import type { Wire, CircuitComponent, PinState, PinEvent } from "@/sim/types";
 import type { NetGraph } from "@/sim/netlist";
 import { findUnoPin } from "@/sim/uno-pins";
+import { useSimStore } from "@/sim/store";
 
 interface Props {
   wire: Wire;
