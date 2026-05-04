@@ -129,6 +129,25 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
+    // Show curated catalog instantly so the dialog never feels stuck while
+    // the live index is fetching (the upstream index is ~10MB on cold-start).
+    if (results.length === 0) {
+      const q = query.trim().toLowerCase();
+      const curated = curatedAsArduinoEntries().filter((e) => {
+        if (category !== "All" && e.category !== category) return false;
+        if (type !== "All" && !e.types.includes(type)) return false;
+        if (!q) return true;
+        return (
+          e.name.toLowerCase().includes(q) ||
+          e.author.toLowerCase().includes(q) ||
+          e.sentence.toLowerCase().includes(q) ||
+          e.headers.some((h) => h.toLowerCase().includes(q))
+        );
+      });
+      setResults(curated);
+      setTotal(curated.length);
+    }
+
     const handle = setTimeout(async () => {
       setLoading(true);
       const res = await searchArduinoLibraries({
@@ -169,6 +188,7 @@ export function LibraryManagerDialog({ open, onOpenChange }: Props) {
       clearTimeout(handle);
       ctrl.abort();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, query, category, type, tab]);
 
   function isInstalled(id: string, name: string) {
