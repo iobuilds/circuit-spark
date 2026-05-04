@@ -14,6 +14,7 @@ import { CornerDownLeft, Lock, Plus, Trash2, X, Undo2, Redo2, Wand2, Share2, Mov
 import { Button } from "@/components/ui/button";
 import { AddItemDialog } from "./AddItemDialog";
 import { SensorControlsPanel } from "./SensorControlsPanel";
+import { ChipInspectorDialog } from "./ChipInspectorDialog";
 
 
 interface Props {
