@@ -127,7 +127,13 @@ export function CircuitComponentNode({ comp, isPowered, voltage = 0, reversed = 
         />
       )}
       {comp.kind === "resistor" && <ResistorSvg ohms={Number(comp.props.ohms || 220)} />}
-      {comp.kind === "button" && <ButtonSvg compId={comp.id} />}
+      {comp.kind === "button" && (
+        <ButtonSvg
+          compId={comp.id}
+          color={String(comp.props.color ?? "red")}
+          size={Number(comp.props.size ?? 1) || 1}
+        />
+      )}
       {comp.kind === "potentiometer" && (
         <PotentiometerSvg
           value={Number(comp.props.value ?? 512)}
