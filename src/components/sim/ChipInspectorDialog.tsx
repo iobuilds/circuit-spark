@@ -82,10 +82,10 @@ export function ChipInspectorDialog({ open, onOpenChange, boardCompId }: Props) 
               <MemoryHexView data={sram} startAddr={0x100} length={0x800} label="SRAM (0x100–0x8FF)" />
             </TabsContent>
             <TabsContent value="flash" className="h-full m-0">
-              <FlashTab pcWords={pcWords} cycles={cycles} />
+              <FlashTab pcWords={pcWords} cycles={cycles} flash={realFlash} />
             </TabsContent>
             <TabsContent value="eeprom" className="h-full m-0">
-              <EepromTab />
+              <EepromTab eeprom={realEeprom} />
             </TabsContent>
             <TabsContent value="cpu" className="h-full m-0">
               <CpuTab pcWords={pcWords} sp={sp} cycles={cycles} sram={sram} />
