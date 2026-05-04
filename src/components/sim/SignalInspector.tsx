@@ -92,7 +92,7 @@ export function SignalInspector({
    *  the chosen edge direction the scope holds the trigger position. */
   const [level, setLevel] = useState(512);
   /** Span of the displayed window in virtual milliseconds. User-zoomable. */
-  const [spanMs, setSpanMs] = useState(500);
+  const [spanMs, setSpanMs] = useState(50);
   /** When true, freeze the display at the most recent triggered window. */
   const [hold, setHold] = useState(false);
   const heldWindowRef = useRef<{ start: number; end: number } | null>(null);
